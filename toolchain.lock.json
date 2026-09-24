@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "npm": {
+    "version": "12.1.0",
+    "tarball": "https://registry.npmjs.org/npm/-/npm-12.1.0.tgz",
+    "integrity": "sha512-Fyhu62pNx70YCs/5+dEmJQTFVmSKwvo5CA0qvBkGDRpob42MJ6G2RQ2tdxeKM4nYnIZDqkYAxEgqtoejn9QGtQ==",
+    "bin": "bin/npm-cli.js"
+  },
+  "corepack": {
+    "version": "0.36.0",
+    "tarball": "https://registry.npmjs.org/corepack/-/corepack-0.36.0.tgz",
+    "integrity": "sha512-SiiJsBhZqdBiPHTEl6OT3sASrRrKIcYTQMsVGXx6EE/gM8WFMwYjeIX8Tt8RiU4Iv2J6LbT8KpGfCOsBpRWB/w==",
+    "bin": "dist/corepack.js"
+  }
+}

@@ -1,0 +1,140 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  action-pins:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Verify GitHub Action pins are current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_actions_up=$(npm view actions-up version)
+          test "$latest_actions_up" = "1.21.0" || {
+            echo "actions-up 1.21.0 is stale; latest is $latest_actions_up" >&2
+            exit 1
+          }
+
+          npm exec --yes actions-up@1.21.0 -- \
+            --dir .github \
+            --recursive \
+            --dry-run \
+            --json \
+            --mode major \
+            --style sha \
+            --prefer-tags \
+            --min-age 0 \
+            >"$RUNNER_TEMP/actions-up.raw"
+
+          sed -n '/^{/,$p' "$RUNNER_TEMP/actions-up.raw" >"$RUNNER_TEMP/actions-up.json"
+          jq -e '.summary.totalUpdates == 0 and .summary.totalRunnerUpdates == 0 and .summary.totalBlockedByMode == 0 and .summary.totalBlockedByAge == 0' \
+            "$RUNNER_TEMP/actions-up.json" >/dev/null
+
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run verify:versions
+      - run: npm run typecheck
+      - run: npm run verify:dist
+      - run: npm run build
+      - run: git diff --exit-code -- dist
+
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+  pack-integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run verify:toolchain
+      - run: npm run verify:pack
+      - run: npm run verify:yarn-corepack
+
+  runtime-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - macos-15-intel
+          - windows-2025
+          - windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run verify:native-runtime
+
+  musl-runtime:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify native runtime on current Node 24 Alpine
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --volume "$PWD:/src:ro" \
+            node:24-alpine \
+            sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && npm ci && npm run verify:native-runtime'
+
+  fake-registry-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - name: Verify reconciliation, publisher, and orchestration without live mutation
+        run: >-
+          node --test
+          test/registry.test.mjs
+          test/publish.test.mjs
+          test/orchestrate.test.mjs

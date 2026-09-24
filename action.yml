@@ -1,0 +1,10 @@
+name: Releaseway npm publish
+description: Publish npm packages through Releaseway's verified npm release engine.
+
+outputs:
+  packages:
+    description: JSON array of package publication results.
+
+runs:
+  using: node24
+  main: dist/main.js
