@@ -20166,9 +20166,21 @@ async function runAction(options = {}) {
   return packages;
 }
 
+// src/errors.ts
+function escapeWorkflowCommand(value) {
+  return value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.stack ?? error.message : String(error);
+}
+function githubErrorCommand(error) {
+  return "::error::" + escapeWorkflowCommand(errorMessage(error));
+}
+
 // src/main.ts
 void runAction().catch((error) => {
-  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  const message = errorMessage(error);
   console.error(message);
+  process.stdout.write(githubErrorCommand(error) + "\n");
   process.exitCode = 1;
 });
