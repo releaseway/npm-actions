@@ -193,7 +193,7 @@ test("direct publisher uses exact tarball, isolated configs, and no token fallba
       },
     );
 
-    assert.equal(state, "published");
+    assert.equal(state, "direct-accepted");
     assert.equal(calls.length, 1);
     assert.equal(calls[0].executable, process.execPath);
     assert.deepEqual(calls[0].args.slice(0, 3), [
@@ -217,6 +217,34 @@ test("direct publisher uses exact tarball, isolated configs, and no token fallba
       "oidc-request-token",
     );
     assert.notEqual(calls[0].options.cwd, process.cwd());
+  });
+});
+
+test("direct publisher treats npm scan-pending E409 as accepted", async () => {
+  await withTarball(async ({ root, tarball }) => {
+    const state = await publishPackage(
+      toolchain(),
+      {
+        mode: "direct",
+        name: "pkg",
+        version: "4.0.0",
+        tarballPath: tarball,
+        manifest: {},
+        latestVersion: "3.0.0",
+      },
+      {
+        tempRoot: root,
+        env: trustedEnv(),
+        runPublisher: () => ({
+          status: 1,
+          stdout: "",
+          stderr:
+            'E409 Conflict - Cannot publish over previously staged version "4.0.0".',
+        }),
+      },
+    );
+
+    assert.equal(state, "direct-accepted");
   });
 });
 

@@ -19465,6 +19465,9 @@ function publicationArgs(request, userConfig, globalConfig) {
   }
   return args;
 }
+function isPendingRegistryScanConflict(output) {
+  return /Cannot publish over previously staged version/i.test(output);
+}
 async function publishPackage(toolchain, request, options = {}) {
   const sourceEnv = options.env ?? import_node_process3.default.env;
   assertTrustedPublishingEnvironment(sourceEnv);
@@ -19494,12 +19497,16 @@ async function publishPackage(toolchain, request, options = {}) {
       cwd: root,
       env
     });
+    const output = result.stderr.trim() || result.stdout.trim() || "<no output>";
     if (result.status !== 0) {
+      if (request.mode === "direct" && isPendingRegistryScanConflict(output)) {
+        return "direct-accepted";
+      }
       throw new Error(
         `npm ${request.mode === "direct" ? "publish" : "stage publish"} failed for ${request.name}@${request.version}: ${result.stderr.trim() || result.stdout.trim() || "<no output>"}`
       );
     }
-    return request.mode === "direct" ? "published" : "staged";
+    return request.mode === "direct" ? "direct-accepted" : "staged";
   } finally {
     await (0, import_promises9.rm)(root, { recursive: true, force: true });
   }
@@ -19863,6 +19870,33 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 function defaultRunRoot(context) {
   return (0, import_node_path19.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
 }
+var DIRECT_SCAN_POLL_MS = 1e4;
+var DIRECT_SCAN_TIMEOUT_MS = 20 * 6e4;
+async function waitForDirectLive(registry, name, version, tarballPath, options = {}) {
+  const pollMs = options.pollMs ?? DIRECT_SCAN_POLL_MS;
+  const timeoutMs = options.timeoutMs ?? DIRECT_SCAN_TIMEOUT_MS;
+  const sleep = options.sleep ?? ((milliseconds) => new Promise((resolvePromise) => {
+    setTimeout(resolvePromise, milliseconds);
+  }));
+  const now = options.now ?? Date.now;
+  const started = now();
+  while (true) {
+    const reconciliation = await registry.reconcile(
+      name,
+      version,
+      tarballPath
+    );
+    if (reconciliation.state === "existing") {
+      return;
+    }
+    if (now() - started >= timeoutMs) {
+      throw new Error(
+        `${name}@${version} was accepted by npm but is not live after ${Math.round(timeoutMs / 6e4)} minutes; publish-time malware scanning may still be pending or may require maintainer review`
+      );
+    }
+    await sleep(pollMs);
+  }
+}
 async function launcherBundles(actionPath) {
   const [cjs, esm] = await Promise.all([
     (0, import_promises11.readFile)((0, import_node_path19.resolve)(actionPath, "dist", "native-launcher.cjs")),
@@ -20053,6 +20087,7 @@ async function prepareRelease(context, dependencies = {}) {
       existingOrder,
       publishOrder,
       toolchain,
+      registryClient,
       runRoot
     };
   } catch (error) {
@@ -20062,6 +20097,7 @@ async function prepareRelease(context, dependencies = {}) {
 }
 async function executePreparedRelease(context, prepared, dependencies = {}) {
   const publisher = dependencies.publish ?? publishPackage;
+  const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
   const results = [];
   for (const name of prepared.existingOrder) {
     const entry = prepared.prepared.get(name);
@@ -20081,7 +20117,7 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
       throw new Error(`Invalid candidate preflight state for ${name}`);
     }
     try {
-      const state = await publisher(
+      const mutationState = await publisher(
         prepared.toolchain,
         {
           mode: entry.pkg.publishMode,
@@ -20096,6 +20132,18 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
           tempRoot: prepared.runRoot
         }
       );
+      let state;
+      if (mutationState === "direct-accepted") {
+        await waitForLive(
+          prepared.registryClient,
+          entry.pkg.name,
+          entry.pkg.version,
+          entry.artifact.tarballPath
+        );
+        state = "published";
+      } else {
+        state = "staged";
+      }
       const result = {
         name: entry.pkg.name,
         version: entry.pkg.version,

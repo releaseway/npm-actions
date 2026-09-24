@@ -150,7 +150,7 @@ The config path is fixed:
 
 There is no per-run publish-mode input.
 
-`direct` runs the verified tarball through `npm publish`.
+`direct` submits the verified tarball through `npm publish`, then waits for npm's publish-time malware scan to expose the exact version in the live registry. A successful subprocess is not enough: npm-actions reports `published` only after the live `dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes with 10-second polling. A scan-pending `Cannot publish over previously staged version` retry enters the same wait instead of immediately failing.
 
 `stage` submits the verified tarball through `npm stage publish`. Inspection, approval, and rejection of a pending staged version remain maintainer operations in npm's staged-publishing flow and require the applicable npm 2FA approval. npm-actions does not inspect, approve, reject, replace, or silently convert a conflicting pending stage.
 

@@ -19,7 +19,7 @@ import {
 import { derivePublishOptions } from "./options.ts";
 
 export type PublishMode = "direct" | "stage";
-export type PublishedState = "published" | "staged";
+export type PublicationMutationState = "direct-accepted" | "staged";
 
 interface RunResult {
   status: number | null;
@@ -96,11 +96,15 @@ function publicationArgs(
   return args;
 }
 
+export function isPendingRegistryScanConflict(output: string): boolean {
+  return /Cannot publish over previously staged version/i.test(output);
+}
+
 export async function publishPackage(
   toolchain: ReleasewayToolchain,
   request: PublishRequest,
   options: PublisherOptions = {},
-): Promise<PublishedState> {
+): Promise<PublicationMutationState> {
   const sourceEnv = options.env ?? process.env;
   assertTrustedPublishingEnvironment(sourceEnv);
 
@@ -132,13 +136,23 @@ export async function publishPackage(
       env,
     });
 
+    const output =
+      result.stderr.trim() || result.stdout.trim() || "<no output>";
+
     if (result.status !== 0) {
+      if (
+        request.mode === "direct" &&
+        isPendingRegistryScanConflict(output)
+      ) {
+        return "direct-accepted";
+      }
+
       throw new Error(
         `npm ${request.mode === "direct" ? "publish" : "stage publish"} failed for ${request.name}@${request.version}: ${result.stderr.trim() || result.stdout.trim() || "<no output>"}`,
       );
     }
 
-    return request.mode === "direct" ? "published" : "staged";
+    return request.mode === "direct" ? "direct-accepted" : "staged";
   } finally {
     await rm(root, { recursive: true, force: true });
   }

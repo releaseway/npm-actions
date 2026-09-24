@@ -243,9 +243,17 @@ Publish mode is persistent repository policy in `.github/npm/packages.yml`, not 
 
 ### 8.1 Direct
 
-`direct` publishes the verified tarball directly to the live npm registry.
+`direct` submits the verified tarball with `npm publish`.
 
 It is an explicit opt-in because npm Trusted Publishing recommends staged publishing as the stronger default. The package's Trusted Publisher must separately allow direct `npm publish`.
+
+A successful `npm publish` command does not imply immediate registry visibility. npm performs publish-time malware scanning before a new version becomes available. During this scan the version can be absent from normal registry metadata while still reserving its immutable version number.
+
+Releaseway therefore does not report `published` when the npm subprocess merely exits successfully. It waits for the live registry to expose the exact `name@version` with matching SHA-512 `dist.integrity`. The default visibility budget is 20 minutes, polled every 10 seconds.
+
+If a direct rerun receives npm's `Cannot publish over previously staged version` conflict while the version is still absent from live metadata, Releaseway treats that conflict as an accepted/pending direct publication and enters the same live-integrity wait instead of attempting a replacement version.
+
+If the version becomes live with a different integrity, Releaseway fails immediately. If it is still not live when the visibility budget expires, Releaseway fails without inventing another version or mutating staged state; a later rerun of the same source/version can continue reconciliation.
 
 ### 8.2 Stage
 

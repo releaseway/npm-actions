@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { runRelease } from "../src/orchestrate.ts";
+import { runRelease, waitForDirectLive } from "../src/orchestrate.ts";
 
 async function createWorkspace() {
   const root = await mkdtemp(join(tmpdir(), "releaseway-orchestrate-"));
@@ -169,8 +169,11 @@ function dependenciesFor(states, events, publishImpl) {
       publishImpl ??
       (async (_toolchain, request) => {
         events.push("publish:" + request.name);
-        return request.mode === "stage" ? "staged" : "published";
+        return request.mode === "stage" ? "staged" : "direct-accepted";
       }),
+    waitForDirectLive: async (_registry, name) => {
+      events.push("wait-live:" + name);
+    },
   };
 }
 
@@ -317,7 +320,7 @@ test("partial publication failure reports completed packages and rerun continues
             if (request.name === "@scope/c") {
               throw new Error("simulated stage outage");
             }
-            return "published";
+            return "direct-accepted";
           },
         ),
       ),
@@ -350,6 +353,73 @@ test("partial publication failure reports completed packages and rerun continues
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+
+test("direct publish waits through registry scan until exact version is live", async () => {
+  let clock = 0;
+  let calls = 0;
+  const registry = {
+    async reconcile(name, version) {
+      calls += 1;
+      return {
+        state: calls < 3 ? "candidate" : "existing",
+        name,
+        version,
+        integrity: "sha512-" + "A".repeat(88),
+      };
+    },
+  };
+
+  await waitForDirectLive(
+    registry,
+    "@scope/pkg",
+    "1.0.0",
+    "/tmp/package.tgz",
+    {
+      pollMs: 10,
+      timeoutMs: 100,
+      now: () => clock,
+      sleep: async (milliseconds) => {
+        clock += milliseconds;
+      },
+    },
+  );
+
+  assert.equal(calls, 3);
+  assert.equal(clock, 20);
+});
+
+test("direct publish scan wait fails clearly after its visibility budget", async () => {
+  let clock = 0;
+  const registry = {
+    async reconcile(name, version) {
+      return {
+        state: "candidate",
+        name,
+        version,
+        integrity: "sha512-" + "A".repeat(88),
+      };
+    },
+  };
+
+  await assert.rejects(
+    waitForDirectLive(
+      registry,
+      "@scope/pkg",
+      "1.0.0",
+      "/tmp/package.tgz",
+      {
+        pollMs: 10,
+        timeoutMs: 20,
+        now: () => clock,
+        sleep: async (milliseconds) => {
+          clock += milliseconds;
+        },
+      },
+    ),
+    /accepted by npm but is not live/,
+  );
 });
 
 test("no publishable packages is a hard preflight failure", async () => {

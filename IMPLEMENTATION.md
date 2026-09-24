@@ -540,7 +540,19 @@ Direct mode:
 
 ```text
 npm publish <absolute-final-tgz>
+        |
+        v
+accepted by npm / publish-time malware scan
+        |
+        v
+poll live registry
+        |
+        +-- exact SHA-512 appears -> published
+        +-- different SHA-512 -> fail
+        +-- visibility budget expires -> fail, rerunnable
 ```
+
+A direct retry that receives `Cannot publish over previously staged version` is treated as an already accepted scan-pending publication and enters the same live-registry wait.
 
 Stage mode:
 
@@ -552,12 +564,12 @@ Pass explicit `--tag` and `--access` only when derived from the packed manifest.
 
 Preflight tag semantics so prerelease/non-latest versions that require an explicit tag fail before mutation rather than halfway through a monorepo publication.
 
-Map successful mutations to:
+Map successful outcomes to:
 
-- `published`;
-- `staged`.
+- `published` only after exact live SHA-512 visibility for direct mode;
+- `staged` after successful `npm stage publish`.
 
-Treat an npm staged-version conflict as fail-closed. Do not inspect/approve/reject pending stages.
+Treat staged-mode version conflicts as fail-closed. Do not inspect/approve/reject pending human stages.
 
 Acceptance:
 
@@ -565,7 +577,10 @@ Acceptance:
 - OIDC env survives sanitization;
 - direct/stage commands use exact final tarball;
 - package tag/access flags are correct;
-- pending-stage conflict propagates as failure;
+- direct success waits through candidate registry states until exact live integrity;
+- direct scan-pending E409 enters reconciliation instead of retrying a replacement;
+- direct scan visibility timeout fails clearly and remains rerunnable;
+- staged-mode conflict propagates as failure;
 - token-only environment cannot publish.
 
 ### WI-010 — Implement native runtime launcher

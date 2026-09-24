@@ -36,7 +36,7 @@ import {
 } from "./publish/environment.ts";
 import {
   publishPackage,
-  type PublishedState,
+  type PublicationMutationState,
 } from "./publish/index.ts";
 import { derivePublishOptions } from "./publish/options.ts";
 import {
@@ -78,6 +78,7 @@ export interface PreparedRelease {
   existingOrder: string[];
   publishOrder: string[];
   toolchain: ReleasewayToolchain;
+  registryClient: NpmRegistryClient;
   runRoot: string;
 }
 
@@ -97,11 +98,58 @@ export interface OrchestrationDependencies {
   nativeResolver?: NativeReleaseResolver;
   registryClient?: NpmRegistryClient;
   publish?: typeof publishPackage;
+  waitForDirectLive?: typeof waitForDirectLive;
   validatePublishEnvironment?: typeof assertTrustedPublishingEnvironment;
 }
 
 function defaultRunRoot(context: OrchestrationContext): string {
   return resolve(context.env.RUNNER_TEMP ?? tmpdir());
+}
+
+const DIRECT_SCAN_POLL_MS = 10_000;
+const DIRECT_SCAN_TIMEOUT_MS = 20 * 60_000;
+
+export async function waitForDirectLive(
+  registry: NpmRegistryClient,
+  name: string,
+  version: string,
+  tarballPath: string,
+  options: {
+    pollMs?: number;
+    timeoutMs?: number;
+    sleep?: (milliseconds: number) => Promise<void>;
+    now?: () => number;
+  } = {},
+): Promise<void> {
+  const pollMs = options.pollMs ?? DIRECT_SCAN_POLL_MS;
+  const timeoutMs = options.timeoutMs ?? DIRECT_SCAN_TIMEOUT_MS;
+  const sleep =
+    options.sleep ??
+    ((milliseconds: number) =>
+      new Promise<void>((resolvePromise) => {
+        setTimeout(resolvePromise, milliseconds);
+      }));
+  const now = options.now ?? Date.now;
+  const started = now();
+
+  while (true) {
+    const reconciliation = await registry.reconcile(
+      name,
+      version,
+      tarballPath,
+    );
+    if (reconciliation.state === "existing") {
+      return;
+    }
+
+    if (now() - started >= timeoutMs) {
+      throw new Error(
+        `${name}@${version} was accepted by npm but is not live after ${Math.round(timeoutMs / 60_000)} minutes; publish-time malware scanning may still be pending or may require maintainer review`,
+      );
+    }
+
+    await sleep(pollMs);
+  }
 }
 
 async function launcherBundles(actionPath: string): Promise<{
@@ -356,6 +404,7 @@ export async function prepareRelease(
       existingOrder,
       publishOrder,
       toolchain,
+      registryClient,
       runRoot,
     };
   } catch (error) {
@@ -370,6 +419,8 @@ export async function executePreparedRelease(
   dependencies: OrchestrationDependencies = {},
 ): Promise<PackageResult[]> {
   const publisher = dependencies.publish ?? publishPackage;
+  const waitForLive =
+    dependencies.waitForDirectLive ?? waitForDirectLive;
   const results: PackageResult[] = [];
 
   for (const name of prepared.existingOrder) {
@@ -392,7 +443,7 @@ export async function executePreparedRelease(
     }
 
     try {
-      const state: PublishedState = await publisher(
+      const mutationState: PublicationMutationState = await publisher(
         prepared.toolchain,
         {
           mode: entry.pkg.publishMode,
@@ -407,6 +458,19 @@ export async function executePreparedRelease(
           tempRoot: prepared.runRoot,
         },
       );
+
+      let state: PackageResult["state"];
+      if (mutationState === "direct-accepted") {
+        await waitForLive(
+          prepared.registryClient,
+          entry.pkg.name,
+          entry.pkg.version,
+          entry.artifact.tarballPath,
+        );
+        state = "published";
+      } else {
+        state = "staged";
+      }
 
       const result: PackageResult = {
         name: entry.pkg.name,
