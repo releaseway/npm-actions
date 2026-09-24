@@ -15116,7 +15116,7 @@ var import_yaml = __toESM(require_dist());
 // src/config/types.ts
 var DEFAULT_CONFIG = {
   schema: 1,
-  publish: { mode: "direct" },
+  publish: { mode: "stage" },
   packages: {}
 };
 

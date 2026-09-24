@@ -49,12 +49,12 @@ Baseline shape:
 schema: 1
 
 publish:
-  mode: direct
+  mode: stage
 
 packages:
   "@scope/cli":
     publish:
-      mode: stage
+      mode: direct
 
     distribution:
       type: github-release
@@ -234,7 +234,7 @@ The repository default is:
 
 ```yaml
 publish:
-  mode: direct
+  mode: stage
 ```
 
 A package may override the repository default.
@@ -245,11 +245,11 @@ Publish mode is persistent repository policy in `.github/npm/packages.yml`, not 
 
 `direct` publishes the verified tarball directly to the live npm registry.
 
-It is the default because it preserves the conventional meaning of npm publication for ordinary packages.
+It is an explicit opt-in because npm Trusted Publishing recommends staged publishing as the stronger default. The package's Trusted Publisher must separately allow direct `npm publish`.
 
 ### 8.2 Stage
 
-`stage` uses npm staged publishing and requires explicit opt-in.
+`stage` uses npm staged publishing and is the repository default.
 
 Releaseway does not silently fall back from `stage` to `direct`.
 

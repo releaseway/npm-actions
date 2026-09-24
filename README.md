@@ -117,28 +117,30 @@ For a new publication, `publishConfig.tag` and `publishConfig.access` are honore
 
 ## Direct and staged publishing
 
-Direct publishing is the repository default:
+Staged publishing is the repository default:
 
 ```yaml
 schema: 1
 
 publish:
-  mode: direct
+  mode: stage
 ```
 
-Use staged publishing as repository policy or for selected packages:
+Direct publishing is an explicit repository or package-level opt-in:
 
 ```yaml
 schema: 1
 
 publish:
-  mode: direct
+  mode: stage
 
 packages:
-  "@scope/critical":
+  "@scope/conventional":
     publish:
-      mode: stage
+      mode: direct
 ```
+
+A Trusted Publisher connection always allows `npm stage publish`. A repository that opts into `direct` must also enable `Allow npm publish` for that Trusted Publisher in npm.
 
 The config path is fixed:
 
@@ -170,7 +172,7 @@ Native distribution is explicit configuration:
 schema: 1
 
 publish:
-  mode: direct
+  mode: stage
 
 packages:
   "@scope/tool":

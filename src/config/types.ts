@@ -28,6 +28,6 @@ export interface ReleasewayConfig {
 
 export const DEFAULT_CONFIG: ReleasewayConfig = {
   schema: 1,
-  publish: { mode: "direct" },
+  publish: { mode: "stage" },
   packages: {},
 };

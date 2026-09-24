@@ -72,6 +72,7 @@ test("README keeps current security and scope boundaries explicit", async () => 
     "long-lived npm publish token",
     "Brand-new npm packages are outside npm-actions.",
     "Private GitHub Release-backed native assets are not supported.",
+    "Staged publishing is the repository default:",
     "postinstall",
     "pending staged-version conflict",
     "SHA-512",

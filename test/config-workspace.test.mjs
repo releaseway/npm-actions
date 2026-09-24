@@ -41,12 +41,12 @@ async function fixture(fn) {
   }
 }
 
-test("missing Releaseway config uses direct repository defaults", async () => {
+test("missing Releaseway config uses staged repository defaults", async () => {
   await fixture(async (root) => {
     const config = await loadConfig(root);
     assert.deepEqual(config, {
       schema: 1,
-      publish: { mode: "direct" },
+      publish: { mode: "stage" },
       packages: {},
     });
   });
