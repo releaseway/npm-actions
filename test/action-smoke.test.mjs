@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 
-import { runAction } from "../src/action.ts";
+import { resolveActionPath, runAction } from "../src/action.ts";
 
 test("action metadata uses the Node 24 bundle and exposes only packages", async () => {
   const metadata = await readFile(resolve("action.yml"), "utf8");
@@ -12,6 +12,20 @@ test("action metadata uses the Node 24 bundle and exposes only packages", async 
   assert.match(metadata, /main:\s*dist\/main\.js/);
   assert.match(metadata, /^outputs:\n\s+packages:/m);
   assert.doesNotMatch(metadata, /^inputs:/m);
+});
+
+test("JavaScript action root derives from the bundled main entrypoint", () => {
+  assert.equal(
+    resolveActionPath(
+      undefined,
+      {},
+      [
+        "/opt/hostedtoolcache/node/bin/node",
+        "/home/runner/work/_actions/releaseway/npm-actions/sha/dist/main.js",
+      ],
+    ),
+    "/home/runner/work/_actions/releaseway/npm-actions/sha",
+  );
 });
 
 test("action writes packages output only after successful orchestration", async () => {
@@ -30,12 +44,12 @@ test("action writes packages output only after successful orchestration", async 
   ];
 
   const result = await runAction({
+    actionPath: "/action",
     env: {
       GITHUB_OUTPUT: "/github/output",
       GITHUB_WORKSPACE: "/workspace",
       GITHUB_REPOSITORY: "releaseway/example",
       GITHUB_SHA: "0123456789abcdef0123456789abcdef01234567",
-      GITHUB_ACTION_PATH: "/action",
     },
     release: async () => expected,
     appendOutput(path, data, options) {
@@ -58,13 +72,13 @@ test("action does not write output when orchestration fails", async () => {
 
   await assert.rejects(
     runAction({
+      actionPath: "/action",
       env: {
         GITHUB_OUTPUT: "/github/output",
         GITHUB_WORKSPACE: "/workspace",
         GITHUB_REPOSITORY: "releaseway/example",
         GITHUB_SHA: "0123456789abcdef0123456789abcdef01234567",
-        GITHUB_ACTION_PATH: "/action",
-      },
+        },
       release: async () => {
         throw new Error("preflight failed");
       },

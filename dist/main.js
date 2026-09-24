@@ -13881,41 +13881,41 @@ var require_queue = __commonJS({
       queue.drained = drained;
       return queue;
       function push(value) {
-        var p2 = new Promise(function(resolve10, reject) {
+        var p2 = new Promise(function(resolve11, reject) {
           pushCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve10(result);
+            resolve11(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function unshift(value) {
-        var p2 = new Promise(function(resolve10, reject) {
+        var p2 = new Promise(function(resolve11, reject) {
           unshiftCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve10(result);
+            resolve11(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function drained() {
-        var p2 = new Promise(function(resolve10) {
+        var p2 = new Promise(function(resolve11) {
           process.nextTick(function() {
             if (queue.idle()) {
-              resolve10();
+              resolve11();
             } else {
               var previousDrain = queue.drain;
               queue.drain = function() {
                 if (typeof previousDrain === "function") previousDrain();
-                resolve10();
+                resolve11();
                 queue.drain = previousDrain;
               };
             }
@@ -14401,9 +14401,9 @@ var require_stream3 = __commonJS({
         });
       }
       _getStat(filepath) {
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           this._stat(filepath, this._fsStatSettings, (error, stats) => {
-            return error === null ? resolve10(stats) : reject(error);
+            return error === null ? resolve11(stats) : reject(error);
           });
         });
       }
@@ -14427,10 +14427,10 @@ var require_async5 = __commonJS({
         this._readerStream = new stream_1.default(this._settings);
       }
       dynamic(root, options) {
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           this._walkAsync(root, options, (error, entries) => {
             if (error === null) {
-              resolve10(entries);
+              resolve11(entries);
             } else {
               reject(error);
             }
@@ -14440,10 +14440,10 @@ var require_async5 = __commonJS({
       async static(patterns, options) {
         const entries = [];
         const stream = this._readerStream.static(patterns, options);
-        return new Promise((resolve10, reject) => {
+        return new Promise((resolve11, reject) => {
           stream.once("error", reject);
           stream.on("data", (entry) => entries.push(entry));
-          stream.once("end", () => resolve10(entries));
+          stream.once("end", () => resolve11(entries));
         });
       }
     };
@@ -15102,6 +15102,7 @@ var require_out4 = __commonJS({
 
 // src/action.ts
 var import_node_fs7 = require("node:fs");
+var import_node_path20 = require("node:path");
 
 // src/orchestrate.ts
 var import_promises11 = require("node:fs/promises");
@@ -18961,11 +18962,11 @@ async function inspectPackedTarball(tarballPath) {
       if (entry.path === "package/package.json") {
         const chunks = [];
         pending.push(
-          new Promise((resolve10, reject) => {
+          new Promise((resolve11, reject) => {
             entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
             entry.on("end", () => {
               packageJson = Buffer.concat(chunks).toString("utf8");
-              resolve10();
+              resolve11();
             });
             entry.on("error", reject);
           })
@@ -20145,10 +20146,27 @@ function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs
     { encoding: "utf8" }
   );
 }
+function resolveActionPath(explicit, env, argv = process.argv) {
+  if (explicit) {
+    return (0, import_node_path20.resolve)(explicit);
+  }
+  if (env.GITHUB_ACTION_PATH) {
+    return (0, import_node_path20.resolve)(env.GITHUB_ACTION_PATH);
+  }
+  const entrypoint = argv[1];
+  if (!entrypoint) {
+    throw new Error("Unable to determine JavaScript action entrypoint path");
+  }
+  return (0, import_node_path20.resolve)((0, import_node_path20.dirname)(entrypoint), "..");
+}
 async function runAction(options = {}) {
   const env = options.env ?? process.env;
   const github = githubContextFromEnv(env);
-  const actionPath = requiredEnvironment(env, "GITHUB_ACTION_PATH");
+  const actionPath = resolveActionPath(
+    options.actionPath,
+    env,
+    options.argv ?? process.argv
+  );
   const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
   const packages = await (options.release ?? runRelease)(
     {
