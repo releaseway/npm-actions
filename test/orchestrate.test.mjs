@@ -1,446 +1,450 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
+import {
+  prepareRelease,
+  executePreparedRelease,
+  runRelease,
+  waitForDirectLive,
+} from "../src/orchestrate.ts";
+import { NpmRegistryClient } from "../src/registry/client.ts";
+import { sha512Integrity } from "../src/registry/integrity.ts";
+import { PublishCommandError } from "../src/publish/index.ts";
+const pkg = (name, fields = {}) => ({
+  name,
+  version: "1.0.0",
+  repository: "releaseway/example",
+  ...fields,
+});
 
-import { runRelease, waitForDirectLive } from "../src/orchestrate.ts";
-
-async function createWorkspace() {
-  const root = await mkdtemp(join(tmpdir(), "releaseway-orchestrate-"));
-  await mkdir(join(root, ".github", "npm"), { recursive: true });
-  await mkdir(join(root, "packages", "a"), { recursive: true });
-  await mkdir(join(root, "packages", "b"), { recursive: true });
-  await mkdir(join(root, "packages", "c"), { recursive: true });
-
+async function fixture(
+  packages,
+  fn,
+  config = "schema: 1\npublish:\n  mode: direct\n",
+) {
+  const root = await mkdtemp(join(tmpdir(), "rw-orchestration-"));
+  const events = [];
+  const packed = new Map();
+  const docs = new Map(
+    packages.map((p) => [p.name, { name: p.name, versions: {} }]),
+  );
+  const put = (name, version, fields = {}) => {
+    docs.get(name).versions[version] = { name, version, ...fields };
+  };
+  await mkdir(join(root, ".github/npm"), { recursive: true });
+  await writeFile(join(root, ".github/npm/packages.yml"), config);
   await writeFile(
     join(root, "package.json"),
-    JSON.stringify(
-      {
-        private: true,
-        workspaces: ["packages/*"],
-      },
-      null,
-      2,
-    ) + "\n",
+    JSON.stringify({ private: true, workspaces: ["packages/*"] }),
   );
-  await writeFile(
-    join(root, ".github", "npm", "packages.yml"),
-    [
-      "schema: 1",
-      "publish:",
-      "  mode: direct",
-      "packages:",
-      '  "@scope/c":',
-      "    publish:",
-      "      mode: stage",
-      "",
-    ].join("\n"),
-  );
-  await writeFile(
-    join(root, "packages", "a", "package.json"),
-    JSON.stringify(
-      {
-        name: "@scope/a",
-        version: "1.0.0",
-        repository: "releaseway/example",
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-  await writeFile(
-    join(root, "packages", "b", "package.json"),
-    JSON.stringify(
-      {
-        name: "@scope/b",
-        version: "2.0.0",
-        repository: "releaseway/example",
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-  await writeFile(
-    join(root, "packages", "c", "package.json"),
-    JSON.stringify(
-      {
-        name: "@scope/c",
-        version: "3.0.0",
-        repository: "releaseway/example",
-        dependencies: {
-          "@scope/b": "^2.0.0",
-        },
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-
-  return root;
-}
-
-function context(root) {
-  return {
+  for (let i = 0; i < packages.length; i++) {
+    const dir = join(root, "packages", String(i));
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "package.json"), JSON.stringify(packages[i]));
+  }
+  const client = new NpmRegistryClient({
+    fetchImpl: async (url) => {
+      const name = decodeURIComponent(new URL(url).pathname.slice(1));
+      return new Response(JSON.stringify(docs.get(name) ?? {}), {
+        status: docs.has(name) ? 200 : 404,
+      });
+    },
+  });
+  const registry = {
+    lookupVersion(...args) {
+      events.push("lookup:" + args[0] + "@" + args[1]);
+      return client.lookupVersion(...args);
+    },
+    verifyPublishedArtifact(...args) {
+      events.push("verify:" + args[0]);
+      return client.verifyPublishedArtifact(...args);
+    },
+  };
+  const context = {
     workspace: root,
     repository: "releaseway/example",
-    sha: "0123456789abcdef0123456789abcdef01234567",
-    actionPath: root,
+    sha: "b".repeat(40),
+    actionPath: resolve("."),
     env: {
+      RUNNER_TEMP: root,
       GITHUB_ACTIONS: "true",
       RUNNER_ENVIRONMENT: "github-hosted",
-      ACTIONS_ID_TOKEN_REQUEST_URL: "https://oidc.example/token",
-      ACTIONS_ID_TOKEN_REQUEST_TOKEN: "oidc-request-token",
-      NODE_AUTH_TOKEN: "read-only-token",
-      NPM_TOKEN: "must-not-reach-pack",
-      RUNNER_TEMP: root,
+      ACTIONS_ID_TOKEN_REQUEST_URL: "https://example.invalid",
+      ACTIONS_ID_TOKEN_REQUEST_TOKEN: "fixture",
+      NODE_AUTH_TOKEN: "read-only",
+      NPM_TOKEN: "forbidden",
     },
   };
-}
-
-function toolchain() {
-  return {
-    root: "/isolated",
-    npmCli: "/isolated/npm/bin/npm-cli.js",
-    corepackCli: "/isolated/corepack/dist/corepack.js",
-    corepackHome: "/isolated/corepack-home",
-  };
-}
-
-function fakePackAll(events) {
-  return async (_workspace, packages, command) => {
-    events.push("pack-all");
-    events.push(
-      "pack-oidc:" +
-        (command.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN ? "present" : "absent"),
-    );
-    events.push(
-      "pack-read-token:" + String(command.env.NODE_AUTH_TOKEN ?? "absent"),
-    );
-    events.push(
-      "pack-publish-token:" + String(command.env.NPM_TOKEN ?? "absent"),
-    );
-    return packages.map((pkg) => ({
-      tarballPath: "/artifacts/" + encodeURIComponent(pkg.name) + ".tgz",
-      manifest: {
-        ...pkg.manifest,
-      },
-      entries: [
-        {
-          path: "package/package.json",
-          type: "File",
-          mode: 0o644,
-          size: 100,
-        },
-      ],
-    }));
-  };
-}
-
-function dependenciesFor(states, events, publishImpl) {
-  return {
+  const deps = {
     verifySource() {
-      events.push("verify-source");
+      events.push("source");
     },
+    registryClient: registry,
     bootstrapToolchain: async () => {
-      events.push("bootstrap-toolchain");
-      return toolchain();
+      events.push("bootstrap");
+      return {
+        root: "/isolated",
+        npmCli: "/isolated/npm-cli.js",
+        corepackCli: "/isolated/corepack.js",
+        corepackHome: "/isolated/corepack-home",
+      };
     },
-    packAll: fakePackAll(events),
-    registryClient: {
-      async reconcile(name, version) {
-        events.push("registry:" + name);
-        const state = states[name];
-        if (state instanceof Error) {
-          throw state;
-        }
-        if (!state) {
-          throw new Error("missing test state for " + name);
-        }
-        return {
-          ...state,
-          name,
-          version,
-          integrity: "sha512-" + "A".repeat(88),
+    packAll: async (_workspace, candidates, command, output) => {
+      events.push("pack:" + candidates.map((p) => p.name).join(","));
+      assert.equal(command.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN, undefined);
+      assert.equal(command.env.NPM_TOKEN, undefined);
+      assert.equal(command.env.NODE_AUTH_TOKEN, "read-only");
+      await mkdir(output, { recursive: true });
+      const artifacts = [];
+      for (const p of candidates) {
+        const path = join(output, encodeURIComponent(p.name) + ".tgz");
+        await writeFile(path, JSON.stringify(p.manifest));
+        const artifact = {
+          tarballPath: path,
+          manifest: structuredClone(p.manifest),
+          entries: [],
         };
-      },
+        packed.set(p.name, artifact);
+        artifacts.push(artifact);
+      }
+      return artifacts;
     },
-    publish:
-      publishImpl ??
-      (async (_toolchain, request) => {
-        events.push("publish:" + request.name);
-        return request.mode === "stage" ? "staged" : "direct-accepted";
-      }),
-    waitForDirectLive: async (_registry, name) => {
-      events.push("wait-live:" + name);
+    publish: async (_toolchain, request) => {
+      events.push("publish:" + request.mode + ":" + request.name);
+      assert.ok(Object.isFrozen(request));
+      assert.ok(Object.isFrozen(request.publishOptions));
+      if (request.mode === "direct")
+        put(request.name, request.version, {
+          dist: { integrity: request.integrity },
+        });
+      return request.mode === "direct" ? "direct-accepted" : "staged";
     },
   };
+  const h = { root, context, deps, events, packed, docs, put, registry };
+  try {
+    await fn(h);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
+const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
 
-test("orchestration completes all preflight before the first mutation", async () => {
-  const root = await createWorkspace();
-  const events = [];
-
-  try {
-    const result = await runRelease(
-      context(root),
-      dependenciesFor(
-        {
-          "@scope/a": { state: "existing" },
-          "@scope/b": { state: "candidate", latestVersion: "1.0.0" },
-          "@scope/c": { state: "candidate", latestVersion: "2.0.0" },
+test("all-published releases require no pack, native bundle, temporary toolchain or OIDC", async () => {
+  await fixture(
+    [pkg("native", { bin: "bin/tool.cjs" })],
+    async (h) => {
+      h.put("native", "1.0.0", { dist: { integrity: "sha1-historical" } });
+      h.context.env = {};
+      h.context.actionPath = "/missing-action";
+      h.deps.nativeResolver = {
+        resolve() {
+          assert.fail("must not inspect an old release");
         },
-        events,
-      ),
-    );
-
-    assert.deepEqual(result, [
-      { name: "@scope/a", version: "1.0.0", state: "existing" },
-      { name: "@scope/b", version: "2.0.0", state: "published" },
-      { name: "@scope/c", version: "3.0.0", state: "staged" },
-    ]);
-
-    const firstPublish = events.findIndex((event) =>
-      event.startsWith("publish:"),
-    );
-    const lastRegistry = Math.max(
-      ...events
-        .map((event, index) => [event, index])
-        .filter(([event]) => event.startsWith("registry:"))
-        .map(([, index]) => index),
-    );
-    assert.ok(firstPublish > lastRegistry, events.join("\n"));
-    assert.deepEqual(
-      events.filter((event) => event.startsWith("publish:")),
-      ["publish:@scope/b", "publish:@scope/c"],
-    );
-    assert.ok(events.includes("pack-oidc:absent"));
-    assert.ok(events.includes("pack-read-token:read-only-token"));
-    assert.ok(events.includes("pack-publish-token:absent"));
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+      };
+      const before = await readdir(h.root);
+      const result = await runRelease(h.context, h.deps);
+      assert.deepEqual(result, [
+        { name: "native", version: "1.0.0", state: "already-published" },
+      ]);
+      assert.deepEqual(h.events, ["source", "lookup:native@1.0.0"]);
+      assert.deepEqual(await readdir(h.root), before);
+    },
+    "schema: 1\npackages:\n  native:\n    distribution:\n      type: github-release\n      tag: v{version}\n      targets:\n        linux-x64-gnu:\n          asset: native.tar.gz\n          executable: tool\n",
+  );
 });
 
-test("preflight failure performs zero publication mutations", async () => {
-  const root = await createWorkspace();
-  const events = [];
-
-  try {
-    await assert.rejects(
-      runRelease(
-        context(root),
-        dependenciesFor(
-          {
-            "@scope/a": { state: "existing" },
-            "@scope/b": { state: "candidate", latestVersion: "1.0.0" },
-            "@scope/c": new Error("registry preflight mismatch"),
-          },
-          events,
-        ),
-      ),
-      /registry preflight mismatch/,
-    );
-
+test("all version lookups precede toolchain provisioning and only candidates are packed", async () => {
+  await fixture([pkg("a-old"), pkg("b-new"), pkg("c-new")], async (h) => {
+    h.put("a-old", "1.0.0", { dependencies: { remote: "*" } });
+    const result = await runRelease(h.context, h.deps);
     assert.deepEqual(
-      events.filter((event) => event.startsWith("publish:")),
-      [],
+      result.map((r) => r.state),
+      ["already-published", "published", "published"],
     );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+    assert.ok(
+      h.events.indexOf("lookup:c-new@1.0.0") < h.events.indexOf("bootstrap"),
+    );
+    assert.ok(h.events.includes("pack:b-new,c-new"));
+    assert.equal(h.packed.has("a-old"), false);
+  });
 });
 
-test("publish option preflight also blocks all mutations", async () => {
-  const root = await createWorkspace();
-  const events = [];
-
-  try {
-    const cPath = join(root, "packages", "c", "package.json");
-    await writeFile(
-      cPath,
-      JSON.stringify(
-        {
-          name: "@scope/c",
-          version: "3.0.0-beta.1",
-          repository: "releaseway/example",
-          dependencies: {
-            "@scope/b": "^2.0.0",
-          },
+test("old native versions do not block a different package on a later commit", async () => {
+  await fixture(
+    [
+      pkg("a-native", { bin: "bin/tool.cjs" }),
+      pkg("b-lib", { version: "1.0.1" }),
+    ],
+    async (h) => {
+      h.put("a-native", "1.0.0");
+      h.deps.nativeResolver = {
+        resolve() {
+          assert.fail("old native release must not be resolved");
         },
-        null,
-        2,
-      ) + "\n",
-    );
-
-    await assert.rejects(
-      runRelease(
-        context(root),
-        dependenciesFor(
-          {
-            "@scope/a": { state: "existing" },
-            "@scope/b": { state: "candidate", latestVersion: "1.0.0" },
-            "@scope/c": { state: "candidate", latestVersion: "2.0.0" },
-          },
-          events,
-        ),
-      ),
-      /requires explicit publishConfig\.tag/,
-    );
-
-    assert.deepEqual(
-      events.filter((event) => event.startsWith("publish:")),
-      [],
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+      };
+      const result = await runRelease(h.context, h.deps);
+      assert.equal(result[0].state, "already-published");
+      assert.equal(result[1].state, "published");
+      assert.deepEqual([...h.packed.keys()], ["b-lib"]);
+    },
+    "schema: 1\npublish:\n  mode: direct\npackages:\n  a-native:\n    distribution:\n      type: github-release\n      tag: v{version}\n      targets:\n        linux-x64-gnu:\n          asset: native.tar.gz\n          executable: tool\n",
+  );
 });
 
-test("partial publication failure reports completed packages and rerun continues", async () => {
-  const root = await createWorkspace();
-
-  try {
-    const firstEvents = [];
-    let publishCalls = 0;
-
-    await assert.rejects(
-      runRelease(
-        context(root),
-        dependenciesFor(
-          {
-            "@scope/a": { state: "existing" },
-            "@scope/b": { state: "candidate", latestVersion: "1.0.0" },
-            "@scope/c": { state: "candidate", latestVersion: "2.0.0" },
-          },
-          firstEvents,
-          async (_toolchain, request) => {
-            firstEvents.push("publish:" + request.name);
-            publishCalls += 1;
-            if (request.name === "@scope/c") {
-              throw new Error("simulated stage outage");
-            }
-            return "direct-accepted";
-          },
-        ),
-      ),
-      /Publication failed for @scope\/c@3\.0\.0; completed before failure: @scope\/b@2\.0\.0\(published\); cause: simulated stage outage/,
-    );
-    assert.equal(publishCalls, 2);
-
-    const rerunEvents = [];
-    const rerun = await runRelease(
-      context(root),
-      dependenciesFor(
-        {
-          "@scope/a": { state: "existing" },
-          "@scope/b": { state: "existing" },
-          "@scope/c": { state: "candidate", latestVersion: "2.0.0" },
-        },
-        rerunEvents,
-      ),
-    );
-
-    assert.deepEqual(rerun, [
-      { name: "@scope/a", version: "1.0.0", state: "existing" },
-      { name: "@scope/b", version: "2.0.0", state: "existing" },
-      { name: "@scope/c", version: "3.0.0", state: "staged" },
-    ]);
-    assert.deepEqual(
-      rerunEvents.filter((event) => event.startsWith("publish:")),
-      ["publish:@scope/c"],
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+test("registry preflight errors block all package-manager and publish operations", async () => {
+  await fixture([pkg("a"), pkg("z")], async (h) => {
+    h.docs.delete("z");
+    await assert.rejects(runRelease(h.context, h.deps), /bootstrap/);
+    assert.equal(h.events.includes("bootstrap"), false);
+    assert.deepEqual(mutations(h.events), []);
+  });
 });
 
+test("invalid late candidate options cause zero publication mutations", async () => {
+  await fixture(
+    [pkg("a"), pkg("z", { version: "1.0.0-beta.1" })],
+    async (h) => {
+      await assert.rejects(
+        runRelease(h.context, h.deps),
+        /requires explicit publishConfig.tag/,
+      );
+      assert.deepEqual(mutations(h.events), []);
+    },
+  );
+});
 
-test("direct publish waits through registry scan until exact version is live", async () => {
+test("direct consumer of only a staged required candidate fails all-preflight", async () => {
+  await fixture(
+    [pkg("app", { dependencies: { dep: "1.0.0" } }), pkg("dep")],
+    async (h) => {
+      await assert.rejects(
+        runRelease(h.context, h.deps),
+        /only a staged candidate/,
+      );
+      assert.deepEqual(mutations(h.events), []);
+    },
+    "schema: 1\npublish:\n  mode: direct\npackages:\n  dep:\n    publish:\n      mode: stage\n",
+  );
+});
+
+test("direct consumer can use an older live version instead of a staged candidate", async () => {
+  await fixture(
+    [
+      pkg("app", { dependencies: { dep: "^1.0.0" } }),
+      pkg("dep", { version: "1.1.0" }),
+    ],
+    async (h) => {
+      h.put("dep", "1.0.0");
+      const result = await runRelease(h.context, h.deps);
+      assert.deepEqual(
+        result.map((r) => r.state),
+        ["published", "staged"],
+      );
+      assert.ok(h.events.includes("lookup:dep@1.0.0"));
+    },
+    "schema: 1\npublish:\n  mode: direct\npackages:\n  dep:\n    publish:\n      mode: stage\n",
+  );
+});
+
+test("alias dependency is made live and verified before its direct consumer", async () => {
+  await fixture(
+    [
+      pkg("a-app", { dependencies: { renamed: "npm:z-dep@1.0.0" } }),
+      pkg("z-dep"),
+    ],
+    async (h) => {
+      const result = await runRelease(h.context, h.deps);
+      assert.deepEqual(
+        result.map((r) => r.name),
+        ["z-dep", "a-app"],
+      );
+      assert.ok(
+        h.events.indexOf("publish:direct:z-dep") <
+          h.events.lastIndexOf("lookup:z-dep@1.0.0"),
+      );
+      assert.ok(
+        h.events.lastIndexOf("lookup:z-dep@1.0.0") <
+          h.events.indexOf("publish:direct:a-app"),
+      );
+    },
+  );
+});
+
+test("plans own frozen manifests, options and digests independent of mutable pack results", async () => {
+  await fixture([pkg("app")], async (h) => {
+    const plan = await prepareRelease(h.context, h.deps);
+    assert.equal(plan.kind, "ready");
+    h.packed.get("app").manifest.version = "9.0.0";
+    assert.equal(plan.publications[0].manifest.version, "1.0.0");
+    assert.throws(() => {
+      plan.publications[0].request.publishOptions.tag = "other";
+    }, TypeError);
+    assert.equal(
+      plan.publications[0].request.integrity,
+      await sha512Integrity(h.packed.get("app").tarballPath),
+    );
+  });
+});
+
+test("identical race before mutation is accepted only as a verified planned artifact", async () => {
+  await fixture([pkg("app")], async (h) => {
+    const plan = await prepareRelease(h.context, h.deps);
+    h.put("app", "1.0.0", {
+      dist: { integrity: plan.publications[0].request.integrity },
+    });
+    assert.equal(
+      (await executePreparedRelease(h.context, plan, h.deps))[0].state,
+      "published",
+    );
+    assert.deepEqual(mutations(h.events), []);
+  });
+});
+
+test("different race before mutation fails instead of becoming already-published", async () => {
+  await fixture([pkg("app")], async (h) => {
+    const plan = await prepareRelease(h.context, h.deps);
+    h.put("app", "1.0.0", {
+      dist: { integrity: "sha512-" + Buffer.alloc(64).toString("base64") },
+    });
+    await assert.rejects(
+      executePreparedRelease(h.context, plan, h.deps),
+      /different package artifact/,
+    );
+    assert.deepEqual(mutations(h.events), []);
+  });
+});
+
+test("mutating any prepared tarball stops the whole plan before its first write", async () => {
+  await fixture([pkg("a"), pkg("z")], async (h) => {
+    const plan = await prepareRelease(h.context, h.deps);
+    await writeFile(plan.publications[1].request.tarballPath, "altered");
+    await assert.rejects(
+      executePreparedRelease(h.context, plan, h.deps),
+      /Prepared tarball changed/,
+    );
+    assert.deepEqual(mutations(h.events), []);
+  });
+});
+
+test("vanished required live versions prevent a new direct mutation", async () => {
+  await fixture(
+    [pkg("app", { dependencies: { dep: "1.0.0" } }), pkg("dep")],
+    async (h) => {
+      h.put("dep", "1.0.0");
+      const plan = await prepareRelease(h.context, h.deps);
+      delete h.docs.get("dep").versions["1.0.0"];
+      await assert.rejects(
+        executePreparedRelease(h.context, plan, h.deps),
+        /no longer live/,
+      );
+      assert.deepEqual(mutations(h.events), []);
+    },
+  );
+});
+
+test("a failed write is reconciled by exact live digest without retrying publication", async () => {
+  await fixture([pkg("app")], async (h) => {
+    let writes = 0;
+    h.deps.publish = async (_tc, request) => {
+      writes++;
+      h.put("app", "1.0.0", { dist: { integrity: request.integrity } });
+      throw new Error("lost response");
+    };
+    assert.equal((await runRelease(h.context, h.deps))[0].state, "published");
+    assert.equal(writes, 1);
+  });
+});
+
+test("unresolved stage conflicts fail without approval, inspection or mode conversion", async () => {
+  await fixture(
+    [pkg("app")],
+    async (h) => {
+      let writes = 0;
+      h.deps.publish = async (_tc, request) => {
+        writes++;
+        throw new PublishCommandError(
+          request,
+          "E409 Cannot publish over previously staged version",
+        );
+      };
+      await assert.rejects(runRelease(h.context, h.deps), /E409/);
+      assert.equal(writes, 1);
+    },
+    "schema: 1\npublish:\n  mode: stage\n",
+  );
+});
+
+test("partial failures report completed candidates and reruns skip public versions", async () => {
+  await fixture([pkg("a"), pkg("z")], async (h) => {
+    const publish = h.deps.publish;
+    h.deps.publish = async (tc, request) => {
+      if (request.name === "z") throw new Error("outage");
+      return publish(tc, request);
+    };
+    await assert.rejects(
+      runRelease(h.context, h.deps),
+      /completed before failure: a@1.0.0\(published\)/,
+    );
+    h.deps.publish = publish;
+    h.events.length = 0;
+    const result = await runRelease(h.context, h.deps);
+    assert.deepEqual(
+      result.map((r) => r.state),
+      ["already-published", "published"],
+    );
+    assert.ok(h.events.includes("pack:z"));
+  });
+});
+
+test("direct visibility polling reuses the frozen digest and respects the deadline", async () => {
   let clock = 0;
   let calls = 0;
   const registry = {
-    async reconcile(name, version) {
-      calls += 1;
-      return {
-        state: calls < 3 ? "candidate" : "existing",
-        name,
-        version,
-        integrity: "sha512-" + "A".repeat(88),
-      };
+    async verifyPublishedArtifact(_name, _version, expected, options) {
+      calls++;
+      assert.equal(expected, "frozen");
+      assert.ok(options.signal);
+      return calls === 3 ? "matched" : "not-published";
     },
   };
-
-  await waitForDirectLive(
-    registry,
-    "@scope/pkg",
-    "1.0.0",
-    "/tmp/package.tgz",
-    {
-      pollMs: 10,
-      timeoutMs: 100,
-      now: () => clock,
-      sleep: async (milliseconds) => {
-        clock += milliseconds;
-      },
+  await waitForDirectLive(registry, "pkg", "1.0.0", "frozen", {
+    timeoutMs: 100,
+    pollMs: 10,
+    now: () => clock,
+    sleep: async (ms) => {
+      clock += ms;
     },
-  );
-
+  });
   assert.equal(calls, 3);
-  assert.equal(clock, 20);
-});
-
-test("direct publish scan wait fails clearly after its visibility budget", async () => {
-  let clock = 0;
-  const registry = {
-    async reconcile(name, version) {
-      return {
-        state: "candidate",
-        name,
-        version,
-        integrity: "sha512-" + "A".repeat(88),
-      };
-    },
-  };
-
   await assert.rejects(
     waitForDirectLive(
-      registry,
-      "@scope/pkg",
-      "1.0.0",
-      "/tmp/package.tgz",
       {
-        pollMs: 10,
-        timeoutMs: 20,
-        now: () => clock,
-        sleep: async (milliseconds) => {
-          clock += milliseconds;
+        verifyPublishedArtifact: async () => {
+          clock += 100;
+          return "matched";
         },
       },
+      "pkg",
+      "1.0.0",
+      "frozen",
+      { timeoutMs: 5, now: () => clock },
     ),
-    /accepted by npm but is not live/,
+    /visibility budget/,
   );
 });
 
-test("no publishable packages is a hard preflight failure", async () => {
-  const root = await mkdtemp(join(tmpdir(), "releaseway-empty-orchestrate-"));
-  const events = [];
-
-  try {
-    await writeFile(
-      join(root, "package.json"),
-      JSON.stringify({ private: true }, null, 2) + "\n",
-    );
-
-    await assert.rejects(
-      runRelease(
-        context(root),
-        dependenciesFor({}, events),
-      ),
-      /No publishable npm packages were discovered/,
-    );
-    assert.equal(events.includes("bootstrap-toolchain"), false);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+test("an empty publication workspace is still a preflight error", async () => {
+  await fixture([], async (h) => {
+    await assert.rejects(runRelease(h.context, h.deps), /No publishable/);
+    assert.equal(h.events.includes("bootstrap"), false);
+  });
 });

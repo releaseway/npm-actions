@@ -1,14 +1,14 @@
 # releaseway/npm-actions
 
-Publish npm packages from GitHub Actions with deterministic packaging, exact registry reconciliation, and npm Trusted Publishing.
+Publish unpublished npm versions from GitHub Actions with registry-first planning, verified artifacts, and npm Trusted Publishing.
 
-`releaseway/npm-actions` discovers every publishable package in the checked-out repository, creates the package artifact with the repository's own package manager, verifies the complete release state, and only then performs `npm publish` or `npm stage publish`.
+`releaseway/npm-actions` discovers publishable package identities and looks up every exact `name@version` in npm before preparing build tools. Already-public versions are reported without packaging. Only unpublished versions are packed, validated, and submitted through `npm publish` or `npm stage publish`.
 
 The action has no functional inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed.
 
 ## Requirements
 
-Before using the action:
+Configure the following prerequisites for runs that need to publish new versions:
 
 - the package must already exist on the public npm registry;
 - npm Trusted Publishing must be configured for the calling GitHub workflow;
@@ -57,16 +57,18 @@ A successful `packages` output is a JSON array:
 
 ```json
 [
-  {"name":"@scope/a","version":"1.2.3","state":"existing"},
-  {"name":"@scope/b","version":"2.0.0","state":"published"}
+  { "name": "@scope/a", "version": "1.2.3", "state": "already-published" },
+  { "name": "@scope/b", "version": "2.0.0", "state": "published" }
 ]
 ```
 
 The stable states are:
 
-- `existing`: the exact `name@version` artifact already exists in npm;
-- `published`: the version was published directly during this run;
-- `staged`: the version was submitted through npm staged publishing.
+- `already-published`: the exact version was public during initial lookup. Current source and historical artifact bytes have not been compared.
+- `published`: a candidate's frozen final tarball is confirmed live with matching SHA-512. This also covers an identical concurrent publication.
+- `staged`: npm accepted a stage submission. The version is not yet confirmed public.
+
+Already-public results appear first, ordered by package name; candidate results follow their planned execution order. Output is written only after successful completion. When every version is public, the action completes without packing, provisioning a toolchain, resolving native Releases, or requiring publish OIDC authority.
 
 ## What gets published
 
@@ -95,25 +97,25 @@ The repository root is also considered a package. If it is not `private: true`, 
 
 Publication selection is registry-based rather than Git-diff-based. For every discovered publishable `name@version`, npm-actions asks the registry whether that immutable version already exists.
 
-Workspace publication ordering uses the packed manifests:
+Workspace publication planning uses candidates' final packed manifests and immutable snapshots of published registry manifests. Local source for an already-public package is never used to reconstruct its historical release.
 
-- `dependencies` and `optionalDependencies` create hard ordering edges;
-- `peerDependencies` are range-validated but do not create ordering edges;
-- `devDependencies` do not affect publication ordering.
+The planner resolves npm aliases to their actual registry package names and SemVer ranges. A satisfying live version takes precedence over a planned candidate. When no live version satisfies a managed dependency, the selected candidate must satisfy its range.
 
-Hard dependency cycles fail before publication.
+`dependencies` and `optionalDependencies` create ordering edges when they need a candidate. Optional declarations override the same install name in `dependencies`. Peers receive range validation without ordering edges; development dependencies are excluded. Hard cycles without a live resolution fail before publication.
 
-## Exact existing-version reconciliation
+A direct candidate's required internal dependencies must already be live or be direct candidates that become live first. A staged-only candidate cannot satisfy that requirement. Optional dependencies retain ordering but do not impose the required-dependency live gate. Existing external package availability and application behavior remain outside this managed-workspace check.
 
-npm versions are immutable. npm-actions computes SHA-512 SRI over the exact final `.tgz` it would publish and compares it with the existing version's npm `dist.integrity`.
+## Version selection and artifact verification
 
-If the SHA-512 values match, the version is `existing` and no publish operation is performed.
+Version selection asks whether an exact `name@version` is already public. It is independent of the current `latest` tag and needs no local tarball. Package metadata, version identity, and registry read errors are validated before a version can become a candidate. Public absence can still represent a version reserved by a pending stage.
 
-If the version exists but the SHA-512 integrity is missing, malformed, weaker-only, or different, the action fails. It never treats an occupied version as reusable based on unpacked file similarity.
+Already-public versions are read-only. They are not packed, modified, compared with current source, or checked against the current native Release commit. The caller owns version bumps: changing source without changing an already-public version does not cause this action to detect or publish those changes. Updating the action runtime affects only newly published native package versions.
 
-Dist-tags are mutable registry state and are not part of immutable artifact equality. npm-actions does not move or repair dist-tags for versions that already exist.
+For every candidate, npm-actions freezes the final tarball's SHA-512, packed manifest, publication mode, tag and access options before the first mutation. It checks every prepared file before publication begins and checks the relevant file again before submitting it. Polling reuses the frozen digest rather than repacking or hashing the file repeatedly.
 
-For a new publication, `publishConfig.tag` and `publishConfig.access` are honored when explicitly declared. A prerelease version, or a version lower than the package's current `latest`, must declare an explicit `publishConfig.tag`; npm-actions will not accidentally move `latest` backward.
+If a candidate becomes public while this run prepares or submits it, npm-actions accepts it only if the live `dist.integrity` contains the same valid SHA-512. Missing, weaker-only, malformed, or different integrity fails. This exact-artifact check applies to prepared candidates; it does not reinterpret initially public versions as historical build-reproduction claims.
+
+Dist-tags and package-level access for already-public versions are not repaired. For new publications, `publishConfig.tag` and `publishConfig.access` are honored. A prerelease, or a version below current `latest`, requires an explicit tag.
 
 ## Direct and staged publishing
 
@@ -150,7 +152,7 @@ The config path is fixed:
 
 There is no per-run publish-mode input.
 
-`direct` submits the verified tarball through `npm publish`, then waits for npm's publish-time malware scan to expose the exact version in the live registry. A successful subprocess is not enough: npm-actions reports `published` only after the live `dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes with 10-second polling. A scan-pending `Cannot publish over previously staged version` retry enters the same wait instead of immediately failing.
+`direct` submits the verified tarball through `npm publish`, then waits for npm's publish-time malware scan to expose the exact version in the live registry. A successful subprocess is not enough: npm-actions reports `published` only after the live `dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes with 10-second polling. A direct `Cannot publish over previously staged version` conflict triggers read-only live-integrity observation. The conflict itself is not considered acceptance; a matching live artifact is still required. No publication write is blindly retried.
 
 `stage` submits the verified tarball through `npm stage publish`. Inspection, approval, and rejection of a pending staged version remain maintainer operations in npm's staged-publishing flow and require the applicable npm 2FA approval. npm-actions does not inspect, approve, reject, replace, or silently convert a conflicting pending stage.
 
@@ -211,7 +213,7 @@ win32-x64
 
 Supported assets are `.tar.gz` and `.zip`. Each target declares the exact asset name and the exact archive-relative executable path.
 
-For native publication, npm-actions verifies that:
+For each new native publication candidate, npm-actions verifies that:
 
 - the GitHub repository is public;
 - the referenced same-repository Release exists and is published;
@@ -271,13 +273,13 @@ npm-actions removes token-bearing environment and npm authentication configurati
 
 ## Retry behavior
 
-The action completes all deterministic preflight work before the first npm mutation: source identity, workspace/config validation, toolchain provisioning, packing, native provenance, final artifact construction, dependency validation, registry reconciliation, and publish-option/OIDC checks.
+The complete workspace is classified before toolchain provisioning or packing. All candidate preflight work finishes before the first npm mutation: final artifact construction, native provenance, dependency availability, publication options, and OIDC checks.
 
-A network or registry write can still fail partway through a monorepo release. The error identifies packages that completed before the failure.
+The action uses one frozen release plan per execution. Before direct publication it rechecks the selected required internal versions are still live. A concurrent publication or ambiguous subprocess failure can be resolved by a matching live digest; it never justifies replacing a version or blindly resubmitting a write.
 
-On rerun, already-live versions are accepted only when their exact SHA-512 artifact integrity matches. Those packages become `existing`, and npm-actions continues with the remaining candidates.
+A network or registry failure can still interrupt a multi-package release. The error identifies completed candidates. A whole-workflow rerun creates a new plan: versions that are now public become `already-published`, while remaining candidates are prepared with the caller's current source and toolchain. This is version-level rerun behavior, not verification of a previous run's local bytes.
 
-A pending staged-version conflict is not automatically reconciled; it fails so a maintainer can inspect the staged state explicitly.
+A pending staged-version conflict that cannot be resolved through a matching live artifact fails. Pending-stage inspection, approval and rejection remain maintainer operations. Registry reads have a 30-second request timeout; direct live verification uses a 20-minute overall deadline with 10-second polling.
 
 ## Scope
 

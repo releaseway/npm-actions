@@ -7360,6 +7360,1099 @@ var require_dist = __commonJS({
   }
 });
 
+// node_modules/lru-cache/dist/commonjs/node/index.min.js
+var require_index_min = __commonJS({
+  "node_modules/lru-cache/dist/commonjs/node/index.min.js"(exports2) {
+    "use strict";
+    var j2 = (u2, t) => () => (t || u2((t = { exports: {} }).exports, t), t.exports);
+    var I2 = j2((O2) => {
+      "use strict";
+      Object.defineProperty(O2, "__esModule", { value: true });
+      O2.tracing = O2.metrics = void 0;
+      var U2 = require("node:diagnostics_channel");
+      O2.metrics = (0, U2.channel)("lru-cache:metrics");
+      O2.tracing = (0, U2.tracingChannel)("lru-cache");
+    });
+    var P2 = j2((R2) => {
+      "use strict";
+      Object.defineProperty(R2, "__esModule", { value: true });
+      R2.defaultPerf = void 0;
+      R2.defaultPerf = typeof performance == "object" && performance && typeof performance.now == "function" ? performance : Date;
+    });
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.LRUCache = void 0;
+    var g2 = I2();
+    var N2 = P2();
+    var C2 = () => g2.metrics.hasSubscribers || g2.tracing.hasSubscribers;
+    var k2 = /* @__PURE__ */ new Set();
+    var G2 = typeof process == "object" && process ? process : {};
+    var V2 = (u2, t, e, i) => {
+      typeof G2.emitWarning == "function" ? G2.emitWarning(u2, t, e, i) : console.error(`[${e}] ${t}: ${u2}`);
+    };
+    var q2 = (u2) => !k2.has(u2);
+    var T = (u2) => !!u2 && u2 === Math.floor(u2) && u2 > 0 && isFinite(u2);
+    var H2 = (u2) => T(u2) ? u2 <= Math.pow(2, 8) ? Uint8Array : u2 <= Math.pow(2, 16) ? Uint16Array : u2 <= Math.pow(2, 32) ? Uint32Array : u2 <= Number.MAX_SAFE_INTEGER ? W2 : null : null;
+    var W2 = class extends Array {
+      constructor(t) {
+        super(t), this.fill(0);
+      }
+    };
+    var L2 = class u2 {
+      heap;
+      length;
+      static #o = false;
+      static create(t) {
+        let e = H2(t);
+        if (!e) return [];
+        u2.#o = true;
+        let i = new u2(t, e);
+        return u2.#o = false, i;
+      }
+      constructor(t, e) {
+        if (!u2.#o) throw new TypeError("instantiate Stack using Stack.create(n)");
+        this.heap = new e(t), this.length = 0;
+      }
+      push(t) {
+        this.heap[this.length++] = t;
+      }
+      pop() {
+        return this.heap[--this.length];
+      }
+    };
+    var M2 = class u2 {
+      #o;
+      #c;
+      #m;
+      #W;
+      #S;
+      #x;
+      #j;
+      #w;
+      get perf() {
+        return this.#w;
+      }
+      ttl;
+      ttlResolution;
+      ttlAutopurge;
+      updateAgeOnGet;
+      updateAgeOnHas;
+      allowStale;
+      noDisposeOnSet;
+      noUpdateTTL;
+      maxEntrySize;
+      sizeCalculation;
+      noDeleteOnFetchRejection;
+      noDeleteOnStaleGet;
+      allowStaleOnFetchAbort;
+      allowStaleOnFetchRejection;
+      ignoreFetchAbort;
+      backgroundFetchSize;
+      #n;
+      #b;
+      #s;
+      #i;
+      #t;
+      #l;
+      #u;
+      #a;
+      #h;
+      #_;
+      #r;
+      #y;
+      #F;
+      #d;
+      #g;
+      #T;
+      #U;
+      #f;
+      #R;
+      static unsafeExposeInternals(t) {
+        return { starts: t.#F, ttls: t.#d, autopurgeTimers: t.#g, sizes: t.#y, keyMap: t.#s, keyList: t.#i, valList: t.#t, next: t.#l, prev: t.#u, get head() {
+          return t.#a;
+        }, get tail() {
+          return t.#h;
+        }, free: t.#_, isBackgroundFetch: (e) => t.#e(e), backgroundFetch: (e, i, s3, n) => t.#G(e, i, s3, n), moveToTail: (e) => t.#M(e), indexes: (e) => t.#A(e), rindexes: (e) => t.#z(e), isStale: (e) => t.#p(e) };
+      }
+      get max() {
+        return this.#o;
+      }
+      get maxSize() {
+        return this.#c;
+      }
+      get calculatedSize() {
+        return this.#b;
+      }
+      get size() {
+        return this.#n;
+      }
+      get fetchMethod() {
+        return this.#x;
+      }
+      get memoMethod() {
+        return this.#j;
+      }
+      get dispose() {
+        return this.#m;
+      }
+      get onInsert() {
+        return this.#W;
+      }
+      get disposeAfter() {
+        return this.#S;
+      }
+      constructor(t) {
+        let { max: e = 0, ttl: i, ttlResolution: s3 = 1, ttlAutopurge: n, updateAgeOnGet: o, updateAgeOnHas: l, allowStale: h, dispose: r, onInsert: c, disposeAfter: w2, noDisposeOnSet: y, noUpdateTTL: d, maxSize: p2 = 0, maxEntrySize: f2 = 0, sizeCalculation: _2, fetchMethod: a, memoMethod: S2, noDeleteOnFetchRejection: F2, noDeleteOnStaleGet: b2, allowStaleOnFetchRejection: m2, allowStaleOnFetchAbort: A2, ignoreFetchAbort: z2, backgroundFetchSize: x = 1, perf: v2 } = t;
+        if (this.backgroundFetchSize = x, v2 !== void 0 && typeof v2?.now != "function") throw new TypeError("perf option must have a now() method if specified");
+        if (this.#w = v2 ?? N2.defaultPerf, e !== 0 && !T(e)) throw new TypeError("max option must be a nonnegative integer");
+        let E = e ? H2(e) : Array;
+        if (!E) throw new Error("invalid max value: " + e);
+        if (this.#o = e, this.#c = p2, this.maxEntrySize = f2 || this.#c, this.sizeCalculation = _2, this.sizeCalculation) {
+          if (!this.#c && !this.maxEntrySize) throw new TypeError("cannot set sizeCalculation without setting maxSize or maxEntrySize");
+          if (typeof this.sizeCalculation != "function") throw new TypeError("sizeCalculation set to non-function");
+        }
+        if (S2 !== void 0 && typeof S2 != "function") throw new TypeError("memoMethod must be a function if defined");
+        if (this.#j = S2, a !== void 0 && typeof a != "function") throw new TypeError("fetchMethod must be a function if specified");
+        if (this.#x = a, this.#U = !!a, this.#s = /* @__PURE__ */ new Map(), this.#i = Array.from({ length: e }).fill(void 0), this.#t = Array.from({ length: e }).fill(void 0), this.#l = new E(e), this.#u = new E(e), this.#a = 0, this.#h = 0, this.#_ = L2.create(e), this.#n = 0, this.#b = 0, typeof r == "function" && (this.#m = r), typeof c == "function" && (this.#W = c), typeof w2 == "function" ? (this.#S = w2, this.#r = []) : (this.#S = void 0, this.#r = void 0), this.#T = !!this.#m, this.#R = !!this.#W, this.#f = !!this.#S, this.noDisposeOnSet = !!y, this.noUpdateTTL = !!d, this.noDeleteOnFetchRejection = !!F2, this.allowStaleOnFetchRejection = !!m2, this.allowStaleOnFetchAbort = !!A2, this.ignoreFetchAbort = !!z2, this.maxEntrySize !== 0) {
+          if (this.#c !== 0 && !T(this.#c)) throw new TypeError("maxSize must be a positive integer if specified");
+          if (!T(this.maxEntrySize)) throw new TypeError("maxEntrySize must be a positive integer if specified");
+          this.#X();
+        }
+        if (this.allowStale = !!h, this.noDeleteOnStaleGet = !!b2, this.updateAgeOnGet = !!o, this.updateAgeOnHas = !!l, this.ttlResolution = T(s3) || s3 === 0 ? s3 : 1, this.ttlAutopurge = !!n, this.ttl = i || 0, this.ttl) {
+          if (!T(this.ttl)) throw new TypeError("ttl must be a positive integer if specified");
+          this.#k();
+        }
+        if (this.#o === 0 && this.ttl === 0 && this.#c === 0) throw new TypeError("At least one of max, maxSize, or ttl is required");
+        if (!this.ttlAutopurge && !this.#o && !this.#c) {
+          let D = "LRU_CACHE_UNBOUNDED";
+          q2(D) && (k2.add(D), V2("TTL caching without ttlAutopurge, max, or maxSize can result in unbounded memory consumption.", "UnboundedCacheWarning", D, u2));
+        }
+      }
+      getRemainingTTL(t) {
+        return this.#s.has(t) ? 1 / 0 : 0;
+      }
+      #k() {
+        let t = new W2(this.#o), e = new W2(this.#o);
+        this.#d = t, this.#F = e;
+        let i = this.ttlAutopurge ? Array.from({ length: this.#o }) : void 0;
+        this.#g = i, this.#H = (h, r, c = this.#w.now()) => {
+          e[h] = r !== 0 ? c : 0, t[h] = r, s3(h, r);
+        }, this.#D = (h) => {
+          e[h] = t[h] !== 0 ? this.#w.now() : 0, s3(h, t[h]);
+        };
+        let s3 = this.ttlAutopurge ? (h, r) => {
+          if (i?.[h] && (clearTimeout(i[h]), i[h] = void 0), r && r !== 0 && i) {
+            let c = setTimeout(() => {
+              this.#p(h) ? (this.#v(this.#i[h], "expire"), i[h] = void 0) : s3(h, l(h));
+            }, r + 1);
+            c.unref && c.unref(), i[h] = c;
+          }
+        } : () => {
+        };
+        this.#E = (h, r) => {
+          if (t[r]) {
+            let c = t[r], w2 = e[r];
+            if (!c || !w2) return;
+            h.ttl = c, h.start = w2, h.now = n || o();
+            let y = h.now - w2;
+            h.remainingTTL = c - y;
+          }
+        };
+        let n = 0, o = () => {
+          let h = this.#w.now();
+          if (this.ttlResolution > 0) {
+            n = h;
+            let r = setTimeout(() => n = 0, this.ttlResolution);
+            r.unref && r.unref();
+          }
+          return h;
+        };
+        this.getRemainingTTL = (h) => {
+          let r = this.#s.get(h);
+          return r === void 0 ? 0 : l(r);
+        };
+        let l = (h) => {
+          let r = t[h], c = e[h];
+          if (!r || !c) return 1 / 0;
+          let w2 = (n || o()) - c;
+          return r - w2;
+        };
+        this.#p = (h) => {
+          let r = e[h], c = t[h];
+          return !!c && !!r && (n || o()) - r > c;
+        };
+      }
+      #D = () => {
+      };
+      #E = () => {
+      };
+      #H = () => {
+      };
+      #p = () => false;
+      #X() {
+        let t = new W2(this.#o);
+        this.#b = 0, this.#y = t, this.#C = (e) => {
+          this.#b -= t[e], t[e] = 0;
+        }, this.#N = (e, i, s3, n) => {
+          if (!T(s3)) {
+            if (this.#e(i)) return this.backgroundFetchSize;
+            if (n) {
+              if (typeof n != "function") throw new TypeError("sizeCalculation must be a function");
+              if (s3 = n(i, e), !T(s3)) throw new TypeError("sizeCalculation return invalid (expect positive integer)");
+            } else throw new TypeError("invalid size value (must be positive integer). When maxSize or maxEntrySize is used, sizeCalculation or size must be set.");
+          }
+          return s3;
+        }, this.#I = (e, i, s3) => {
+          if (t[e] = i, this.#c) {
+            let n = this.#c - t[e];
+            for (; this.#b > n; ) this.#P(true);
+          }
+          this.#b += t[e], s3 && (s3.entrySize = i, s3.totalCalculatedSize = this.#b);
+        };
+      }
+      #C = (t) => {
+      };
+      #I = (t, e, i) => {
+      };
+      #N = (t, e, i, s3) => {
+        if (i || s3) throw new TypeError("cannot set size without setting maxSize or maxEntrySize on cache");
+        return 0;
+      };
+      *#A({ allowStale: t = this.allowStale } = {}) {
+        if (this.#n) for (let e = this.#h; this.#V(e) && ((t || !this.#p(e)) && (yield e), e !== this.#a); ) e = this.#u[e];
+      }
+      *#z({ allowStale: t = this.allowStale } = {}) {
+        if (this.#n) for (let e = this.#a; this.#V(e) && ((t || !this.#p(e)) && (yield e), e !== this.#h); ) e = this.#l[e];
+      }
+      #V(t) {
+        return t !== void 0 && this.#s.get(this.#i[t]) === t;
+      }
+      *entries() {
+        for (let t of this.#A()) this.#t[t] !== void 0 && this.#i[t] !== void 0 && !this.#e(this.#t[t]) && (yield [this.#i[t], this.#t[t]]);
+      }
+      *rentries() {
+        for (let t of this.#z()) this.#t[t] !== void 0 && this.#i[t] !== void 0 && !this.#e(this.#t[t]) && (yield [this.#i[t], this.#t[t]]);
+      }
+      *keys() {
+        for (let t of this.#A()) {
+          let e = this.#i[t];
+          e !== void 0 && !this.#e(this.#t[t]) && (yield e);
+        }
+      }
+      *rkeys() {
+        for (let t of this.#z()) {
+          let e = this.#i[t];
+          e !== void 0 && !this.#e(this.#t[t]) && (yield e);
+        }
+      }
+      *values() {
+        for (let t of this.#A()) this.#t[t] !== void 0 && !this.#e(this.#t[t]) && (yield this.#t[t]);
+      }
+      *rvalues() {
+        for (let t of this.#z()) this.#t[t] !== void 0 && !this.#e(this.#t[t]) && (yield this.#t[t]);
+      }
+      [Symbol.iterator]() {
+        return this.entries();
+      }
+      [Symbol.toStringTag] = "LRUCache";
+      find(t, e = {}) {
+        for (let i of this.#A()) {
+          let s3 = this.#t[i], n = this.#e(s3) ? s3.__staleWhileFetching : s3;
+          if (n !== void 0 && t(n, this.#i[i], this)) return this.#L(this.#i[i], e);
+        }
+      }
+      forEach(t, e = this) {
+        for (let i of this.#A()) {
+          let s3 = this.#t[i], n = this.#e(s3) ? s3.__staleWhileFetching : s3;
+          n !== void 0 && t.call(e, n, this.#i[i], this);
+        }
+      }
+      rforEach(t, e = this) {
+        for (let i of this.#z()) {
+          let s3 = this.#t[i], n = this.#e(s3) ? s3.__staleWhileFetching : s3;
+          n !== void 0 && t.call(e, n, this.#i[i], this);
+        }
+      }
+      purgeStale() {
+        let t = false;
+        for (let e of this.#z({ allowStale: true })) this.#p(e) && (this.#v(this.#i[e], "expire"), t = true);
+        return t;
+      }
+      info(t) {
+        let e = this.#s.get(t);
+        if (e === void 0) return;
+        let i = this.#t[e], s3 = this.#e(i) ? i.__staleWhileFetching : i;
+        if (s3 === void 0) return;
+        let n = { value: s3 };
+        if (this.#d && this.#F) {
+          let o = this.#d[e], l = this.#F[e];
+          if (o && l) {
+            let h = o - (this.#w.now() - l);
+            n.ttl = h, n.start = Date.now();
+          }
+        }
+        return this.#y && (n.size = this.#y[e]), n;
+      }
+      dump() {
+        let t = [];
+        for (let e of this.#A({ allowStale: true })) {
+          let i = this.#i[e], s3 = this.#t[e], n = this.#e(s3) ? s3.__staleWhileFetching : s3;
+          if (n === void 0 || i === void 0) continue;
+          let o = { value: n };
+          if (this.#d && this.#F) {
+            o.ttl = this.#d[e];
+            let l = this.#w.now() - this.#F[e];
+            o.start = Math.floor(Date.now() - l);
+          }
+          this.#y && (o.size = this.#y[e]), t.unshift([i, o]);
+        }
+        return t;
+      }
+      load(t) {
+        this.clear();
+        for (let [e, i] of t) {
+          if (i.start) {
+            let s3 = Date.now() - i.start;
+            i.start = this.#w.now() - s3;
+          }
+          this.#O(e, i.value, i);
+        }
+      }
+      set(t, e, i = {}) {
+        let { status: s3 = g2.metrics.hasSubscribers ? {} : void 0 } = i;
+        i.status = s3, s3 && (s3.op = "set", s3.key = t, e !== void 0 && (s3.value = e), s3.cache = this);
+        let n = this.#O(t, e, i);
+        return s3 && g2.metrics.hasSubscribers && g2.metrics.publish(s3), n;
+      }
+      #O(t, e, i, s3) {
+        let { ttl: n = this.ttl, start: o, noDisposeOnSet: l = this.noDisposeOnSet, sizeCalculation: h = this.sizeCalculation, status: r } = i, c = this.#e(e);
+        if (e === void 0) return r && (r.set = "deleted"), this.delete(t), this;
+        let { noUpdateTTL: w2 = this.noUpdateTTL } = i;
+        r && !c && (r.value = e);
+        let y = this.#N(t, e, i.size || 0, h, r);
+        if (this.maxEntrySize && y > this.maxEntrySize) return this.#v(t, "set"), r && (r.set = "miss", r.maxEntrySizeExceeded = true), this;
+        let d = this.#n === 0 ? void 0 : this.#s.get(t);
+        if (d === void 0) d = this.#n === 0 ? this.#h : this.#_.length !== 0 ? this.#_.pop() : this.#n === this.#o ? this.#P(false) : this.#n, this.#i[d] = t, this.#t[d] = e, this.#s.set(t, d), this.#l[this.#h] = d, this.#u[d] = this.#h, this.#h = d, this.#n++, this.#I(d, y, r), r && (r.set = "add"), w2 = false, this.#R && !c && this.#W?.(e, t, "add");
+        else {
+          this.#M(d);
+          let p2 = this.#t[d];
+          if (e !== p2) {
+            if (!l) if (this.#e(p2)) {
+              p2 !== s3 && p2.__abortController.abort(new Error("replaced"));
+              let { __staleWhileFetching: f2 } = p2;
+              f2 !== void 0 && f2 !== e && (this.#T && this.#m?.(f2, t, "set"), this.#f && this.#r?.push([f2, t, "set"]));
+            } else this.#T && this.#m?.(p2, t, "set"), this.#f && this.#r?.push([p2, t, "set"]);
+            if (this.#C(d), this.#I(d, y, r), this.#t[d] = e, !c) {
+              let f2 = p2 && this.#e(p2) ? p2.__staleWhileFetching : p2, _2 = f2 === void 0 ? "add" : e !== f2 ? "replace" : "update";
+              r && (r.set = _2, f2 !== void 0 && (r.oldValue = f2)), this.#R && this.onInsert?.(e, t, _2);
+            }
+          } else c || (r && (r.set = "update"), this.#R && this.onInsert?.(e, t, "update"));
+        }
+        if (n !== 0 && !this.#d && this.#k(), this.#d && (w2 || this.#H(d, n, o), r && this.#E(r, d)), !l && this.#f && this.#r) {
+          let p2 = this.#r, f2;
+          for (; f2 = p2?.shift(); ) this.#S?.(...f2);
+        }
+        return this;
+      }
+      pop() {
+        try {
+          for (; this.#n; ) {
+            let t = this.#t[this.#a];
+            if (this.#P(true), this.#e(t)) {
+              if (t.__staleWhileFetching) return t.__staleWhileFetching;
+            } else if (t !== void 0) return t;
+          }
+        } finally {
+          if (this.#f && this.#r) {
+            let t = this.#r, e;
+            for (; e = t?.shift(); ) this.#S?.(...e);
+          }
+        }
+      }
+      #P(t) {
+        let e = this.#a, i = this.#i[e], s3 = this.#t[e], n = this.#e(s3);
+        n && s3.__abortController.abort(new Error("evicted"));
+        let o = n ? s3.__staleWhileFetching : s3;
+        return (this.#T || this.#f) && o !== void 0 && (this.#T && this.#m?.(o, i, "evict"), this.#f && this.#r?.push([o, i, "evict"])), this.#C(e), this.#g?.[e] && (clearTimeout(this.#g[e]), this.#g[e] = void 0), t && (this.#i[e] = void 0, this.#t[e] = void 0, this.#_.push(e)), this.#n === 1 ? (this.#a = this.#h = 0, this.#_.length = 0) : this.#a = this.#l[e], this.#s.delete(i), this.#n--, e;
+      }
+      has(t, e = {}) {
+        let { status: i = g2.metrics.hasSubscribers ? {} : void 0 } = e;
+        e.status = i, i && (i.op = "has", i.key = t, i.cache = this);
+        let s3 = this.#Y(t, e);
+        return g2.metrics.hasSubscribers && g2.metrics.publish(i), s3;
+      }
+      #Y(t, e = {}) {
+        let { updateAgeOnHas: i = this.updateAgeOnHas, status: s3 } = e, n = this.#s.get(t);
+        if (n !== void 0) {
+          let o = this.#t[n];
+          if (this.#e(o) && o.__staleWhileFetching === void 0) return false;
+          if (this.#p(n)) s3 && (s3.has = "stale", this.#E(s3, n));
+          else return i && this.#D(n), s3 && (s3.has = "hit", this.#E(s3, n)), true;
+        } else s3 && (s3.has = "miss");
+        return false;
+      }
+      peek(t, e = {}) {
+        let { status: i = C2() ? {} : void 0 } = e;
+        i && (i.op = "peek", i.key = t, i.cache = this), e.status = i;
+        let s3 = this.#J(t, e);
+        return g2.metrics.hasSubscribers && g2.metrics.publish(i), s3;
+      }
+      #J(t, e) {
+        let { status: i, allowStale: s3 = this.allowStale } = e, n = this.#s.get(t);
+        if (n === void 0 || !s3 && this.#p(n)) {
+          i && (i.peek = n === void 0 ? "miss" : "stale");
+          return;
+        }
+        let o = this.#t[n], l = this.#e(o) ? o.__staleWhileFetching : o;
+        return i && (l !== void 0 ? (i.peek = "hit", i.value = l) : i.peek = "miss"), l;
+      }
+      #G(t, e, i, s3) {
+        let n = e === void 0 ? void 0 : this.#t[e];
+        if (this.#e(n)) return n;
+        let o = new AbortController(), { signal: l } = i;
+        l?.addEventListener("abort", () => o.abort(l.reason), { signal: o.signal });
+        let h = { signal: o.signal, options: i, context: s3 }, r = (f2, _2 = false) => {
+          let { aborted: a } = o.signal, S2 = i.ignoreFetchAbort && f2 !== void 0, F2 = i.ignoreFetchAbort || !!(i.allowStaleOnFetchAbort && f2 !== void 0);
+          if (i.status && (a && !_2 ? (i.status.fetchAborted = true, i.status.fetchError = o.signal.reason, S2 && (i.status.fetchAbortIgnored = true)) : i.status.fetchResolved = true), a && !S2 && !_2) return w2(o.signal.reason, F2);
+          let b2 = d, m2 = this.#t[e];
+          return (m2 === d || m2 === void 0 && S2 && _2) && (f2 === void 0 ? b2.__staleWhileFetching !== void 0 ? this.#t[e] = b2.__staleWhileFetching : this.#v(t, "fetch") : (i.status && (i.status.fetchUpdated = true), this.#O(t, f2, h.options, b2))), f2;
+        }, c = (f2) => (i.status && (i.status.fetchRejected = true, i.status.fetchError = f2), w2(f2, false)), w2 = (f2, _2) => {
+          let { aborted: a } = o.signal, S2 = a && i.allowStaleOnFetchAbort, F2 = S2 || i.allowStaleOnFetchRejection, b2 = F2 || i.noDeleteOnFetchRejection, m2 = d;
+          if (this.#t[e] === d && (!b2 || !_2 && m2.__staleWhileFetching === void 0 ? this.#v(t, "fetch") : S2 || (this.#t[e] = m2.__staleWhileFetching)), F2) return i.status && m2.__staleWhileFetching !== void 0 && (i.status.returnedStale = true), m2.__staleWhileFetching;
+          if (m2.__returned === m2) throw f2;
+        }, y = (f2, _2) => {
+          let a = this.#x?.(t, n, h);
+          o.signal.addEventListener("abort", () => {
+            (!i.ignoreFetchAbort || i.allowStaleOnFetchAbort) && (f2(void 0), i.allowStaleOnFetchAbort && (f2 = (S2) => r(S2, true)));
+          }), a && a instanceof Promise ? a.then((S2) => f2(S2 === void 0 ? void 0 : S2), _2) : a !== void 0 && f2(a);
+        };
+        i.status && (i.status.fetchDispatched = true);
+        let d = new Promise(y).then(r, c), p2 = Object.assign(d, { __abortController: o, __staleWhileFetching: n, __returned: void 0 });
+        return e === void 0 ? (this.#O(t, p2, { ...h.options, status: void 0 }), e = this.#s.get(t)) : this.#t[e] = p2, p2;
+      }
+      #e(t) {
+        if (!this.#U) return false;
+        let e = t;
+        return !!e && e instanceof Promise && e.hasOwnProperty("__staleWhileFetching") && e.__abortController instanceof AbortController;
+      }
+      fetch(t, e = {}) {
+        let i = g2.tracing.hasSubscribers, { status: s3 = C2() ? {} : void 0 } = e;
+        e.status = s3, s3 && e.context && (s3.context = e.context);
+        let n = this.#q(t, e);
+        return s3 && i && (s3.trace = true, g2.tracing.tracePromise(() => n, s3).catch(() => {
+        })), n;
+      }
+      async #q(t, e = {}) {
+        let { allowStale: i = this.allowStale, updateAgeOnGet: s3 = this.updateAgeOnGet, noDeleteOnStaleGet: n = this.noDeleteOnStaleGet, ttl: o = this.ttl, noDisposeOnSet: l = this.noDisposeOnSet, size: h = 0, sizeCalculation: r = this.sizeCalculation, noUpdateTTL: c = this.noUpdateTTL, noDeleteOnFetchRejection: w2 = this.noDeleteOnFetchRejection, allowStaleOnFetchRejection: y = this.allowStaleOnFetchRejection, ignoreFetchAbort: d = this.ignoreFetchAbort, allowStaleOnFetchAbort: p2 = this.allowStaleOnFetchAbort, context: f2, forceRefresh: _2 = false, status: a, signal: S2 } = e;
+        if (a && (a.op = "fetch", a.key = t, _2 && (a.forceRefresh = true), a.cache = this), !this.#U) return a && (a.fetch = "get"), this.#L(t, { allowStale: i, updateAgeOnGet: s3, noDeleteOnStaleGet: n, status: a });
+        let F2 = { allowStale: i, updateAgeOnGet: s3, noDeleteOnStaleGet: n, ttl: o, noDisposeOnSet: l, size: h, sizeCalculation: r, noUpdateTTL: c, noDeleteOnFetchRejection: w2, allowStaleOnFetchRejection: y, allowStaleOnFetchAbort: p2, ignoreFetchAbort: d, status: a, signal: S2 }, b2 = this.#s.get(t);
+        if (b2 === void 0) {
+          a && (a.fetch = "miss");
+          let m2 = this.#G(t, b2, F2, f2);
+          return m2.__returned = m2;
+        } else {
+          let m2 = this.#t[b2];
+          if (this.#e(m2)) {
+            let E = i && m2.__staleWhileFetching !== void 0;
+            return a && (a.fetch = "inflight", E && (a.returnedStale = true)), E ? m2.__staleWhileFetching : m2.__returned = m2;
+          }
+          let A2 = this.#p(b2);
+          if (!_2 && !A2) return a && (a.fetch = "hit"), this.#M(b2), s3 && this.#D(b2), a && this.#E(a, b2), m2;
+          let z2 = this.#G(t, b2, F2, f2), v2 = z2.__staleWhileFetching !== void 0 && i;
+          return a && (a.fetch = A2 ? "stale" : "refresh", v2 && A2 && (a.returnedStale = true)), v2 ? z2.__staleWhileFetching : z2.__returned = z2;
+        }
+      }
+      forceFetch(t, e = {}) {
+        let i = g2.tracing.hasSubscribers, { status: s3 = C2() ? {} : void 0 } = e;
+        e.status = s3, s3 && e.context && (s3.context = e.context);
+        let n = this.#K(t, e);
+        return s3 && i && (s3.trace = true, g2.tracing.tracePromise(() => n, s3).catch(() => {
+        })), n;
+      }
+      async #K(t, e = {}) {
+        let i = await this.#q(t, e);
+        if (i === void 0) throw new Error("fetch() returned undefined");
+        return i;
+      }
+      memo(t, e = {}) {
+        let { status: i = g2.metrics.hasSubscribers ? {} : void 0 } = e;
+        e.status = i, i && (i.op = "memo", i.key = t, e.context && (i.context = e.context), i.cache = this);
+        let s3 = this.#Q(t, e);
+        return i && (i.value = s3), g2.metrics.hasSubscribers && g2.metrics.publish(i), s3;
+      }
+      #Q(t, e = {}) {
+        let i = this.#j;
+        if (!i) throw new Error("no memoMethod provided to constructor");
+        let { context: s3, status: n, forceRefresh: o, ...l } = e;
+        n && o && (n.forceRefresh = true);
+        let h = this.#L(t, l), r = o || h === void 0;
+        if (n && (n.memo = r ? "miss" : "hit", r || (n.value = h)), !r) return h;
+        let c = i(t, h, { options: l, context: s3 });
+        return n && (n.value = c), this.#O(t, c, l), c;
+      }
+      get(t, e = {}) {
+        let { status: i = g2.metrics.hasSubscribers ? {} : void 0 } = e;
+        e.status = i, i && (i.op = "get", i.key = t, i.cache = this);
+        let s3 = this.#L(t, e);
+        return i && (s3 !== void 0 && (i.value = s3), g2.metrics.hasSubscribers && g2.metrics.publish(i)), s3;
+      }
+      #L(t, e = {}) {
+        let { allowStale: i = this.allowStale, updateAgeOnGet: s3 = this.updateAgeOnGet, noDeleteOnStaleGet: n = this.noDeleteOnStaleGet, status: o } = e, l = this.#s.get(t);
+        if (l === void 0) {
+          o && (o.get = "miss");
+          return;
+        }
+        let h = this.#t[l], r = this.#e(h);
+        return o && this.#E(o, l), this.#p(l) ? r ? (o && (o.get = "stale-fetching"), i && h.__staleWhileFetching !== void 0 ? (o && (o.returnedStale = true), h.__staleWhileFetching) : void 0) : (n || this.#v(t, "expire"), o && (o.get = "stale"), i ? (o && (o.returnedStale = true), h) : void 0) : (o && (o.get = r ? "fetching" : "hit"), this.#M(l), s3 && this.#D(l), r ? h.__staleWhileFetching : h);
+      }
+      #B(t, e) {
+        this.#u[e] = t, this.#l[t] = e;
+      }
+      #M(t) {
+        t !== this.#h && (t === this.#a ? this.#a = this.#l[t] : this.#B(this.#u[t], this.#l[t]), this.#B(this.#h, t), this.#h = t);
+      }
+      delete(t) {
+        return this.#v(t, "delete");
+      }
+      #v(t, e) {
+        g2.metrics.hasSubscribers && g2.metrics.publish({ op: "delete", delete: e, key: t, cache: this });
+        let i = false;
+        if (this.#n !== 0) {
+          let s3 = this.#s.get(t);
+          if (s3 !== void 0) if (this.#g?.[s3] && (clearTimeout(this.#g[s3]), this.#g[s3] = void 0), i = true, this.#n === 1) this.#$(e);
+          else {
+            this.#C(s3);
+            let n = this.#t[s3];
+            if (this.#e(n) ? n.__abortController.abort(new Error("deleted")) : (this.#T || this.#f) && (this.#T && this.#m?.(n, t, e), this.#f && this.#r?.push([n, t, e])), this.#s.delete(t), this.#i[s3] = void 0, this.#t[s3] = void 0, s3 === this.#h) this.#h = this.#u[s3];
+            else if (s3 === this.#a) this.#a = this.#l[s3];
+            else {
+              let o = this.#u[s3];
+              this.#l[o] = this.#l[s3];
+              let l = this.#l[s3];
+              this.#u[l] = this.#u[s3];
+            }
+            this.#n--, this.#_.push(s3);
+          }
+        }
+        if (this.#f && this.#r?.length) {
+          let s3 = this.#r, n;
+          for (; n = s3?.shift(); ) this.#S?.(...n);
+        }
+        return i;
+      }
+      clear() {
+        return this.#$("delete");
+      }
+      #$(t) {
+        for (let e of this.#z({ allowStale: true })) {
+          let i = this.#t[e];
+          if (this.#e(i)) i.__abortController.abort(new Error("deleted"));
+          else {
+            let s3 = this.#i[e];
+            this.#T && this.#m?.(i, s3, t), this.#f && this.#r?.push([i, s3, t]);
+          }
+        }
+        if (this.#s.clear(), this.#t.fill(void 0), this.#i.fill(void 0), this.#d && this.#F) {
+          this.#d.fill(0), this.#F.fill(0);
+          for (let e of this.#g ?? []) e !== void 0 && clearTimeout(e);
+          this.#g?.fill(void 0);
+        }
+        if (this.#y && this.#y.fill(0), this.#a = 0, this.#h = 0, this.#_.length = 0, this.#b = 0, this.#n = 0, this.#f && this.#r) {
+          let e = this.#r, i;
+          for (; i = e?.shift(); ) this.#S?.(...i);
+        }
+      }
+    };
+    exports2.LRUCache = M2;
+  }
+});
+
+// node_modules/hosted-git-info/lib/hosts.js
+var require_hosts = __commonJS({
+  "node_modules/hosted-git-info/lib/hosts.js"(exports2, module2) {
+    "use strict";
+    var maybeJoin = (...args) => args.every((arg) => arg) ? args.join("") : "";
+    var maybeEncode = (arg) => arg ? encodeURIComponent(arg) : "";
+    var formatHashFragment = (f2) => f2.toLowerCase().replace(/^\W+/g, "").replace(/(?<!\W)\W+$/, "").replace(/\//g, "").replace(/\W+/g, "-");
+    var defaults = {
+      sshtemplate: ({ domain, user, project, committish }) => `git@${domain}:${user}/${project}.git${maybeJoin("#", committish)}`,
+      sshurltemplate: ({ domain, user, project, committish }) => `git+ssh://git@${domain}/${user}/${project}.git${maybeJoin("#", committish)}`,
+      edittemplate: ({ domain, user, project, committish, editpath, path }) => `https://${domain}/${user}/${project}${maybeJoin("/", editpath, "/", maybeEncode(committish || "HEAD"), "/", path)}`,
+      browsetemplate: ({ domain, user, project, committish, treepath }) => `https://${domain}/${user}/${project}${maybeJoin("/", treepath, "/", maybeEncode(committish))}`,
+      browsetreetemplate: ({ domain, user, project, committish, treepath, path, fragment, hashformat }) => `https://${domain}/${user}/${project}/${treepath}/${maybeEncode(committish || "HEAD")}/${path}${maybeJoin("#", hashformat(fragment || ""))}`,
+      browseblobtemplate: ({ domain, user, project, committish, blobpath, path, fragment, hashformat }) => `https://${domain}/${user}/${project}/${blobpath}/${maybeEncode(committish || "HEAD")}/${path}${maybeJoin("#", hashformat(fragment || ""))}`,
+      docstemplate: ({ domain, user, project, treepath, committish }) => `https://${domain}/${user}/${project}${maybeJoin("/", treepath, "/", maybeEncode(committish))}#readme`,
+      httpstemplate: ({ auth, domain, user, project, committish }) => `git+https://${maybeJoin(auth, "@")}${domain}/${user}/${project}.git${maybeJoin("#", committish)}`,
+      filetemplate: ({ domain, user, project, committish, path }) => `https://${domain}/${user}/${project}/raw/${maybeEncode(committish || "HEAD")}/${path}`,
+      shortcuttemplate: ({ type, user, project, committish }) => `${type}:${user}/${project}${maybeJoin("#", committish)}`,
+      pathtemplate: ({ user, project, committish }) => `${user}/${project}${maybeJoin("#", committish)}`,
+      bugstemplate: ({ domain, user, project }) => `https://${domain}/${user}/${project}/issues`,
+      hashformat: formatHashFragment
+    };
+    var hosts = {};
+    hosts.github = {
+      // First two are insecure and generally shouldn't be used any more, but
+      // they are still supported.
+      protocols: ["git:", "http:", "git+ssh:", "git+https:", "ssh:", "https:"],
+      domain: "github.com",
+      treepath: "tree",
+      blobpath: "blob",
+      editpath: "edit",
+      filetemplate: ({ auth, user, project, committish, path }) => `https://${maybeJoin(auth, "@")}raw.githubusercontent.com/${user}/${project}/${maybeEncode(committish || "HEAD")}/${path}`,
+      gittemplate: ({ auth, domain, user, project, committish }) => `git://${maybeJoin(auth, "@")}${domain}/${user}/${project}.git${maybeJoin("#", committish)}`,
+      tarballtemplate: ({ domain, user, project, committish }) => `https://codeload.${domain}/${user}/${project}/tar.gz/${maybeEncode(committish || "HEAD")}`,
+      extract: (url) => {
+        let [, user, project, type, committish] = url.pathname.split("/", 5);
+        if (type && type !== "tree") {
+          return;
+        }
+        if (!type) {
+          committish = url.hash.slice(1);
+        }
+        if (project && project.endsWith(".git")) {
+          project = project.slice(0, -4);
+        }
+        if (!user || !project) {
+          return;
+        }
+        return { user, project, committish };
+      }
+    };
+    hosts.bitbucket = {
+      protocols: ["git+ssh:", "git+https:", "ssh:", "https:"],
+      domain: "bitbucket.org",
+      treepath: "src",
+      blobpath: "src",
+      editpath: "?mode=edit",
+      edittemplate: ({ domain, user, project, committish, treepath, path, editpath }) => `https://${domain}/${user}/${project}${maybeJoin("/", treepath, "/", maybeEncode(committish || "HEAD"), "/", path, editpath)}`,
+      tarballtemplate: ({ domain, user, project, committish }) => `https://${domain}/${user}/${project}/get/${maybeEncode(committish || "HEAD")}.tar.gz`,
+      extract: (url) => {
+        let [, user, project, aux] = url.pathname.split("/", 4);
+        if (["get"].includes(aux)) {
+          return;
+        }
+        if (project && project.endsWith(".git")) {
+          project = project.slice(0, -4);
+        }
+        if (!user || !project) {
+          return;
+        }
+        return { user, project, committish: url.hash.slice(1) };
+      }
+    };
+    hosts.gitlab = {
+      protocols: ["git+ssh:", "git+https:", "ssh:", "https:"],
+      domain: "gitlab.com",
+      treepath: "tree",
+      blobpath: "tree",
+      editpath: "-/edit",
+      tarballtemplate: ({ domain, user, project, committish }) => `https://${domain}/api/v4/projects/${maybeEncode(user + "/" + project)}/repository/archive.tar.gz?sha=${maybeEncode(committish || "HEAD")}`,
+      extract: (url) => {
+        const path = url.pathname.slice(1);
+        if (path.includes("/-/") || path.includes("/archive.tar.gz")) {
+          return;
+        }
+        const segments = path.split("/");
+        let project = segments.pop();
+        if (project.endsWith(".git")) {
+          project = project.slice(0, -4);
+        }
+        const user = segments.join("/");
+        if (!user || !project) {
+          return;
+        }
+        return { user, project, committish: url.hash.slice(1) };
+      }
+    };
+    hosts.gist = {
+      protocols: ["git:", "git+ssh:", "git+https:", "ssh:", "https:"],
+      domain: "gist.github.com",
+      editpath: "edit",
+      sshtemplate: ({ domain, project, committish }) => `git@${domain}:${project}.git${maybeJoin("#", committish)}`,
+      sshurltemplate: ({ domain, project, committish }) => `git+ssh://git@${domain}/${project}.git${maybeJoin("#", committish)}`,
+      edittemplate: ({ domain, user, project, committish, editpath }) => `https://${domain}/${user}/${project}${maybeJoin("/", maybeEncode(committish))}/${editpath}`,
+      browsetemplate: ({ domain, project, committish }) => `https://${domain}/${project}${maybeJoin("/", maybeEncode(committish))}`,
+      browsetreetemplate: ({ domain, project, committish, path, hashformat }) => `https://${domain}/${project}${maybeJoin("/", maybeEncode(committish))}${maybeJoin("#", hashformat(path))}`,
+      browseblobtemplate: ({ domain, project, committish, path, hashformat }) => `https://${domain}/${project}${maybeJoin("/", maybeEncode(committish))}${maybeJoin("#", hashformat(path))}`,
+      docstemplate: ({ domain, project, committish }) => `https://${domain}/${project}${maybeJoin("/", maybeEncode(committish))}`,
+      httpstemplate: ({ domain, project, committish }) => `git+https://${domain}/${project}.git${maybeJoin("#", committish)}`,
+      filetemplate: ({ user, project, committish, path }) => `https://gist.githubusercontent.com/${user}/${project}/raw${maybeJoin("/", maybeEncode(committish))}/${path}`,
+      shortcuttemplate: ({ type, project, committish }) => `${type}:${project}${maybeJoin("#", committish)}`,
+      pathtemplate: ({ project, committish }) => `${project}${maybeJoin("#", committish)}`,
+      bugstemplate: ({ domain, project }) => `https://${domain}/${project}`,
+      gittemplate: ({ domain, project, committish }) => `git://${domain}/${project}.git${maybeJoin("#", committish)}`,
+      tarballtemplate: ({ project, committish }) => `https://codeload.github.com/gist/${project}/tar.gz/${maybeEncode(committish || "HEAD")}`,
+      extract: (url) => {
+        let [, user, project, aux] = url.pathname.split("/", 4);
+        if (aux === "raw") {
+          return;
+        }
+        if (!project) {
+          if (!user) {
+            return;
+          }
+          project = user;
+          user = null;
+        }
+        if (project.endsWith(".git")) {
+          project = project.slice(0, -4);
+        }
+        return { user, project, committish: url.hash.slice(1) };
+      },
+      hashformat: function(fragment) {
+        return fragment && "file-" + formatHashFragment(fragment);
+      }
+    };
+    hosts.sourcehut = {
+      protocols: ["git+ssh:", "https:"],
+      domain: "git.sr.ht",
+      treepath: "tree",
+      blobpath: "tree",
+      filetemplate: ({ domain, user, project, committish, path }) => `https://${domain}/${user}/${project}/blob/${maybeEncode(committish) || "HEAD"}/${path}`,
+      httpstemplate: ({ domain, user, project, committish }) => `https://${domain}/${user}/${project}${maybeJoin("#", committish)}`,
+      tarballtemplate: ({ domain, user, project, committish }) => `https://${domain}/${user}/${project}/archive/${maybeEncode(committish) || "HEAD"}.tar.gz`,
+      bugstemplate: () => null,
+      extract: (url) => {
+        let [, user, project, aux] = url.pathname.split("/", 4);
+        if (["archive"].includes(aux)) {
+          return;
+        }
+        if (project && project.endsWith(".git")) {
+          project = project.slice(0, -4);
+        }
+        if (!user || !project) {
+          return;
+        }
+        return { user, project, committish: url.hash.slice(1) };
+      }
+    };
+    for (const [name, host] of Object.entries(hosts)) {
+      hosts[name] = Object.assign({}, defaults, host);
+    }
+    module2.exports = hosts;
+  }
+});
+
+// node_modules/hosted-git-info/lib/parse-url.js
+var require_parse_url = __commonJS({
+  "node_modules/hosted-git-info/lib/parse-url.js"(exports2, module2) {
+    var lastIndexOfBefore = (str, char, beforeChar) => {
+      const startPosition = str.indexOf(beforeChar);
+      return str.lastIndexOf(char, startPosition > -1 ? startPosition : Infinity);
+    };
+    var safeUrl = (u2) => {
+      try {
+        return new URL(u2);
+      } catch {
+      }
+    };
+    var correctProtocol = (arg, protocols) => {
+      const firstColon = arg.indexOf(":");
+      const proto = arg.slice(0, firstColon + 1);
+      if (Object.prototype.hasOwnProperty.call(protocols, proto)) {
+        return arg;
+      }
+      if (arg.substr(firstColon, 3) === "://") {
+        return arg;
+      }
+      const firstAt = arg.indexOf("@");
+      if (firstAt > -1) {
+        if (firstAt > firstColon) {
+          return `git+ssh://${arg}`;
+        } else {
+          return arg;
+        }
+      }
+      return `${arg.slice(0, firstColon + 1)}//${arg.slice(firstColon + 1)}`;
+    };
+    var correctUrl = (giturl) => {
+      const firstAt = lastIndexOfBefore(giturl, "@", "#");
+      const lastColonBeforeHash = lastIndexOfBefore(giturl, ":", "#");
+      if (lastColonBeforeHash > firstAt) {
+        giturl = giturl.slice(0, lastColonBeforeHash) + "/" + giturl.slice(lastColonBeforeHash + 1);
+      }
+      if (lastIndexOfBefore(giturl, ":", "#") === -1 && giturl.indexOf("//") === -1) {
+        giturl = `git+ssh://${giturl}`;
+      }
+      return giturl;
+    };
+    module2.exports = (giturl, protocols) => {
+      const withProtocol = protocols ? correctProtocol(giturl, protocols) : giturl;
+      return safeUrl(withProtocol) || safeUrl(correctUrl(withProtocol));
+    };
+  }
+});
+
+// node_modules/hosted-git-info/lib/from-url.js
+var require_from_url = __commonJS({
+  "node_modules/hosted-git-info/lib/from-url.js"(exports2, module2) {
+    "use strict";
+    var parseUrl = require_parse_url();
+    var isGitHubShorthand = (arg) => {
+      const firstHash = arg.indexOf("#");
+      const firstSlash = arg.indexOf("/");
+      const secondSlash = arg.indexOf("/", firstSlash + 1);
+      const firstColon = arg.indexOf(":");
+      const firstSpace = /\s/.exec(arg);
+      const firstAt = arg.indexOf("@");
+      const spaceOnlyAfterHash = !firstSpace || firstHash > -1 && firstSpace.index > firstHash;
+      const atOnlyAfterHash = firstAt === -1 || firstHash > -1 && firstAt > firstHash;
+      const colonOnlyAfterHash = firstColon === -1 || firstHash > -1 && firstColon > firstHash;
+      const secondSlashOnlyAfterHash = secondSlash === -1 || firstHash > -1 && secondSlash > firstHash;
+      const hasSlash = firstSlash > 0;
+      const doesNotEndWithSlash = firstHash > -1 ? arg[firstHash - 1] !== "/" : !arg.endsWith("/");
+      const doesNotStartWithDot = !arg.startsWith(".");
+      return spaceOnlyAfterHash && hasSlash && doesNotEndWithSlash && doesNotStartWithDot && atOnlyAfterHash && colonOnlyAfterHash && secondSlashOnlyAfterHash;
+    };
+    module2.exports = (giturl, opts, { gitHosts, protocols }) => {
+      if (!giturl) {
+        return;
+      }
+      const correctedUrl = isGitHubShorthand(giturl) ? `github:${giturl}` : giturl;
+      const parsed = parseUrl(correctedUrl, protocols);
+      if (!parsed) {
+        return;
+      }
+      const gitHostShortcut = gitHosts.byShortcut[parsed.protocol];
+      const gitHostDomain = gitHosts.byDomain[parsed.hostname.startsWith("www.") ? parsed.hostname.slice(4) : parsed.hostname];
+      const gitHostName = gitHostShortcut || gitHostDomain;
+      if (!gitHostName) {
+        return;
+      }
+      const gitHostInfo = gitHosts[gitHostShortcut || gitHostDomain];
+      let auth = null;
+      if (protocols[parsed.protocol]?.auth && (parsed.username || parsed.password)) {
+        auth = `${parsed.username}${parsed.password ? ":" + parsed.password : ""}`;
+      }
+      let committish = null;
+      let user = null;
+      let project = null;
+      let defaultRepresentation = null;
+      try {
+        if (gitHostShortcut) {
+          let pathname = parsed.pathname.startsWith("/") ? parsed.pathname.slice(1) : parsed.pathname;
+          const firstAt = pathname.indexOf("@");
+          if (firstAt > -1) {
+            pathname = pathname.slice(firstAt + 1);
+          }
+          const lastSlash = pathname.lastIndexOf("/");
+          if (lastSlash > -1) {
+            user = decodeURIComponent(pathname.slice(0, lastSlash));
+            if (!user) {
+              user = null;
+            }
+            project = decodeURIComponent(pathname.slice(lastSlash + 1));
+          } else {
+            project = decodeURIComponent(pathname);
+          }
+          if (project.endsWith(".git")) {
+            project = project.slice(0, -4);
+          }
+          if (parsed.hash) {
+            committish = decodeURIComponent(parsed.hash.slice(1));
+          }
+          defaultRepresentation = "shortcut";
+        } else {
+          if (!gitHostInfo.protocols.includes(parsed.protocol)) {
+            return;
+          }
+          const segments = gitHostInfo.extract(parsed);
+          if (!segments) {
+            return;
+          }
+          user = segments.user && decodeURIComponent(segments.user);
+          project = decodeURIComponent(segments.project);
+          committish = decodeURIComponent(segments.committish);
+          defaultRepresentation = protocols[parsed.protocol]?.name || parsed.protocol.slice(0, -1);
+        }
+      } catch (err) {
+        if (err instanceof URIError) {
+          return;
+        } else {
+          throw err;
+        }
+      }
+      return [gitHostName, user, auth, project, committish, defaultRepresentation, opts];
+    };
+  }
+});
+
+// node_modules/hosted-git-info/lib/index.js
+var require_lib = __commonJS({
+  "node_modules/hosted-git-info/lib/index.js"(exports2, module2) {
+    "use strict";
+    var { LRUCache } = require_index_min();
+    var hosts = require_hosts();
+    var fromUrl = require_from_url();
+    var parseUrl = require_parse_url();
+    var cache = new LRUCache({ max: 1e3 });
+    function unknownHostedUrl(url) {
+      try {
+        const {
+          protocol,
+          hostname,
+          pathname
+        } = new URL(url);
+        if (!hostname) {
+          return null;
+        }
+        const proto = /(?:git\+)http:$/.test(protocol) ? "http:" : "https:";
+        const path = pathname.replace(/\.git$/, "");
+        return `${proto}//${hostname}${path}`;
+      } catch {
+        return null;
+      }
+    }
+    var GitHost = class _GitHost {
+      constructor(type, user, auth, project, committish, defaultRepresentation, opts = {}) {
+        Object.assign(this, _GitHost.#gitHosts[type], {
+          type,
+          user,
+          auth,
+          project,
+          committish,
+          default: defaultRepresentation,
+          opts
+        });
+      }
+      static #gitHosts = { byShortcut: {}, byDomain: {} };
+      static #protocols = {
+        "git+ssh:": { name: "sshurl" },
+        "ssh:": { name: "sshurl" },
+        "git+https:": { name: "https", auth: true },
+        "git:": { auth: true },
+        "http:": { auth: true },
+        "https:": { auth: true },
+        "git+http:": { auth: true }
+      };
+      static addHost(name, host) {
+        _GitHost.#gitHosts[name] = host;
+        _GitHost.#gitHosts.byDomain[host.domain] = name;
+        _GitHost.#gitHosts.byShortcut[`${name}:`] = name;
+        _GitHost.#protocols[`${name}:`] = { name };
+      }
+      static fromUrl(giturl, opts) {
+        if (typeof giturl !== "string") {
+          return;
+        }
+        const key = giturl + JSON.stringify(opts || {});
+        if (!cache.has(key)) {
+          const hostArgs = fromUrl(giturl, opts, {
+            gitHosts: _GitHost.#gitHosts,
+            protocols: _GitHost.#protocols
+          });
+          cache.set(key, hostArgs ? new _GitHost(...hostArgs) : void 0);
+        }
+        return cache.get(key);
+      }
+      static fromManifest(manifest, opts = {}) {
+        if (!manifest || typeof manifest !== "object") {
+          return;
+        }
+        const r = manifest.repository;
+        const rurl = r && (typeof r === "string" ? r : typeof r === "object" && typeof r.url === "string" ? r.url : null);
+        if (!rurl) {
+          throw new Error("no repository");
+        }
+        const info = rurl && _GitHost.fromUrl(rurl.replace(/^git\+/, ""), opts) || null;
+        if (info) {
+          return info;
+        }
+        const unk = unknownHostedUrl(rurl);
+        return _GitHost.fromUrl(unk, opts) || unk;
+      }
+      static parseUrl(url) {
+        return parseUrl(url);
+      }
+      #fill(template, opts) {
+        if (typeof template !== "function") {
+          return null;
+        }
+        const options = { ...this, ...this.opts, ...opts };
+        if (!options.path) {
+          options.path = "";
+        }
+        if (options.path.startsWith("/")) {
+          options.path = options.path.slice(1);
+        }
+        if (options.noCommittish) {
+          options.committish = null;
+        }
+        const result = template(options);
+        return options.noGitPlus && result.startsWith("git+") ? result.slice(4) : result;
+      }
+      hash() {
+        return this.committish ? `#${this.committish}` : "";
+      }
+      ssh(opts) {
+        return this.#fill(this.sshtemplate, opts);
+      }
+      sshurl(opts) {
+        return this.#fill(this.sshurltemplate, opts);
+      }
+      browse(path, ...args) {
+        if (typeof path !== "string") {
+          return this.#fill(this.browsetemplate, path);
+        }
+        if (typeof args[0] !== "string") {
+          return this.#fill(this.browsetreetemplate, { ...args[0], path });
+        }
+        return this.#fill(this.browsetreetemplate, { ...args[1], fragment: args[0], path });
+      }
+      // If the path is known to be a file, then browseFile should be used. For some hosts
+      // the url is the same as browse, but for others like GitHub a file can use both `/tree/`
+      // and `/blob/` in the path. When using a default committish of `HEAD` then the `/tree/`
+      // path will redirect to a specific commit. Using the `/blob/` path avoids this and
+      // does not redirect to a different commit.
+      browseFile(path, ...args) {
+        if (typeof args[0] !== "string") {
+          return this.#fill(this.browseblobtemplate, { ...args[0], path });
+        }
+        return this.#fill(this.browseblobtemplate, { ...args[1], fragment: args[0], path });
+      }
+      docs(opts) {
+        return this.#fill(this.docstemplate, opts);
+      }
+      bugs(opts) {
+        return this.#fill(this.bugstemplate, opts);
+      }
+      https(opts) {
+        return this.#fill(this.httpstemplate, opts);
+      }
+      git(opts) {
+        return this.#fill(this.gittemplate, opts);
+      }
+      shortcut(opts) {
+        return this.#fill(this.shortcuttemplate, opts);
+      }
+      path(opts) {
+        return this.#fill(this.pathtemplate, opts);
+      }
+      tarball(opts) {
+        return this.#fill(this.tarballtemplate, { ...opts, noCommittish: false });
+      }
+      file(path, opts) {
+        return this.#fill(this.filetemplate, { ...opts, path });
+      }
+      edit(path, opts) {
+        return this.#fill(this.edittemplate, { ...opts, path });
+      }
+      getDefaultRepresentation() {
+        return this.default;
+      }
+      toString(opts) {
+        if (this.default && typeof this[this.default] === "function") {
+          return this[this.default](opts);
+        }
+        return this.sshurl(opts);
+      }
+    };
+    for (const [name, host] of Object.entries(hosts)) {
+      GitHost.addHost(name, host);
+    }
+    module2.exports = GitHost;
+  }
+});
+
 // node_modules/semver/internal/constants.js
 var require_constants = __commonJS({
   "node_modules/semver/internal/constants.js"(exports2, module2) {
@@ -7853,11 +8946,11 @@ var require_valid = __commonJS({
   "node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid3 = (version, options) => {
+    var valid4 = (version, options) => {
       const v2 = parse(version, options);
       return v2 ? v2.version : null;
     };
-    module2.exports = valid3;
+    module2.exports = valid4;
   }
 });
 
@@ -8044,8 +9137,8 @@ var require_rsort = __commonJS({
   "node_modules/semver/functions/rsort.js"(exports2, module2) {
     "use strict";
     var compareBuild = require_compare_build();
-    var rsort = (list, loose) => list.sort((a, b2) => compareBuild(b2, a, loose));
-    module2.exports = rsort;
+    var rsort2 = (list, loose) => list.sort((a, b2) => compareBuild(b2, a, loose));
+    module2.exports = rsort2;
   }
 });
 
@@ -8931,14 +10024,14 @@ var require_valid2 = __commonJS({
   "node_modules/semver/ranges/valid.js"(exports2, module2) {
     "use strict";
     var Range = require_range();
-    var validRange2 = (range, options) => {
+    var validRange3 = (range, options) => {
       try {
         return new Range(range, options).range || "*";
       } catch (er2) {
         return null;
       }
     };
-    module2.exports = validRange2;
+    module2.exports = validRange3;
   }
 });
 
@@ -9266,7 +10359,7 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid3 = require_valid();
+    var valid4 = require_valid();
     var clean = require_clean();
     var inc = require_inc();
     var diff = require_diff();
@@ -9279,7 +10372,7 @@ var require_semver2 = __commonJS({
     var compareLoose = require_compare_loose();
     var compareBuild = require_compare_build();
     var sort = require_sort();
-    var rsort = require_rsort();
+    var rsort2 = require_rsort();
     var gt2 = require_gt();
     var lt3 = require_lt();
     var eq = require_eq();
@@ -9296,7 +10389,7 @@ var require_semver2 = __commonJS({
     var maxSatisfying = require_max_satisfying();
     var minSatisfying = require_min_satisfying();
     var minVersion = require_min_version();
-    var validRange2 = require_valid2();
+    var validRange3 = require_valid2();
     var outside = require_outside();
     var gtr = require_gtr();
     var ltr = require_ltr();
@@ -9305,7 +10398,7 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid: valid3,
+      valid: valid4,
       clean,
       inc,
       diff,
@@ -9318,7 +10411,7 @@ var require_semver2 = __commonJS({
       compareLoose,
       compareBuild,
       sort,
-      rsort,
+      rsort: rsort2,
       gt: gt2,
       lt: lt3,
       eq,
@@ -9335,7 +10428,7 @@ var require_semver2 = __commonJS({
       maxSatisfying,
       minSatisfying,
       minVersion,
-      validRange: validRange2,
+      validRange: validRange3,
       outside,
       gtr,
       ltr,
@@ -9351,6 +10444,663 @@ var require_semver2 = __commonJS({
       compareIdentifiers: identifiers.compareIdentifiers,
       rcompareIdentifiers: identifiers.rcompareIdentifiers
     };
+  }
+});
+
+// node_modules/validate-npm-package-name/lib/builtin-modules.json
+var require_builtin_modules = __commonJS({
+  "node_modules/validate-npm-package-name/lib/builtin-modules.json"(exports2, module2) {
+    module2.exports = ["_http_agent", "_http_client", "_http_common", "_http_incoming", "_http_outgoing", "_http_server", "_stream_duplex", "_stream_passthrough", "_stream_readable", "_stream_transform", "_stream_wrap", "_stream_writable", "_tls_common", "_tls_wrap", "assert", "assert/strict", "async_hooks", "buffer", "child_process", "cluster", "console", "constants", "crypto", "dgram", "diagnostics_channel", "dns", "dns/promises", "domain", "events", "fs", "fs/promises", "http", "http2", "https", "inspector", "inspector/promises", "module", "net", "os", "path", "path/posix", "path/win32", "perf_hooks", "process", "punycode", "querystring", "readline", "readline/promises", "repl", "stream", "stream/consumers", "stream/promises", "stream/web", "string_decoder", "sys", "timers", "timers/promises", "tls", "trace_events", "tty", "url", "util", "util/types", "v8", "vm", "wasi", "worker_threads", "zlib", "node:sea", "node:sqlite", "node:test", "node:test/reporters"];
+  }
+});
+
+// node_modules/validate-npm-package-name/lib/index.js
+var require_lib2 = __commonJS({
+  "node_modules/validate-npm-package-name/lib/index.js"(exports2, module2) {
+    "use strict";
+    var builtins = require_builtin_modules();
+    var scopedPackagePattern = new RegExp("^(?:@([^/]+?)[/])?([^/]+?)$");
+    var exclusionList = [
+      "node_modules",
+      "favicon.ico"
+    ];
+    function validate(name) {
+      var warnings = [];
+      var errors = [];
+      if (name === null) {
+        errors.push("name cannot be null");
+        return done(warnings, errors);
+      }
+      if (name === void 0) {
+        errors.push("name cannot be undefined");
+        return done(warnings, errors);
+      }
+      if (typeof name !== "string") {
+        errors.push("name must be a string");
+        return done(warnings, errors);
+      }
+      if (!name.length) {
+        errors.push("name length must be greater than zero");
+      }
+      if (name.startsWith(".")) {
+        errors.push("name cannot start with a period");
+      }
+      if (name.startsWith("-")) {
+        errors.push("name cannot start with a hyphen");
+      }
+      if (name.match(/^_/)) {
+        errors.push("name cannot start with an underscore");
+      }
+      if (name.trim() !== name) {
+        errors.push("name cannot contain leading or trailing spaces");
+      }
+      exclusionList.forEach(function(excludedName) {
+        if (name.toLowerCase() === excludedName) {
+          errors.push(excludedName + " is not a valid package name");
+        }
+      });
+      if (builtins.includes(name.toLowerCase())) {
+        warnings.push(name + " is a core module name");
+      }
+      if (name.length > 214) {
+        warnings.push("name can no longer contain more than 214 characters");
+      }
+      if (name.toLowerCase() !== name) {
+        warnings.push("name can no longer contain capital letters");
+      }
+      if (/[~'!()*]/.test(name.split("/").slice(-1)[0])) {
+        warnings.push(`name can no longer contain special characters ("~'!()*")`);
+      }
+      if (encodeURIComponent(name) !== name) {
+        var nameMatch = name.match(scopedPackagePattern);
+        if (nameMatch) {
+          var user = nameMatch[1];
+          var pkg = nameMatch[2];
+          if (pkg.startsWith(".")) {
+            errors.push("name cannot start with a period");
+          }
+          if (encodeURIComponent(user) === user && encodeURIComponent(pkg) === pkg) {
+            return done(warnings, errors);
+          }
+        }
+        errors.push("name can only contain URL-friendly characters");
+      }
+      return done(warnings, errors);
+    }
+    var done = function(warnings, errors) {
+      var result = {
+        validForNewPackages: errors.length === 0 && warnings.length === 0,
+        validForOldPackages: errors.length === 0,
+        warnings,
+        errors
+      };
+      if (!result.warnings.length) {
+        delete result.warnings;
+      }
+      if (!result.errors.length) {
+        delete result.errors;
+      }
+      return result;
+    };
+    module2.exports = validate;
+  }
+});
+
+// node_modules/proc-log/lib/index.js
+var require_lib3 = __commonJS({
+  "node_modules/proc-log/lib/index.js"(exports2, module2) {
+    var META = /* @__PURE__ */ Symbol("proc-log.meta");
+    module2.exports = {
+      META,
+      output: {
+        LEVELS: [
+          "standard",
+          "error",
+          "buffer",
+          "flush"
+        ],
+        KEYS: {
+          standard: "standard",
+          error: "error",
+          buffer: "buffer",
+          flush: "flush"
+        },
+        standard: function(...args) {
+          return process.emit("output", "standard", ...args);
+        },
+        error: function(...args) {
+          return process.emit("output", "error", ...args);
+        },
+        buffer: function(...args) {
+          return process.emit("output", "buffer", ...args);
+        },
+        flush: function(...args) {
+          return process.emit("output", "flush", ...args);
+        }
+      },
+      log: {
+        LEVELS: [
+          "notice",
+          "error",
+          "warn",
+          "info",
+          "verbose",
+          "http",
+          "silly",
+          "timing",
+          "pause",
+          "resume"
+        ],
+        KEYS: {
+          notice: "notice",
+          error: "error",
+          warn: "warn",
+          info: "info",
+          verbose: "verbose",
+          http: "http",
+          silly: "silly",
+          timing: "timing",
+          pause: "pause",
+          resume: "resume"
+        },
+        error: function(...args) {
+          return process.emit("log", "error", ...args);
+        },
+        notice: function(...args) {
+          return process.emit("log", "notice", ...args);
+        },
+        warn: function(...args) {
+          return process.emit("log", "warn", ...args);
+        },
+        info: function(...args) {
+          return process.emit("log", "info", ...args);
+        },
+        verbose: function(...args) {
+          return process.emit("log", "verbose", ...args);
+        },
+        http: function(...args) {
+          return process.emit("log", "http", ...args);
+        },
+        silly: function(...args) {
+          return process.emit("log", "silly", ...args);
+        },
+        timing: function(...args) {
+          return process.emit("log", "timing", ...args);
+        },
+        pause: function() {
+          return process.emit("log", "pause");
+        },
+        resume: function() {
+          return process.emit("log", "resume");
+        }
+      },
+      time: {
+        LEVELS: [
+          "start",
+          "end"
+        ],
+        KEYS: {
+          start: "start",
+          end: "end"
+        },
+        start: function(name, fn) {
+          process.emit("time", "start", name);
+          function end() {
+            return process.emit("time", "end", name);
+          }
+          if (typeof fn === "function") {
+            const res = fn();
+            if (res && res.finally) {
+              return res.finally(end);
+            }
+            end();
+            return res;
+          }
+          return end;
+        },
+        end: function(name) {
+          return process.emit("time", "end", name);
+        }
+      },
+      input: {
+        LEVELS: [
+          "start",
+          "end",
+          "read"
+        ],
+        KEYS: {
+          start: "start",
+          end: "end",
+          read: "read"
+        },
+        start: function(...args) {
+          let fn;
+          if (typeof args[0] === "function") {
+            fn = args.shift();
+          }
+          process.emit("input", "start", ...args);
+          function end() {
+            return process.emit("input", "end", ...args);
+          }
+          if (typeof fn === "function") {
+            const res = fn();
+            if (res && res.finally) {
+              return res.finally(end);
+            }
+            end();
+            return res;
+          }
+          return end;
+        },
+        end: function(...args) {
+          return process.emit("input", "end", ...args);
+        },
+        read: function(...args) {
+          let resolve11, reject;
+          const promise = new Promise((_resolve, _reject) => {
+            resolve11 = _resolve;
+            reject = _reject;
+          });
+          process.emit("input", "read", resolve11, reject, ...args);
+          return promise;
+        }
+      }
+    };
+  }
+});
+
+// node_modules/npm-package-arg/lib/npa.js
+var require_npa = __commonJS({
+  "node_modules/npm-package-arg/lib/npa.js"(exports2, module2) {
+    "use strict";
+    var isWindows = process.platform === "win32";
+    var { URL: URL2 } = require("node:url");
+    var path = isWindows ? require("node:path/win32") : require("node:path");
+    var { homedir } = require("node:os");
+    var HostedGit = require_lib();
+    var semver = require_semver2();
+    var validatePackageName = require_lib2();
+    var { log } = require_lib3();
+    var hasSlashes = isWindows ? /\\|[/]/ : /[/]/;
+    var isURL = /^(?:git[+])?[a-z]+:/i;
+    var isGit = /^[^@]+@[^:.]+\.[^:]+:.+$/i;
+    var isFileType = /[.](?:tgz|tar\.gz|tar)$/i;
+    var isPortNumber = /:[0-9]+(\/|$)/i;
+    var isWindowsFile = /^(?:[.]|~[/]|[/\\]|[a-zA-Z]:)/;
+    var isPosixFile = /^(?:[.]|~[/]|[/]|[a-zA-Z]:)/;
+    var defaultRegistry = "https://registry.npmjs.org";
+    function npa2(arg, where) {
+      let name;
+      let spec;
+      if (typeof arg === "object") {
+        if (arg instanceof Result && (!where || where === arg.where)) {
+          return arg;
+        } else if (arg.name && arg.rawSpec) {
+          return npa2.resolve(arg.name, arg.rawSpec, where || arg.where);
+        } else {
+          return npa2(arg.raw, where || arg.where);
+        }
+      }
+      const nameEndsAt = arg.indexOf("@", 1);
+      const namePart = nameEndsAt > 0 ? arg.slice(0, nameEndsAt) : arg;
+      if (isURL.test(arg)) {
+        spec = arg;
+      } else if (isGit.test(arg)) {
+        spec = `git+ssh://${arg}`;
+      } else if (!namePart.startsWith("@") && (hasSlashes.test(namePart) || isFileType.test(namePart))) {
+        spec = arg;
+      } else if (nameEndsAt > 0) {
+        name = namePart;
+        spec = arg.slice(nameEndsAt + 1) || "*";
+      } else {
+        const valid4 = validatePackageName(arg);
+        if (valid4.validForOldPackages) {
+          name = arg;
+          spec = "*";
+        } else {
+          spec = arg;
+        }
+      }
+      return resolve11(name, spec, where, arg);
+    }
+    function isFileSpec(spec) {
+      if (!spec) {
+        return false;
+      }
+      if (spec.toLowerCase().startsWith("file:")) {
+        return true;
+      }
+      if (isWindows) {
+        return isWindowsFile.test(spec);
+      }
+      return isPosixFile.test(spec);
+    }
+    function isAliasSpec(spec) {
+      if (!spec) {
+        return false;
+      }
+      return spec.toLowerCase().startsWith("npm:");
+    }
+    function resolve11(name, spec, where, arg) {
+      const res = new Result({
+        raw: arg,
+        name,
+        rawSpec: spec,
+        fromArgument: arg != null
+      });
+      if (name) {
+        res.name = name;
+      }
+      if (!where) {
+        where = process.cwd();
+      }
+      if (isFileSpec(spec)) {
+        return fromFile(res, where);
+      } else if (isAliasSpec(spec)) {
+        return fromAlias(res, where);
+      }
+      const hosted = HostedGit.fromUrl(spec, {
+        noGitPlus: true,
+        noCommittish: true
+      });
+      if (hosted) {
+        return fromHostedGit(res, hosted);
+      } else if (spec && isURL.test(spec)) {
+        return fromURL(res);
+      } else if (spec && (hasSlashes.test(spec) || isFileType.test(spec))) {
+        return fromFile(res, where);
+      } else {
+        return fromRegistry(res);
+      }
+    }
+    function toPurl(arg, reg = defaultRegistry) {
+      const res = npa2(arg);
+      if (res.type !== "version") {
+        throw invalidPurlType(res.type, res.raw);
+      }
+      let purl = "pkg:npm/" + res.name.replace(/^@/, "%40") + "@" + res.rawSpec;
+      if (reg !== defaultRegistry) {
+        purl += "?repository_url=" + reg;
+      }
+      return purl;
+    }
+    function invalidPackageName(name, valid4, raw) {
+      const err = new Error(`Invalid package name "${name}" of package "${raw}": ${valid4.errors.join("; ")}.`);
+      err.code = "EINVALIDPACKAGENAME";
+      return err;
+    }
+    function invalidTagName(name, raw) {
+      const err = new Error(`Invalid tag name "${name}" of package "${raw}": Tags may not have any characters that encodeURIComponent encodes.`);
+      err.code = "EINVALIDTAGNAME";
+      return err;
+    }
+    function invalidPurlType(type, raw) {
+      const err = new Error(`Invalid type "${type}" of package "${raw}": Purl can only be generated for "version" types.`);
+      err.code = "EINVALIDPURLTYPE";
+      return err;
+    }
+    var Result = class {
+      constructor(opts) {
+        this.type = opts.type;
+        this.registry = opts.registry;
+        this.where = opts.where;
+        if (opts.raw == null) {
+          this.raw = opts.name ? `${opts.name}@${opts.rawSpec}` : opts.rawSpec;
+        } else {
+          this.raw = opts.raw;
+        }
+        this.name = void 0;
+        this.escapedName = void 0;
+        this.scope = void 0;
+        this.rawSpec = opts.rawSpec || "";
+        this.saveSpec = opts.saveSpec;
+        this.fetchSpec = opts.fetchSpec;
+        if (opts.name) {
+          this.setName(opts.name);
+        }
+        this.gitRange = opts.gitRange;
+        this.gitCommittish = opts.gitCommittish;
+        this.gitSubdir = opts.gitSubdir;
+        this.hosted = opts.hosted;
+      }
+      // TODO move this to a getter/setter in a semver major
+      setName(name) {
+        const valid4 = validatePackageName(name);
+        if (!valid4.validForOldPackages) {
+          throw invalidPackageName(name, valid4, this.raw);
+        }
+        this.name = name;
+        this.scope = name[0] === "@" ? name.slice(0, name.indexOf("/")) : void 0;
+        this.escapedName = name.replace("/", "%2f");
+        return this;
+      }
+      toString() {
+        const full = [];
+        if (this.name != null && this.name !== "") {
+          full.push(this.name);
+        }
+        const spec = this.saveSpec || this.fetchSpec || this.rawSpec;
+        if (spec != null && spec !== "") {
+          full.push(spec);
+        }
+        return full.length ? full.join("@") : this.raw;
+      }
+      toJSON() {
+        const result = Object.assign({}, this);
+        delete result.hosted;
+        return result;
+      }
+    };
+    function setGitAttrs(res, committish) {
+      if (!committish) {
+        res.gitCommittish = null;
+        return;
+      }
+      for (const part of committish.split("::")) {
+        if (!part.includes(":")) {
+          if (res.gitRange) {
+            throw new Error("cannot override existing semver range with a committish");
+          }
+          if (res.gitCommittish) {
+            throw new Error("cannot override existing committish with a second committish");
+          }
+          res.gitCommittish = part;
+          continue;
+        }
+        const [name, value] = part.split(":");
+        if (name === "semver") {
+          if (res.gitCommittish) {
+            throw new Error("cannot override existing committish with a semver range");
+          }
+          if (res.gitRange) {
+            throw new Error("cannot override existing semver range with a second semver range");
+          }
+          res.gitRange = decodeURIComponent(value);
+          continue;
+        }
+        if (name === "path") {
+          if (res.gitSubdir) {
+            throw new Error("cannot override existing path with a second path");
+          }
+          res.gitSubdir = `/${value}`;
+          continue;
+        }
+        log.warn("npm-package-arg", `ignoring unknown key "${name}"`);
+      }
+    }
+    var encodedPathChars = /* @__PURE__ */ new Map([
+      ["\0", "%00"],
+      ["	", "%09"],
+      ["\n", "%0A"],
+      ["\r", "%0D"],
+      [" ", "%20"],
+      ['"', "%22"],
+      ["#", "%23"],
+      ["%", "%25"],
+      ["?", "%3F"],
+      ["[", "%5B"],
+      ["\\", isWindows ? "/" : "%5C"],
+      ["]", "%5D"],
+      ["^", "%5E"],
+      ["|", "%7C"],
+      ["~", "%7E"]
+    ]);
+    function pathToFileURL(str) {
+      let result = "";
+      for (let i = 0; i < str.length; i++) {
+        result = `${result}${encodedPathChars.get(str[i]) ?? str[i]}`;
+      }
+      if (result.startsWith("file:")) {
+        return result;
+      }
+      return `file:${result}`;
+    }
+    function fromFile(res, where) {
+      res.type = isFileType.test(res.rawSpec) ? "file" : "directory";
+      res.where = where;
+      let rawSpec = pathToFileURL(res.rawSpec);
+      if (rawSpec.startsWith("file:/")) {
+        if (/^file:\/\/[^/]/.test(rawSpec)) {
+          rawSpec = `file:/${rawSpec.slice(5)}`;
+        }
+        if (/^\/{1,3}\.\.?(\/|$)/.test(rawSpec.slice(5))) {
+          rawSpec = rawSpec.replace(/^file:\/{1,3}/, "file:");
+        }
+      }
+      let resolvedUrl;
+      let specUrl;
+      try {
+        resolvedUrl = new URL2(rawSpec, `${pathToFileURL(path.resolve(where))}/`);
+        specUrl = new URL2(rawSpec);
+      } catch (originalError) {
+        const er2 = new Error("Invalid file: URL, must comply with RFC 8089");
+        throw Object.assign(er2, {
+          raw: res.rawSpec,
+          spec: res,
+          where,
+          originalError
+        });
+      }
+      let specPath = decodeURIComponent(specUrl.pathname);
+      let resolvedPath = decodeURIComponent(resolvedUrl.pathname);
+      if (isWindows) {
+        specPath = specPath.replace(/^\/+([a-z]:\/)/i, "$1");
+        resolvedPath = resolvedPath.replace(/^\/+([a-z]:\/)/i, "$1");
+      }
+      if (/^\/~(\/|$)/.test(specPath)) {
+        res.saveSpec = `file:${specPath.substr(1)}`;
+        resolvedPath = path.resolve(homedir(), specPath.substr(3));
+      } else if (!path.isAbsolute(rawSpec.slice(5))) {
+        res.saveSpec = `file:${path.relative(where, resolvedPath)}`;
+      } else {
+        res.saveSpec = `file:${path.resolve(resolvedPath)}`;
+      }
+      res.fetchSpec = path.resolve(where, resolvedPath);
+      res.saveSpec = res.saveSpec.split("\\").join("/");
+      if (res.saveSpec.startsWith("file://")) {
+        res.saveSpec = `file:/${res.saveSpec.slice(7)}`;
+      }
+      return res;
+    }
+    function fromHostedGit(res, hosted) {
+      res.type = "git";
+      res.hosted = hosted;
+      res.saveSpec = hosted.toString({ noGitPlus: false, noCommittish: false });
+      res.fetchSpec = hosted.getDefaultRepresentation() === "shortcut" ? null : hosted.toString();
+      setGitAttrs(res, hosted.committish);
+      return res;
+    }
+    function unsupportedURLType(protocol, spec) {
+      const err = new Error(`Unsupported URL Type "${protocol}": ${spec}`);
+      err.code = "EUNSUPPORTEDPROTOCOL";
+      return err;
+    }
+    function fromURL(res) {
+      let rawSpec = res.rawSpec;
+      res.saveSpec = rawSpec;
+      if (rawSpec.startsWith("git+ssh:")) {
+        const matched = rawSpec.match(/^git\+ssh:\/\/([^:#]+:[^#]+(?:\.git)?)(?:#(.*))?$/i);
+        if (matched && !matched[1].match(isPortNumber)) {
+          res.type = "git";
+          setGitAttrs(res, matched[2]);
+          res.fetchSpec = matched[1];
+          return res;
+        }
+      } else if (rawSpec.startsWith("git+file://")) {
+        rawSpec = rawSpec.replace(/\\/g, "/");
+      }
+      const parsedUrl = new URL2(rawSpec);
+      switch (parsedUrl.protocol) {
+        case "git:":
+        case "git+http:":
+        case "git+https:":
+        case "git+rsync:":
+        case "git+ftp:":
+        case "git+file:":
+        case "git+ssh:":
+          res.type = "git";
+          setGitAttrs(res, parsedUrl.hash.slice(1));
+          if (parsedUrl.protocol === "git+file:" && /^git\+file:\/\/[a-z]:/i.test(rawSpec)) {
+            res.fetchSpec = `git+file://${parsedUrl.host.toLowerCase()}:${parsedUrl.pathname}`;
+          } else {
+            parsedUrl.hash = "";
+            res.fetchSpec = parsedUrl.toString();
+          }
+          if (res.fetchSpec.startsWith("git+")) {
+            res.fetchSpec = res.fetchSpec.slice(4);
+          }
+          break;
+        case "http:":
+        case "https:":
+          res.type = "remote";
+          res.fetchSpec = res.saveSpec;
+          break;
+        default:
+          throw unsupportedURLType(parsedUrl.protocol, rawSpec);
+      }
+      return res;
+    }
+    function fromAlias(res, where) {
+      const subSpec = npa2(res.rawSpec.substr(4), where);
+      if (subSpec.type === "alias") {
+        throw new Error("nested aliases not supported");
+      }
+      if (!subSpec.registry) {
+        throw new Error("aliases only work for registry deps");
+      }
+      if (!subSpec.name) {
+        throw new Error("aliases must have a name");
+      }
+      res.subSpec = subSpec;
+      res.registry = true;
+      res.type = "alias";
+      res.saveSpec = null;
+      res.fetchSpec = null;
+      return res;
+    }
+    function fromRegistry(res) {
+      res.registry = true;
+      const spec = res.rawSpec.trim();
+      res.saveSpec = null;
+      res.fetchSpec = spec;
+      const version = semver.valid(spec, true);
+      const range = semver.validRange(spec, true);
+      if (version) {
+        res.type = "version";
+      } else if (range) {
+        res.type = "range";
+      } else {
+        if (encodeURIComponent(spec) !== spec) {
+          throw invalidTagName(spec, res.raw);
+        }
+        res.type = "tag";
+      }
+      return res;
+    }
+    module2.exports = npa2;
+    module2.exports.resolve = resolve11;
+    module2.exports.toPurl = toPurl;
+    module2.exports.Result = Result;
   }
 });
 
@@ -15101,11 +16851,11 @@ var require_out4 = __commonJS({
 });
 
 // src/action.ts
-var import_node_fs7 = require("node:fs");
+var import_node_fs8 = require("node:fs");
 var import_node_path21 = require("node:path");
 
 // src/orchestrate.ts
-var import_promises11 = require("node:fs/promises");
+var import_promises10 = require("node:fs/promises");
 var import_node_path20 = require("node:path");
 var import_node_os4 = require("node:os");
 
@@ -15255,75 +17005,94 @@ async function loadConfig(workspaceRoot) {
 }
 
 // src/graph/dependencies.ts
+var import_npm_package_arg = __toESM(require_npa());
 var import_semver = __toESM(require_semver2());
 function dependencyMap(manifest, field, packageName) {
   const value = manifest[field];
-  if (value === void 0) {
-    return {};
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${packageName} packed ${field} must be a mapping`);
-  }
-  const result = {};
+  if (value === void 0) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(packageName + " packed " + field + " must be a mapping");
+  const result = /* @__PURE__ */ Object.create(null);
   for (const [name, range] of Object.entries(value)) {
-    if (typeof range !== "string" || range.length === 0) {
+    if (typeof range !== "string" || range.length === 0)
       throw new Error(
-        `${packageName} packed ${field}.${name} must be a non-empty string`
+        packageName + " packed " + field + "." + name + " must be a non-empty string"
       );
-    }
     result[name] = range;
   }
   return result;
 }
-function validateInternalRange(packageName, field, dependencyName, range, dependencyVersion) {
-  if (!(0, import_semver.satisfies)(dependencyVersion, range)) {
-    throw new Error(
-      `${packageName} packed ${field} range ${dependencyName}@${range} does not accept workspace version ${dependencyVersion}`
-    );
-  }
-}
-function buildWorkspaceDependencyGraph(packages, artifacts) {
-  const packageMap = new Map(packages.map((pkg) => [pkg.name, pkg]));
+function buildWorkspaceDependencyGraph(packages, artifacts, snapshots) {
+  const managed = new Map(packages.map((pkg) => [pkg.name, pkg]));
+  const candidates = new Map(
+    packages.filter((pkg) => artifacts.has(pkg.name)).map((pkg) => [pkg.name, pkg])
+  );
   const hardDependencies = /* @__PURE__ */ new Map();
-  for (const pkg of packages) {
-    const artifact = artifacts.get(pkg.name);
-    if (!artifact) {
-      throw new Error(`Missing packed artifact for ${pkg.name}`);
-    }
-    const hard = /* @__PURE__ */ new Set();
-    for (const field of [
-      "dependencies",
+  const requirements = /* @__PURE__ */ new Map();
+  for (const [name, pkg] of candidates) {
+    const artifact = artifacts.get(name);
+    const dependencies = dependencyMap(artifact.manifest, "dependencies", name);
+    const optional = dependencyMap(
+      artifact.manifest,
       "optionalDependencies",
-      "peerDependencies"
+      name
+    );
+    for (const installName of Object.keys(optional))
+      delete dependencies[installName];
+    const peers = dependencyMap(artifact.manifest, "peerDependencies", name);
+    const hard = /* @__PURE__ */ new Set();
+    const required = [];
+    for (const [field, mapping] of [
+      ["dependencies", dependencies],
+      ["optionalDependencies", optional],
+      ["peerDependencies", peers]
     ]) {
-      const dependencies = dependencyMap(
-        artifact.manifest,
-        field,
-        pkg.name
-      );
-      for (const [dependencyName, range] of Object.entries(dependencies)) {
-        const workspaceDependency = packageMap.get(dependencyName);
-        if (!workspaceDependency) {
-          continue;
+      for (const [installName, spec] of Object.entries(mapping)) {
+        const parsed = import_npm_package_arg.default.resolve(installName, spec);
+        const target = parsed.type === "alias" ? parsed.subSpec : parsed;
+        if (!target.name || !managed.has(target.name)) continue;
+        if (target.type !== "range" && target.type !== "version" || !target.fetchSpec || (0, import_semver.validRange)(target.fetchSpec) === null) {
+          throw new Error(
+            name + " packed " + field + "." + installName + " must resolve to a registry SemVer range for managed package " + target.name
+          );
         }
-        validateInternalRange(
-          pkg.name,
+        const snapshot = snapshots.get(target.name);
+        if (!snapshot)
+          throw new Error("Missing registry snapshot for " + target.name);
+        const range = target.fetchSpec;
+        const liveVersion = (0, import_semver.rsort)(
+          Object.keys(snapshot.versions).filter(
+            (version) => (0, import_semver.satisfies)(version, range)
+          )
+        )[0];
+        const candidate = candidates.get(target.name);
+        const candidateMatches = candidate !== void 0 && (0, import_semver.satisfies)(candidate.version, range);
+        if (!liveVersion && !candidateMatches) {
+          throw new Error(
+            name + " packed " + field + " " + installName + " (" + target.name + "@" + range + ") has no satisfying live version or planned candidate"
+          );
+        }
+        if (!liveVersion && field === "dependencies" && pkg.publishMode === "direct" && candidate.publishMode !== "direct") {
+          throw new Error(
+            name + " cannot publish directly: required " + target.name + "@" + range + " is only a staged candidate and has no satisfying live version"
+          );
+        }
+        const requirement = {
           field,
-          dependencyName,
+          installName,
+          name: target.name,
           range,
-          workspaceDependency.version
-        );
-        if (field !== "peerDependencies") {
-          hard.add(dependencyName);
-        }
+          version: liveVersion ?? candidate.version,
+          source: liveVersion ? "live" : "candidate"
+        };
+        required.push(Object.freeze(requirement));
+        if (!liveVersion && field !== "peerDependencies") hard.add(target.name);
       }
     }
-    hardDependencies.set(pkg.name, hard);
+    hardDependencies.set(name, hard);
+    requirements.set(name, Object.freeze(required));
   }
-  return {
-    packages: packageMap,
-    hardDependencies
-  };
+  return { packages: candidates, hardDependencies, requirements };
 }
 
 // src/graph/topo.ts
@@ -15371,6 +17140,19 @@ function topologicalPublishOrder(graph, candidates) {
     );
   }
   return order;
+}
+
+// src/immutable.ts
+function immutableJson(value) {
+  const copy = structuredClone(value);
+  const freeze = (item) => {
+    if (item && typeof item === "object") {
+      for (const child of Object.values(item)) freeze(child);
+      Object.freeze(item);
+    }
+  };
+  freeze(copy);
+  return copy;
 }
 
 // src/native/augment.ts
@@ -19323,17 +21105,21 @@ function isolatedPublisherEnvironment(source, home) {
 
 // src/publish/index.ts
 var import_node_child_process4 = require("node:child_process");
-var import_promises9 = require("node:fs/promises");
+var import_promises8 = require("node:fs/promises");
 var import_node_path17 = require("node:path");
 var import_node_os3 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"));
 
+// src/registry/client.ts
+var import_semver3 = __toESM(require_semver2());
+
 // src/registry/integrity.ts
 var import_node_crypto4 = require("node:crypto");
-var import_promises8 = require("node:fs/promises");
+var import_node_fs7 = require("node:fs");
 async function sha512Integrity(path) {
-  const bytes = await (0, import_promises8.readFile)(path);
-  return "sha512-" + (0, import_node_crypto4.createHash)("sha512").update(bytes).digest("base64");
+  const hash = (0, import_node_crypto4.createHash)("sha512");
+  for await (const chunk of (0, import_node_fs7.createReadStream)(path)) hash.update(chunk);
+  return "sha512-" + hash.digest("base64");
 }
 function decodeSha512(token) {
   const match = /^sha512-([A-Za-z0-9+/]+={0,2})$/.exec(token);
@@ -19361,99 +21147,198 @@ function hasValidSha512Integrity(remoteIntegrity) {
 }
 
 // src/registry/client.ts
-var REGISTRY = "https://registry.npmjs.org";
-function versionMetadata(metadata, version) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    throw new Error("npm registry package metadata is malformed");
-  }
-  const versions = metadata.versions;
-  if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
-    throw new Error("npm registry package metadata lacks versions");
-  }
-  const value = versions[version];
-  if (value === void 0) {
-    return void 0;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`npm registry metadata for version ${version} is malformed`);
-  }
+var NPM_REGISTRY = "https://registry.npmjs.org";
+function record(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(label + " must be a mapping");
   return value;
+}
+function parseRegistrySnapshot(name, raw) {
+  const metadata = record(raw, "npm registry package metadata");
+  if (metadata.name !== name)
+    throw new Error(
+      "npm registry package identity mismatch: expected " + name + ", got " + String(metadata.name)
+    );
+  const rawVersions = record(metadata.versions, name + " registry versions");
+  const versions = /* @__PURE__ */ Object.create(null);
+  for (const [version, rawManifest] of Object.entries(rawVersions)) {
+    if ((0, import_semver3.valid)(version) !== version)
+      throw new Error(
+        name + " registry has an invalid version key: " + version
+      );
+    const manifest = record(
+      rawManifest,
+      name + "@" + version + " registry manifest"
+    );
+    if (manifest.name !== name || manifest.version !== version)
+      throw new Error(
+        "npm registry version identity mismatch for " + name + "@" + version
+      );
+    versions[version] = manifest;
+  }
+  let latestVersion;
+  if (metadata["dist-tags"] !== void 0) {
+    const tags = record(metadata["dist-tags"], name + " registry dist-tags");
+    for (const [tag, version] of Object.entries(tags)) {
+      if (typeof version !== "string" || (0, import_semver3.valid)(version) !== version || !Object.hasOwn(versions, version))
+        throw new Error(
+          name + " registry dist-tag " + tag + " does not identify a live version"
+        );
+    }
+    if (Object.hasOwn(tags, "latest")) latestVersion = tags.latest;
+  }
+  return immutableJson({ name, versions, latestVersion });
+}
+function verifyRegistryIntegrity(manifest, expectedIntegrity) {
+  if (!hasValidSha512Integrity(expectedIntegrity))
+    throw new Error("Expected artifact integrity must be SHA-512 SRI");
+  const identity = String(manifest.name) + "@" + String(manifest.version);
+  const dist = record(manifest.dist, identity + " registry dist");
+  if (typeof dist.integrity !== "string" || !hasValidSha512Integrity(dist.integrity))
+    throw new Error(
+      identity + " registry dist.integrity has no valid SHA-512 value"
+    );
+  if (!integrityContainsExactSha512(dist.integrity, expectedIntegrity))
+    throw new Error(
+      identity + " is live with different package artifact integrity"
+    );
 }
 var NpmRegistryClient = class {
   #fetchImpl;
   #readToken;
+  #requestTimeoutMs;
   constructor(options = {}) {
     this.#fetchImpl = options.fetchImpl ?? fetch;
     this.#readToken = options.readToken;
+    this.#requestTimeoutMs = options.requestTimeoutMs ?? 3e4;
   }
-  async reconcile(name, version, tarballPath) {
-    const localIntegrity = await sha512Integrity(tarballPath);
+  async lookupVersion(name, version, options = {}) {
+    if ((0, import_semver3.valid)(version) !== version)
+      throw new Error("Package version must be exact semver: " + version);
     const headers = {
       Accept: "application/json",
       "User-Agent": "releaseway-npm-actions"
     };
-    if (this.#readToken) {
-      headers.Authorization = `Bearer ${this.#readToken}`;
-    }
+    if (this.#readToken) headers.Authorization = "Bearer " + this.#readToken;
+    const timeout = AbortSignal.timeout(this.#requestTimeoutMs);
+    const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
     const response = await this.#fetchImpl(
-      `${REGISTRY}/${encodeURIComponent(name)}`,
-      { headers }
+      NPM_REGISTRY + "/" + encodeURIComponent(name),
+      { headers, signal }
     );
-    if (response.status === 404) {
+    if (response.status === 404)
       throw new Error(
-        `${name} does not exist in the npm registry; maintainer bootstrap and Trusted Publisher configuration are required`
+        name + " does not exist in the npm registry; maintainer bootstrap and Trusted Publisher configuration are required"
       );
-    }
-    if (!response.ok) {
+    if (!response.ok)
       throw new Error(
-        `npm registry metadata request failed for ${name}: HTTP ${response.status}`
+        "npm registry metadata request failed for " + name + ": HTTP " + response.status
       );
-    }
-    const metadata = await response.json();
-    const metadataRecord = metadata;
-    const distTags = metadataRecord["dist-tags"];
-    const latestVersion = distTags && typeof distTags === "object" && !Array.isArray(distTags) && typeof distTags.latest === "string" ? String(distTags.latest) : void 0;
-    const existing = versionMetadata(metadata, version);
-    if (!existing) {
+    const snapshot = parseRegistrySnapshot(name, await response.json());
+    signal.throwIfAborted();
+    if (Object.hasOwn(snapshot.versions, version))
       return {
-        state: "candidate",
+        state: "already-published",
         name,
         version,
-        integrity: localIntegrity,
-        latestVersion
+        snapshot,
+        manifest: snapshot.versions[version]
       };
-    }
-    const dist = existing.dist;
-    if (!dist || typeof dist !== "object" || Array.isArray(dist)) {
-      throw new Error(`${name}@${version} registry metadata lacks dist`);
-    }
-    const remoteIntegrity = dist.integrity;
-    if (typeof remoteIntegrity !== "string") {
-      throw new Error(
-        `${name}@${version} registry metadata lacks dist.integrity`
-      );
-    }
-    if (!hasValidSha512Integrity(remoteIntegrity)) {
-      throw new Error(
-        `${name}@${version} registry dist.integrity has no valid SHA-512 value`
-      );
-    }
-    if (!integrityContainsExactSha512(remoteIntegrity, localIntegrity)) {
-      throw new Error(
-        `${name}@${version} already exists with different package artifact integrity`
-      );
-    }
-    return {
-      state: "existing",
-      name,
-      version,
-      integrity: localIntegrity
-    };
+    return { state: "not-published", name, version, snapshot };
+  }
+  async verifyPublishedArtifact(name, version, expectedIntegrity, options = {}) {
+    if (!hasValidSha512Integrity(expectedIntegrity))
+      throw new Error("Expected artifact integrity must be SHA-512 SRI");
+    const lookup = await this.lookupVersion(name, version, options);
+    if (lookup.state === "not-published") return "not-published";
+    verifyRegistryIntegrity(lookup.manifest, expectedIntegrity);
+    return "matched";
   }
 };
 
+// src/publish/index.ts
+var defaultRunPublisher = (executable, args, options) => {
+  const result = (0, import_node_child_process4.spawnSync)(executable, [...args], {
+    ...options,
+    encoding: "utf8"
+  });
+  if (result.error) throw result.error;
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? ""
+  };
+};
+var PublishCommandError = class extends Error {
+  output;
+  constructor(request, output) {
+    super(
+      "npm " + (request.mode === "direct" ? "publish" : "stage publish") + " failed for " + request.name + "@" + request.version + ": " + output
+    );
+    this.name = "PublishCommandError";
+    this.output = output;
+  }
+};
+function isPendingRegistryScanConflict(output) {
+  return /Cannot publish over previously staged version/i.test(output);
+}
+async function assertPreparedTarball(request) {
+  if (await sha512Integrity(request.tarballPath) !== request.integrity) {
+    throw new Error(
+      "Prepared tarball changed for " + request.name + "@" + request.version
+    );
+  }
+}
+function publicationArgs(request, userConfig, globalConfig) {
+  const args = request.mode === "direct" ? ["publish", (0, import_node_path17.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path17.resolve)(request.tarballPath)];
+  args.push(
+    "--registry=" + NPM_REGISTRY + "/",
+    "--userconfig=" + userConfig,
+    "--globalconfig=" + globalConfig,
+    "--ignore-scripts"
+  );
+  if (request.publishOptions.tag)
+    args.push("--tag=" + request.publishOptions.tag);
+  if (request.publishOptions.access)
+    args.push("--access=" + request.publishOptions.access);
+  return args;
+}
+async function publishPackage(toolchain, request, options = {}) {
+  const sourceEnv = options.env ?? import_node_process3.default.env;
+  assertTrustedPublishingEnvironment(sourceEnv);
+  await assertPreparedTarball(request);
+  const base = (0, import_node_path17.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os3.tmpdir)());
+  await (0, import_promises8.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises8.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-publish-"));
+  try {
+    const home = (0, import_node_path17.join)(root, "home");
+    await (0, import_promises8.mkdir)(home, { recursive: true });
+    const userConfig = (0, import_node_path17.join)(root, "user.npmrc");
+    const globalConfig = (0, import_node_path17.join)(root, "global.npmrc");
+    const config = "registry=" + NPM_REGISTRY + "/\n";
+    await Promise.all([
+      (0, import_promises8.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
+      (0, import_promises8.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
+    ]);
+    const result = (options.runPublisher ?? defaultRunPublisher)(
+      import_node_process3.default.execPath,
+      [toolchain.npmCli, ...publicationArgs(request, userConfig, globalConfig)],
+      { cwd: root, env: isolatedPublisherEnvironment(sourceEnv, home) }
+    );
+    if (result.status !== 0) {
+      throw new PublishCommandError(
+        request,
+        [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n") || "<no output>"
+      );
+    }
+    return request.mode === "direct" ? "direct-accepted" : "staged";
+  } finally {
+    await (0, import_promises8.rm)(root, { recursive: true, force: true });
+  }
+}
+
 // src/publish/options.ts
-var import_semver3 = __toESM(require_semver2());
+var import_semver4 = __toESM(require_semver2());
 function publishConfig(manifest) {
   if (manifest.publishConfig === void 0) {
     return {};
@@ -19473,14 +21358,14 @@ function rejectCredentialConfiguration(config) {
   }
 }
 function derivePublishOptions(manifest, version, latestVersion) {
-  if ((0, import_semver3.valid)(version) !== version) {
+  if ((0, import_semver4.valid)(version) !== version) {
     throw new Error(`Package version must be exact semver: ${version}`);
   }
   const config = publishConfig(manifest);
   rejectCredentialConfiguration(config);
-  if (config.registry !== void 0 && config.registry !== REGISTRY && config.registry !== REGISTRY + "/") {
+  if (config.registry !== void 0 && config.registry !== NPM_REGISTRY && config.registry !== NPM_REGISTRY + "/") {
     throw new Error(
-      `packed publishConfig.registry must be ${REGISTRY}/`
+      `packed publishConfig.registry must be ${NPM_REGISTRY}/`
     );
   }
   let tag;
@@ -19488,7 +21373,7 @@ function derivePublishOptions(manifest, version, latestVersion) {
     if (typeof config.tag !== "string" || config.tag.length === 0) {
       throw new Error("packed publishConfig.tag must be a non-empty string");
     }
-    if ((0, import_semver3.validRange)(config.tag) !== null) {
+    if ((0, import_semver4.validRange)(config.tag) !== null) {
       throw new Error(
         `packed publishConfig.tag must not be interpretable as a SemVer range: ${config.tag}`
       );
@@ -19504,104 +21389,24 @@ function derivePublishOptions(manifest, version, latestVersion) {
     }
     access3 = config.access;
   }
-  if (!tag && (0, import_semver3.prerelease)(version) !== null) {
+  if (!tag && (0, import_semver4.prerelease)(version) !== null) {
     throw new Error(
       `${version} is a prerelease and requires explicit publishConfig.tag`
     );
   }
   if (!tag && latestVersion !== void 0) {
-    if ((0, import_semver3.valid)(latestVersion) !== latestVersion) {
+    if ((0, import_semver4.valid)(latestVersion) !== latestVersion) {
       throw new Error(
         `npm latest dist-tag is not valid semver: ${latestVersion}`
       );
     }
-    if ((0, import_semver3.lt)(version, latestVersion)) {
+    if ((0, import_semver4.lt)(version, latestVersion)) {
       throw new Error(
         `${version} is lower than current latest ${latestVersion} and requires explicit publishConfig.tag`
       );
     }
   }
   return { tag, access: access3 };
-}
-
-// src/publish/index.ts
-var defaultRunPublisher = (executable, args, options) => {
-  const result = (0, import_node_child_process4.spawnSync)(executable, [...args], {
-    cwd: options.cwd,
-    env: options.env,
-    encoding: "utf8"
-  });
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? ""
-  };
-};
-function publicationArgs(request, userConfig, globalConfig) {
-  const mutable = derivePublishOptions(
-    request.manifest,
-    request.version,
-    request.latestVersion
-  );
-  const args = request.mode === "direct" ? ["publish", (0, import_node_path17.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path17.resolve)(request.tarballPath)];
-  args.push(
-    `--registry=${REGISTRY}/`,
-    `--userconfig=${userConfig}`,
-    `--globalconfig=${globalConfig}`
-  );
-  if (mutable.tag) {
-    args.push(`--tag=${mutable.tag}`);
-  }
-  if (mutable.access) {
-    args.push(`--access=${mutable.access}`);
-  }
-  return args;
-}
-function isPendingRegistryScanConflict(output) {
-  return /Cannot publish over previously staged version/i.test(output);
-}
-async function publishPackage(toolchain, request, options = {}) {
-  const sourceEnv = options.env ?? import_node_process3.default.env;
-  assertTrustedPublishingEnvironment(sourceEnv);
-  const base = (0, import_node_path17.resolve)(
-    options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os3.tmpdir)()
-  );
-  await (0, import_promises9.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises9.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-publish-"));
-  try {
-    const home = (0, import_node_path17.join)(root, "home");
-    await (0, import_promises9.mkdir)(home, { recursive: true });
-    const userConfig = (0, import_node_path17.join)(root, "user.npmrc");
-    const globalConfig = (0, import_node_path17.join)(root, "global.npmrc");
-    const safeConfig = `registry=${REGISTRY}/
-`;
-    await Promise.all([
-      (0, import_promises9.writeFile)(userConfig, safeConfig, { encoding: "utf8", mode: 384 }),
-      (0, import_promises9.writeFile)(globalConfig, safeConfig, { encoding: "utf8", mode: 384 })
-    ]);
-    const env = isolatedPublisherEnvironment(sourceEnv, home);
-    const args = [
-      toolchain.npmCli,
-      ...publicationArgs(request, userConfig, globalConfig)
-    ];
-    const runner = options.runPublisher ?? defaultRunPublisher;
-    const result = runner(import_node_process3.default.execPath, args, {
-      cwd: root,
-      env
-    });
-    const output = result.stderr.trim() || result.stdout.trim() || "<no output>";
-    if (result.status !== 0) {
-      if (request.mode === "direct" && isPendingRegistryScanConflict(output)) {
-        return "direct-accepted";
-      }
-      throw new Error(
-        `npm ${request.mode === "direct" ? "publish" : "stage publish"} failed for ${request.name}@${request.version}: ${result.stderr.trim() || result.stdout.trim() || "<no output>"}`
-      );
-    }
-    return request.mode === "direct" ? "direct-accepted" : "staged";
-  } finally {
-    await (0, import_promises9.rm)(root, { recursive: true, force: true });
-  }
 }
 
 // src/toolchain/environment.ts
@@ -19631,7 +21436,7 @@ function packageOperationEnvironment(source) {
 }
 
 // src/workspace/discover.ts
-var import_promises10 = require("node:fs/promises");
+var import_promises9 = require("node:fs/promises");
 var import_node_path18 = require("node:path");
 var import_fast_glob2 = __toESM(require_out4());
 var import_yaml2 = __toESM(require_dist());
@@ -19681,7 +21486,7 @@ function repositoryFullName(repository) {
 async function readJsonManifest(path) {
   let parsed;
   try {
-    parsed = JSON.parse(await (0, import_promises10.readFile)(path, "utf8"));
+    parsed = JSON.parse(await (0, import_promises9.readFile)(path, "utf8"));
   } catch (error) {
     throw new Error(
       `Failed to read package manifest ${path}: ${error instanceof Error ? error.message : String(error)}`
@@ -19718,7 +21523,7 @@ async function pnpmWorkspacePatterns(workspaceRoot) {
   const path = (0, import_node_path18.resolve)(workspaceRoot, "pnpm-workspace.yaml");
   let source;
   try {
-    source = await (0, import_promises10.readFile)(path, "utf8");
+    source = await (0, import_promises9.readFile)(path, "utf8");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return void 0;
@@ -19763,7 +21568,7 @@ function assertWithinWorkspace(workspace, candidate) {
   }
 }
 async function discoverWorkspace(workspaceRoot) {
-  const root = await (0, import_promises10.realpath)((0, import_node_path18.resolve)(workspaceRoot));
+  const root = await (0, import_promises9.realpath)((0, import_node_path18.resolve)(workspaceRoot));
   const rootManifestPath = (0, import_node_path18.resolve)(root, "package.json");
   const rootManifest2 = await readJsonManifest(rootManifestPath);
   const pnpmPatterns = await pnpmWorkspacePatterns(root);
@@ -19784,7 +21589,7 @@ async function discoverWorkspace(workspaceRoot) {
   }
   const discovered = [];
   for (const manifestPath of [...manifestPaths].sort()) {
-    const directory = await (0, import_promises10.realpath)((0, import_node_path18.dirname)(manifestPath));
+    const directory = await (0, import_promises9.realpath)((0, import_node_path18.dirname)(manifestPath));
     assertWithinWorkspace(root, directory);
     const relativeDirectory = (0, import_node_path18.relative)(root, directory) || ".";
     discovered.push({
@@ -19959,38 +21764,34 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 }
 
 // src/orchestrate.ts
-function defaultRunRoot(context) {
-  return (0, import_node_path20.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
-}
-var DIRECT_SCAN_POLL_MS = 1e4;
-var DIRECT_SCAN_TIMEOUT_MS = 20 * 6e4;
-async function waitForDirectLive(registry, name, version, tarballPath, options = {}) {
-  const pollMs = options.pollMs ?? DIRECT_SCAN_POLL_MS;
-  const timeoutMs = options.timeoutMs ?? DIRECT_SCAN_TIMEOUT_MS;
-  const sleep = options.sleep ?? ((milliseconds) => new Promise((resolvePromise) => {
-    setTimeout(resolvePromise, milliseconds);
-  }));
+async function waitForDirectLive(registry, name, version, expectedIntegrity, options = {}) {
+  const pollMs = options.pollMs ?? 1e4;
+  const timeoutMs = options.timeoutMs ?? 20 * 6e4;
+  if (!Number.isFinite(pollMs) || pollMs <= 0 || !Number.isFinite(timeoutMs) || timeoutMs <= 0)
+    throw new Error("Registry polling budgets must be positive finite numbers");
   const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? ((ms2) => new Promise((done) => setTimeout(done, ms2)));
   const started = now();
+  const expired = () => new Error(
+    name + "@" + version + " is not verified live within the visibility budget; publish-time scanning or a pending stage may require maintainer review"
+  );
   while (true) {
-    const reconciliation = await registry.reconcile(
+    const remaining = timeoutMs - (now() - started);
+    if (remaining <= 0) throw expired();
+    const signal = AbortSignal.timeout(Math.max(1, Math.ceil(remaining)));
+    const result = await registry.verifyPublishedArtifact(
       name,
       version,
-      tarballPath
+      expectedIntegrity,
+      { signal }
     );
-    if (reconciliation.state === "existing") {
-      return;
-    }
-    if (now() - started >= timeoutMs) {
-      throw new Error(
-        `${name}@${version} was accepted by npm but is not live after ${Math.round(timeoutMs / 6e4)} minutes; publish-time malware scanning may still be pending or may require maintainer review`
-      );
-    }
-    await sleep(pollMs);
+    if (now() - started >= timeoutMs) throw expired();
+    if (result === "matched") return;
+    await sleep(Math.min(pollMs, timeoutMs - (now() - started)));
   }
 }
 async function nativeRuntimeBundle(actionPath) {
-  const runtime = await (0, import_promises11.readFile)(
+  const runtime = await (0, import_promises10.readFile)(
     (0, import_node_path20.resolve)(actionPath, "dist", "native-runtime.cjs")
   );
   if (runtime.byteLength === 0) {
@@ -20003,7 +21804,9 @@ function rootManifest(discovered, workspace) {
     (pkg) => (0, import_node_path20.resolve)(pkg.directory) === (0, import_node_path20.resolve)(workspace)
   );
   if (!root) {
-    throw new Error("Workspace discovery did not return the repository root package");
+    throw new Error(
+      "Workspace discovery did not return the repository root package"
+    );
   }
   return root;
 }
@@ -20030,7 +21833,7 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
   }
   const runtimeBundle = await nativeRuntimeBundle(context.actionPath);
   const outputRoot = (0, import_node_path20.join)(runRoot, "final-native");
-  await (0, import_promises11.mkdir)(outputRoot, { recursive: true });
+  await (0, import_promises10.mkdir)(outputRoot, { recursive: true });
   for (const pkg of nativePackages) {
     const artifact = artifacts.get(pkg.name);
     if (!artifact) {
@@ -20059,196 +21862,220 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
     artifacts.set(pkg.name, await inspect(outputPath));
   }
 }
-function preflightPublishOptions(packages, artifacts, reconciliations) {
-  for (const pkg of packages) {
-    const reconciliation = reconciliations.get(pkg.name);
-    if (!reconciliation || reconciliation.state !== "candidate") {
-      continue;
-    }
-    const artifact = artifacts.get(pkg.name);
-    if (!artifact) {
-      throw new Error(`Missing final artifact for ${pkg.name}`);
-    }
-    derivePublishOptions(
-      artifact.manifest,
-      pkg.version,
-      reconciliation.latestVersion
-    );
-  }
-}
 async function prepareRelease(context, dependencies = {}) {
-  const verifySource = dependencies.verifySource ?? verifySourceIdentity;
-  const loadRepositoryConfig = dependencies.loadRepositoryConfig ?? loadConfig;
-  const discover = dependencies.discover ?? discoverWorkspace;
-  const selectPackages = dependencies.selectPackages ?? selectPublishablePackages;
-  const bootstrapToolchain = dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain;
-  const packAll = dependencies.packAll ?? packAllPackages;
-  const inspect = dependencies.inspect ?? inspectPackedTarball;
-  const nativeResolver = dependencies.nativeResolver ?? new NativeReleaseResolver();
-  const registryClient = dependencies.registryClient ?? new NpmRegistryClient({
-    readToken: context.env.NODE_AUTH_TOKEN
-  });
-  const validatePublishEnvironment = dependencies.validatePublishEnvironment ?? assertTrustedPublishingEnvironment;
-  verifySource(context);
+  (dependencies.verifySource ?? verifySourceIdentity)(context);
   const [config, discovered] = await Promise.all([
-    loadRepositoryConfig(context.workspace),
-    discover(context.workspace)
+    (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
+    (dependencies.discover ?? discoverWorkspace)(context.workspace)
   ]);
-  const packages = selectPackages(
-    discovered,
-    config,
-    context.repository
+  const packages = immutableJson(
+    (dependencies.selectPackages ?? selectPublishablePackages)(
+      discovered,
+      config,
+      context.repository
+    )
   );
-  if (packages.length === 0) {
+  if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  const registry = dependencies.registryClient ?? new NpmRegistryClient({ readToken: context.env.NODE_AUTH_TOKEN });
+  const snapshots = /* @__PURE__ */ new Map();
+  const candidates = [];
+  const alreadyPublished = [];
+  for (const pkg of packages) {
+    const lookup = await registry.lookupVersion(pkg.name, pkg.version);
+    snapshots.set(pkg.name, lookup.snapshot);
+    if (lookup.state === "already-published")
+      alreadyPublished.push({
+        name: pkg.name,
+        version: pkg.version,
+        state: "already-published"
+      });
+    else candidates.push(pkg);
   }
-  const root = rootManifest(discovered, context.workspace);
-  const runBase = defaultRunRoot(context);
-  await (0, import_promises11.mkdir)(runBase, { recursive: true });
-  const runRoot = await (0, import_promises11.mkdtemp)(
-    (0, import_node_path20.join)(runBase, "releaseway-npm-actions-run-")
+  const skipped = immutableJson(
+    alreadyPublished.sort((a, b2) => a.name.localeCompare(b2.name))
   );
+  if (candidates.length === 0)
+    return Object.freeze({ kind: "noop", alreadyPublished: skipped });
+  (dependencies.validatePublishEnvironment ?? assertTrustedPublishingEnvironment)(context.env);
+  const root = rootManifest(discovered, context.workspace);
+  const base = (0, import_node_path20.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
+  await (0, import_promises10.mkdir)(base, { recursive: true });
+  const runRoot = await (0, import_promises10.mkdtemp)((0, import_node_path20.join)(base, "releaseway-npm-actions-run-"));
   try {
-    const toolchain = await bootstrapToolchain({
-      rootBase: runRoot
-    });
+    const toolchain = await (dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain)({ rootBase: runRoot });
     const command = await resolvePackCommand(
       { packageManager: root.manifest.packageManager },
       toolchain,
       context.workspace,
       packageOperationEnvironment(context.env)
     );
-    const packed = await packAll(
+    const packed = await (dependencies.packAll ?? packAllPackages)(
       context.workspace,
-      packages,
+      candidates,
       command,
       (0, import_node_path20.join)(runRoot, "packed")
     );
-    const artifacts = artifactMap(packages, packed);
+    const artifacts = artifactMap(candidates, packed);
     await applyNativeAugmentation(
       context,
-      packages,
+      candidates,
       artifacts,
       runRoot,
-      inspect,
-      nativeResolver
+      dependencies.inspect ?? inspectPackedTarball,
+      dependencies.nativeResolver ?? new NativeReleaseResolver()
     );
-    const graph = buildWorkspaceDependencyGraph(packages, artifacts);
-    const reconciliations = /* @__PURE__ */ new Map();
-    for (const pkg of packages) {
+    const requests = /* @__PURE__ */ new Map();
+    for (const pkg of candidates) {
       const artifact = artifacts.get(pkg.name);
-      if (!artifact) {
-        throw new Error(`Missing final artifact for ${pkg.name}`);
-      }
-      reconciliations.set(
+      if (artifact.manifest.name !== pkg.name || artifact.manifest.version !== pkg.version || artifact.manifest.private === true)
+        throw new Error(
+          "Final packed identity is not publishable: " + pkg.name + "@" + pkg.version
+        );
+      if (repositoryFullName(
+        parseGitHubRepository(artifact.manifest.repository)
+      ).toLowerCase() !== context.repository.toLowerCase())
+        throw new Error(
+          "Final packed repository does not match source for " + pkg.name
+        );
+      const publishOptions = derivePublishOptions(
+        artifact.manifest,
+        pkg.version,
+        snapshots.get(pkg.name).latestVersion
+      );
+      requests.set(
         pkg.name,
-        await registryClient.reconcile(
-          pkg.name,
-          pkg.version,
-          artifact.tarballPath
-        )
+        immutableJson({
+          name: pkg.name,
+          version: pkg.version,
+          mode: pkg.publishMode,
+          tarballPath: (0, import_node_path20.resolve)(artifact.tarballPath),
+          integrity: await sha512Integrity(artifact.tarballPath),
+          publishOptions: {
+            ...publishOptions,
+            tag: publishOptions.tag ?? "latest"
+          }
+        })
       );
     }
-    preflightPublishOptions(packages, artifacts, reconciliations);
-    const candidates = new Set(
-      packages.filter(
-        (pkg) => reconciliations.get(pkg.name)?.state === "candidate"
-      ).map((pkg) => pkg.name)
-    );
-    const existingOrder = packages.filter(
-      (pkg) => reconciliations.get(pkg.name)?.state === "existing"
-    ).map((pkg) => pkg.name).sort();
-    const publishOrder = topologicalPublishOrder(graph, candidates);
-    if (publishOrder.length > 0) {
-      validatePublishEnvironment(context.env);
-    }
-    const prepared = /* @__PURE__ */ new Map();
-    for (const pkg of packages) {
-      const artifact = artifacts.get(pkg.name);
-      const reconciliation = reconciliations.get(pkg.name);
-      if (!artifact || !reconciliation) {
-        throw new Error(`Incomplete preflight state for ${pkg.name}`);
-      }
-      prepared.set(pkg.name, { pkg, artifact, reconciliation });
-    }
-    return {
-      packages,
-      prepared,
+    const graph = buildWorkspaceDependencyGraph(packages, artifacts, snapshots);
+    const order = topologicalPublishOrder(
       graph,
-      existingOrder,
-      publishOrder,
-      toolchain,
-      registryClient,
+      new Set(candidates.map((pkg) => pkg.name))
+    );
+    const publications = immutableJson(
+      order.map((name) => ({
+        request: requests.get(name),
+        manifest: artifacts.get(name).manifest,
+        requirements: graph.requirements.get(name)
+      }))
+    );
+    return Object.freeze({
+      kind: "ready",
+      alreadyPublished: skipped,
+      publications,
+      source: immutableJson({
+        repository: context.repository,
+        sha: context.sha,
+        workspace: context.workspace
+      }),
+      toolchain: Object.freeze({ ...toolchain }),
+      registryClient: registry,
       runRoot
-    };
+    });
   } catch (error) {
-    await (0, import_promises11.rm)(runRoot, { recursive: true, force: true });
+    await (0, import_promises10.rm)(runRoot, { recursive: true, force: true });
     throw error;
   }
 }
+async function assertDirectDependenciesLive(registry, publication) {
+  if (publication.request.mode !== "direct") return;
+  for (const dependency of publication.requirements) {
+    if (dependency.field !== "dependencies") continue;
+    const lookup = await registry.lookupVersion(
+      dependency.name,
+      dependency.version
+    );
+    if (lookup.state !== "already-published")
+      throw new Error(
+        publication.request.name + " required dependency is no longer live: " + dependency.name + "@" + dependency.version
+      );
+  }
+}
 async function executePreparedRelease(context, prepared, dependencies = {}) {
+  const results = [...prepared.alreadyPublished];
+  if (prepared.kind === "noop") return results;
+  if (context.repository !== prepared.source.repository || context.sha !== prepared.source.sha || (0, import_node_path20.resolve)(context.workspace) !== (0, import_node_path20.resolve)(prepared.source.workspace))
+    throw new Error("Prepared release source context changed");
+  const registry = prepared.registryClient;
   const publisher = dependencies.publish ?? publishPackage;
   const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
-  const results = [];
-  for (const name of prepared.existingOrder) {
-    const entry = prepared.prepared.get(name);
-    if (!entry || entry.reconciliation.state !== "existing") {
-      throw new Error(`Invalid existing preflight state for ${name}`);
-    }
-    results.push({
-      name: entry.pkg.name,
-      version: entry.pkg.version,
-      state: "existing"
-    });
-  }
+  for (const publication of prepared.publications)
+    await assertPreparedTarball(publication.request);
   const completed = [];
-  for (const name of prepared.publishOrder) {
-    const entry = prepared.prepared.get(name);
-    if (!entry || entry.reconciliation.state !== "candidate") {
-      throw new Error(`Invalid candidate preflight state for ${name}`);
-    }
+  for (const publication of prepared.publications) {
+    const request = publication.request;
     try {
-      const mutationState = await publisher(
-        prepared.toolchain,
-        {
-          mode: entry.pkg.publishMode,
-          name: entry.pkg.name,
-          version: entry.pkg.version,
-          tarballPath: entry.artifact.tarballPath,
-          manifest: entry.artifact.manifest,
-          latestVersion: entry.reconciliation.latestVersion
-        },
-        {
-          env: context.env,
-          tempRoot: prepared.runRoot
-        }
-      );
+      await assertPreparedTarball(request);
       let state;
-      if (mutationState === "direct-accepted") {
-        await waitForLive(
-          prepared.registryClient,
-          entry.pkg.name,
-          entry.pkg.version,
-          entry.artifact.tarballPath
-        );
+      if (await registry.verifyPublishedArtifact(
+        request.name,
+        request.version,
+        request.integrity
+      ) === "matched") {
         state = "published";
       } else {
-        state = "staged";
+        await assertDirectDependenciesLive(registry, publication);
+        let submitted;
+        try {
+          submitted = await publisher(prepared.toolchain, request, {
+            env: context.env,
+            tempRoot: prepared.runRoot
+          });
+        } catch (error) {
+          if (await registry.verifyPublishedArtifact(
+            request.name,
+            request.version,
+            request.integrity
+          ) === "matched") {
+            submitted = "verified-live";
+          } else if (request.mode === "direct" && error instanceof PublishCommandError && isPendingRegistryScanConflict(error.output)) {
+            await waitForLive(
+              registry,
+              request.name,
+              request.version,
+              request.integrity
+            );
+            submitted = "verified-live";
+          } else {
+            throw error;
+          }
+        }
+        if (submitted === "direct-accepted") {
+          await waitForLive(
+            registry,
+            request.name,
+            request.version,
+            request.integrity
+          );
+          state = "published";
+        } else if (submitted === "verified-live") state = "published";
+        else if (submitted === "staged") state = "staged";
+        else throw new Error("Unknown publication result");
       }
       const result = {
-        name: entry.pkg.name,
-        version: entry.pkg.version,
+        name: request.name,
+        version: request.version,
         state
       };
       completed.push(result);
       results.push(result);
     } catch (error) {
-      const completedSummary = completed.length === 0 ? "none" : completed.map(
-        (item) => `${item.name}@${item.version}(${item.state})`
-      ).join(", ");
-      const message = error instanceof Error ? error.message : String(error);
+      const summary = completed.map(
+        (item) => item.name + "@" + item.version + "(" + item.state + ")"
+      ).join(", ") || "none";
       throw new Error(
-        `Publication failed for ${entry.pkg.name}@${entry.pkg.version}; completed before failure: ${completedSummary}; cause: ${message}`,
+        "Publication failed for " + request.name + "@" + request.version + "; completed before failure: " + summary + "; cause: " + (error instanceof Error ? error.message : String(error)),
         { cause: error }
       );
     }
@@ -20258,13 +22085,10 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
 async function runRelease(context, dependencies = {}) {
   const prepared = await prepareRelease(context, dependencies);
   try {
-    return await executePreparedRelease(
-      context,
-      prepared,
-      dependencies
-    );
+    return await executePreparedRelease(context, prepared, dependencies);
   } finally {
-    await (0, import_promises11.rm)(prepared.runRoot, { recursive: true, force: true });
+    if (prepared.kind === "ready")
+      await (0, import_promises10.rm)(prepared.runRoot, { recursive: true, force: true });
   }
 }
 
@@ -20278,7 +22102,7 @@ function requiredEnvironment(env, name) {
   }
   return value;
 }
-function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs7.appendFileSync) {
+function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs8.appendFileSync) {
   appendOutput(
     outputPath,
     "packages=" + JSON.stringify(packages) + "\n",
@@ -20318,7 +22142,7 @@ async function runAction(options = {}) {
   writePackagesOutput(
     outputPath,
     packages,
-    options.appendOutput ?? import_node_fs7.appendFileSync
+    options.appendOutput ?? import_node_fs8.appendFileSync
   );
   return packages;
 }

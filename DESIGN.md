@@ -1,773 +1,102 @@
 # releaseway/npm-actions — Design
 
-Status: canonical design baseline
-Updated: 2026-09-24
+Status: canonical registry-first design
+Updated: 2026-09-25
 
-## 1. Purpose
+## 1. Purpose and responsibility
 
-`releaseway/npm-actions` is a GitHub Action for publishing npm packages through one release engine.
+The action publishes new npm versions from a caller-controlled GitHub Actions workflow. Version selection, version bumps, change validation, release triggers and product builds belong to the caller. npm-actions owns registry classification, candidate artifacts, publication planning and submission verification.
 
-It supports ordinary JavaScript/TypeScript packages, Node CLIs, and packages that distribute native executables. Native distribution is an optional capability of the same publish engine, not a separate product or workflow.
+The registry is authoritative for public version presence. A local artifact is authoritative for the exact bytes of a prepared candidate. These authorities apply at different phases and must remain separate.
 
-Version selection, version bumping, changelog policy, and product build ordering remain caller responsibilities.
+## 2. Public interface
 
-## 2. Sources of truth
+The root JavaScript action runs on GitHub's Node 24 action runtime and has no functional inputs. It reads the checkout at GITHUB_WORKSPACE and the fixed optional configuration .github/npm/packages.yml. npm metadata remains in package.json; schema 1 repository policy defines direct/stage mode and explicit native distribution overrides.
 
-npm-native package metadata remains in `package.json`.
+The sole output, packages, is a JSON array of name, version and state. States are:
 
-Releaseway does not duplicate fields that npm already owns, including:
+| State             | Meaning                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| already-published | The exact version was public during initial classification. Current source equivalence is not asserted.       |
+| published         | A prepared candidate is confirmed live with the exact frozen SHA-512, including a matching concurrent writer. |
+| staged            | The submission succeeded through npm stage publish; public availability is not asserted.                      |
 
-- `name`
-- `version`
-- `bin`
-- `files`
-- `exports`
-- `publishConfig`
-- dependency declarations
+Initially public results are ordered by name, followed by candidate results in publication-plan order. No successful output is written for a failed run. There is one contract, with no historical equality mode or compatibility state alias.
 
-Releaseway-specific persistent policy belongs in one repository-level config file:
+## 3. Discovery and source identity
 
-```text
-.github/npm/packages.yml
-```
+Discover the root and workspace packages through package.json workspaces or pnpm-workspace.yaml. Exclude private:true packages. Reject duplicate names, stale config selectors, missing identities, invalid registry configuration and repository metadata that does not identify the calling repository.
 
-The config augments `package.json`; it does not replace it.
+Checkout HEAD must equal GITHUB_SHA and origin must identify GITHUB_REPOSITORY. Build steps precede the action. Source validation binds this execution; it does not require previously published native assets to use this execution's commit.
 
-Ordinary npm packages do not need an entry in the config. An entry is required only when a package uses Releaseway-specific policy such as native GitHub Release distribution or a package-level publish-mode override.
+## 4. Registry-first classification
 
-## 3. Repository config
+Read all selected exact name@version identities before toolchain provisioning, pack or native resolution. Validate registry package and version identity and metadata shape. A registry request failure, unavailable authentication, malformed response or package-level 404 never becomes an absent-version inference. Package bootstrap and Trusted Publisher setup remain prerequisites.
 
-The config is repository-scoped and package overrides are keyed by npm package name, not filesystem path.
+An initially public version is terminal read-only work for this run. Do not pack it, regenerate its native runtime, resolve its old Release, compare it against local files, or mutate its dist-tags or access. An all-public workspace requires no publication authority or temporary toolchain.
 
-Package-name keys are selectors for applying Releaseway policy. They are not a second declaration of package identity.
+A version absent from public metadata becomes a candidate, not a claim that its version number is unreserved. Pending stages may reserve an otherwise invisible version.
 
-A package that is absent from `packages.yml` is still publishable.
+Changing local source without a new version is outside the action's change-detection contract. A workflow rerun classifies public versions afresh; it is not a historical build reproduction check.
 
-Baseline shape:
+## 5. Candidate preparation
 
-```yaml
-schema: 1
+Provision the pinned npm and userland Corepack toolchain only when candidates exist. Use the root packageManager declaration for candidate packing; retain package-manager-native transforms and verify the exact reported version. A simple npm project may use the action's pinned npm. Do not install or build the product on the caller's behalf.
 
-publish:
-  mode: stage
+Pack candidates only, with output in the private run directory. Check source state after each pack operation. Final packed identity and repository must agree with the validated candidate. Derive publication options from the final packed manifest before execution; prereleases and versions below latest require an explicit tag.
 
-packages:
-  "@scope/cli":
-    publish:
-      mode: direct
+For each candidate, freeze its name, version, mode, final tarball path, SHA-512, final manifest, publication tag/access and managed dependency requirements. Copy JSON metadata before freezing it. The prepared plan has no mutable source-manifest dependency. All candidates must pass preparation before any registry mutation.
 
-    distribution:
-      type: github-release
-      tag: "v{version}"
+## 6. Native distribution
 
-      targets:
-        darwin-arm64:
-          asset: cli_darwin_arm64.tar.gz
-          executable: cli
-        darwin-x64:
-          asset: cli_darwin_x64.tar.gz
-          executable: cli
-        linux-arm64-gnu:
-          asset: cli_linux_arm64.tar.gz
-          executable: cli
-        linux-x64-gnu:
-          asset: cli_linux_x64.tar.gz
-          executable: cli
-        win32-x64:
-          asset: cli_windows_x64.zip
-          executable: cli.exe
-```
+Native distribution is explicit, scoped to the caller's public GitHub repository, and retains one npm package and one bin command. A new candidate references a published immutable Release whose tag resolves to the current GITHUB_SHA. Validate unique uploaded assets and valid SHA-256 digests. Apply package-specific target mapping on every resolver call; cache only shared Release snapshots.
 
-Moving a package directory does not require changing its config key. Renaming the npm package does, because the npm identity changed.
+The candidate tarball reserves its bin path and .releaseway/native.json plus .releaseway/runtime.cjs for generated content. Thin CJS/ESM wrappers resolve their installed real paths and pass the exact manifest path to the common CJS runtime. Candidate repacking is deterministic; ordinary tarballs remain package-manager-produced.
 
-## 4. Workspace discovery
+Supported targets are darwin-arm64, darwin-x64, linux-arm64-gnu, linux-x64-gnu, linux-arm64-musl, linux-x64-musl, win32-arm64 and win32-x64. Configurations name exact .tar.gz or .zip assets and archive-relative executables. No platform package generation or postinstall downloader is introduced.
 
-Releaseway consumes package-manager-native workspace metadata instead of defining a second package glob system.
+At runtime select the exact OS/architecture/libc target, verify the complete archive digest, safely extract only the configured regular executable, and execute with inherited arguments and stdio. Reject unsafe paths, links, unsupported entries, duplicate entries and digest mismatches. Retain the versioned native/v2/sha256 cache: archive digest identifies archive files; normalized executable path identifies independent executable entries. Cache hits validate both digests. Runtime cache policy is unchanged by this publication redesign.
 
-Workspace discovery uses the repository's existing package-manager metadata, including root `package.json` workspace metadata where applicable and `pnpm-workspace.yaml` for pnpm workspaces.
+## 7. Dependency availability plan
 
-The repository root package is part of the discovered package set when it is itself publishable.
+Build the graph from final candidate manifests. Initially public packages contribute registry version manifests, not current local dependency declarations. The managed set is the discovered publishable package set. Resolve npm aliases using npm package-spec parsing to distinguish install name, target package and SemVer range.
 
-Packages with `private: true` are excluded from publication.
+For each managed dependency, choose the highest satisfying live version first. If none is available, the corresponding candidate must satisfy the range. Reject unsupported managed mutable tags or unresolved local protocols rather than inventing a registry target. External dependency deployment and transitive application correctness remain outside the managed graph's guarantee.
 
-The resulting package set is determined from package manifests and workspace metadata, not Git diff, commit range, or changeset presence.
+Required dependencies and optionalDependencies impose candidate ordering edges only when no live resolution exists. Optional declarations override duplicate install names in dependencies. Peer ranges are checked without ordering edges; devDependencies are ignored. A live resolution can eliminate a candidate cycle; remaining hard cycles fail before publication.
 
-## 5. Publication selection
+A direct candidate's required internal dependencies must have a live resolution or a preceding direct candidate. A staged candidate cannot unlock required direct publication. Optional dependencies retain ordering without the required live gate; peers retain range-only behavior. A staged consumer may refer to a staged candidate without claiming installability before maintainer approval.
 
-Publication is registry-reconciliation based.
+Before each actual direct mutation, recheck the exact selected required versions are still live. The registry is not transactional: later unpublishing and external changes remain possible. Complete preflight prevents deterministic plan errors from causing partial writes; runtime failures still require rerun handling.
 
-For each publishable package, `package.json.name` and `package.json.version` define the intended npm identity.
+## 8. Execution and exact artifact verification
 
-For each `name@version`:
+Check all prepared tarball digests before the first mutation, then check the relevant candidate again before submission. Publish the same frozen artifact and options with lifecycle scripts disabled. Never rebuild artifacts during execution or polling.
 
-```text
-registry version absent
-  -> publication candidate
+Immediately before a candidate mutation, check whether it became public. Matching live SHA-512 satisfies that planned candidate; missing, invalid, weaker-only or mismatching integrity fails. Initial public classification deliberately does not require this comparison.
 
-registry version present
-  -> compare exact package artifact
-       identical -> existing / no-op
-       different -> fail closed
-```
+A successful direct subprocess means accepted for processing. Report published only after live metadata exposes the expected identity and frozen SHA-512. Poll using the expected digest, a bounded overall deadline and bounded individual read requests. Stage success reports staged and never releases a direct required dependency gate.
 
-### 5.1 Exact artifact equality
+After a failed subprocess, perform a read-only exact-artifact check. A matching live artifact resolves a lost response or concurrent submission. A direct scan-pending conflict may enter bounded live observation, but the conflict itself does not prove acceptance. Other unresolved failures propagate; no write is blindly repeated and no pending stage is approved, inspected, rejected or converted automatically.
 
-Registry reconciliation uses the immutable tarball bytes as the equality contract.
+## 9. Authentication and security boundaries
 
-Releaseway computes an SRI SHA-512 digest over the exact `.tgz` artifact that it would publish and compares it with the existing version's npm registry `dist.integrity`.
+Publication uses npm Trusted Publishing OIDC only, on a supported GitHub-hosted runner. Keep the public registry fixed to https://registry.npmjs.org/. Read-only NODE_AUTH_TOKEN may be used for registry metadata and dependency reads; it never becomes publication authority.
 
-An existing version is accepted only when `dist.integrity` contains a valid SHA-512 value that exactly matches the local artifact. A missing, unparsable, weaker-only, or different remote integrity value fails closed.
+Package-manager operations do not receive publish OIDC or publish-token environment. Publication executes outside the checkout using isolated home and npm configuration with token-bearing settings removed. Reject publish-time credentials in the candidate manifest. Already-public no-op runs need no OIDC validation.
 
-Releaseway does not download and heuristically compare unpacked package contents when the registry integrity is available.
+The final tarball, manifest and options remain tied to one plan. Runtime metadata and package identities are checked at the relevant trust boundaries. Hashing streams local files; registry verification never reads local files.
 
-### 5.2 Mutable registry state
+## 10. Recovery and observable results
 
-Dist-tags are not part of immutable `name@version` equality.
+A partial failure reports the candidate that failed and candidates completed beforehand. The cleanup boundary always removes owned temporary state. It does not remove user source, mutate remote staged state or automatically choose a new version.
 
-For a new publication, Releaseway honors `publishConfig.tag` when declared and otherwise uses npm's normal default tag behavior. It does not invent a tag for prerelease or non-latest versions.
+A whole-workflow rerun prepares a new plan. Versions that became public are already-published, even if the caller changed its toolchain. Remaining candidates are prepared again and verified within their new execution. New runtime fixes require new native npm versions.
 
-After a version already exists, npm-actions does not add, move, or reconcile dist-tags. A later change to `latest`, `next`, or another tag therefore does not make an old exact version fail reconciliation.
+Pending-stage equality is not asserted through OIDC. Approval and rejection remain maintainer actions. No-op is a version-presence result; published is an exact planned-artifact result; staged is a submission result.
 
-Remote mutable package-level state, including the package's current access setting, is not separately reconciled when deciding whether an existing immutable version is the same artifact. Changes inside the packed `package.json` still change the tarball integrity and therefore fail exact-artifact reconciliation.
+## 11. Validation contract
 
-A rerun after a partial failure verifies already-published packages and continues with only the remaining candidates.
+Tests must cover all-public no-op without OIDC or native assets; mixed native and ordinary workspaces; candidate-only pack; errors before mutation; alias ranges and cycles; live fallback versus staged-only dependencies; immutable plan metadata; modified tarballs; same and different concurrent artifacts; lost responses; strict visibility deadlines; and whole-workflow reruns.
 
-Version bumping and deciding which version should exist are outside npm-actions.
-
-## 6. Package manager and pack boundary
-
-Packaging semantics belong to the project's package manager.
-
-The publication pipeline is:
-
-```text
-project package manager
-        |
-        v
-       pack
-        |
-        v
-package-manager-produced tarball
-        |
-        +-- ordinary package -> unchanged
-        |
-        +-- native distribution
-        |      -> deterministic Releaseway launcher/manifest augmentation
-        |
-        v
-exact final .tgz artifact
-        |
-        v
-Releaseway inspection and reconciliation
-        |
-        v
-Releaseway-controlled npm publication
-```
-
-The expected pack commands are conceptually:
-
-```text
-npm project  -> npm pack
-pnpm project -> pnpm pack
-Yarn project -> yarn pack
-```
-
-This preserves package-manager-specific publication transforms such as workspace dependency rewriting.
-
-The registry mutation step remains under Releaseway control and uses npm publication commands against the verified tarball rather than delegating the whole release lifecycle to the project package manager.
-
-If the repository-root `package.json.packageManager` is present, it is authoritative for selecting the package manager and version used for packing.
-
-For pnpm or Yarn projects, `packageManager` is required and must identify an exact version. Tags and version ranges are not accepted because they do not define a reproducible pack toolchain. A Corepack integrity suffix may be present.
-
-A simple npm project does not need to declare `packageManager`; Releaseway uses its own pinned npm toolchain for packing in that case.
-
-### 6.1 Releaseway toolchain
-
-The action runs as a GitHub JavaScript action with the GitHub-managed `node24` action runtime.
-
-Releaseway does not depend on whatever `node`, `npm`, or `corepack` executable happens to be first on the caller runner's PATH.
-
-Releaseway exactly pins the npm CLI and userland Corepack releases used by the action, including the expected npm registry integrity of those tool artifacts. They are bootstrapped into an isolated temporary toolchain using the JavaScript action runtime.
-
-The pinned npm CLI used for registry mutation must satisfy both npm Trusted Publishing and staged-publishing requirements. It is separate from the package manager used to create the tarball.
-
-When an exact `packageManager` is declared, Releaseway provisions that npm, pnpm, or Yarn version through its pinned userland Corepack and uses it only for package-manager-owned operations such as `pack`.
-
-After provisioning, the reported package-manager version must match the exact declared version. A project-local override that causes a different package-manager version to execute fails closed.
-
-A declared package-manager version must be executable on the Node.js 24 action runtime. An incompatible version fails rather than causing Releaseway to substitute another package-manager version.
-
-Releaseway does not rely on Node.js-bundled Corepack.
-
-## 7. Workspace dependency ordering
-
-Releaseway builds an internal graph among publish candidates.
-
-Ordering edges:
-
-```text
-dependencies         -> hard ordering edge
-optionalDependencies -> hard ordering edge
-peerDependencies     -> range validation only; no ordering edge
-devDependencies      -> excluded from publication ordering
-```
-
-Only dependencies between packages participating in the current workspace publication are relevant to topological ordering.
-
-A hard-edge cycle fails. Releaseway does not choose an arbitrary publication order for a cyclic graph.
-
-Independent-version and lockstep-version monorepos are both supported by the same reconciliation model.
-
-## 8. Publish mode
-
-Supported publish modes are:
-
-```text
-direct
-stage
-```
-
-There is no `auto` publish mode.
-
-The repository default is:
-
-```yaml
-publish:
-  mode: stage
-```
-
-A package may override the repository default.
-
-Publish mode is persistent repository policy in `.github/npm/packages.yml`, not a per-run workflow input.
-
-### 8.1 Direct
-
-`direct` submits the verified tarball with `npm publish`.
-
-It is an explicit opt-in because npm Trusted Publishing recommends staged publishing as the stronger default. The package's Trusted Publisher must separately allow direct `npm publish`.
-
-A successful `npm publish` command does not imply immediate registry visibility. npm performs publish-time malware scanning before a new version becomes available. During this scan the version can be absent from normal registry metadata while still reserving its immutable version number.
-
-Releaseway therefore does not report `published` when the npm subprocess merely exits successfully. It waits for the live registry to expose the exact `name@version` with matching SHA-512 `dist.integrity`. The default visibility budget is 20 minutes, polled every 10 seconds.
-
-If a direct rerun receives npm's `Cannot publish over previously staged version` conflict while the version is still absent from live metadata, Releaseway treats that conflict as an accepted/pending direct publication and enters the same live-integrity wait instead of attempting a replacement version.
-
-If the version becomes live with a different integrity, Releaseway fails immediately. If it is still not live when the visibility budget expires, Releaseway fails without inventing another version or mutating staged state; a later rerun of the same source/version can continue reconciliation.
-
-### 8.2 Stage
-
-`stage` uses npm staged publishing and is the repository default.
-
-Releaseway does not silently fall back from `stage` to `direct`.
-
-A package that does not yet exist in the npm registry cannot be published by npm-actions in either mode because npm Trusted Publishing cannot be configured until the package exists.
-
-Brand-new package bootstrap is outside npm-actions. After bootstrap and Trusted Publisher configuration, the package may use either `direct` or `stage` according to repository policy.
-
-### 8.3 Mode reconciliation
-
-Conceptually:
-
-```text
-package identity
-        |
-        +-- package does not exist in npm registry
-        |      -> fail: maintainer bootstrap required
-        |
-        +-- package exists
-               |
-               v
-        expected name@version
-               |
-               +-- live version exists
-               |      +-- exact SHA-512 artifact match -> existing
-               |      +-- mismatch -> fail
-               |
-               +-- live version absent
-                      |
-                      +-- mode: direct -> direct publish
-                      |
-                      +-- mode: stage  -> stage publish
-```
-
-Releaseway does not use a long-lived publish credential to inspect or reconcile pending staged versions.
-
-A staged-publish conflict reported by npm is a failure. Releaseway does not repair it by approving, rejecting, replacing, or silently switching publication mode.
-
-Stage inspection, approval, and rejection remain outside npm-actions and are performed through npm's staged-publishing lifecycle.
-
-## 9. Publish authentication
-
-Publish authority is OIDC-only.
-
-Releaseway exposes no publish-auth selection input and does not support a long-lived npm publish token as a publication fallback.
-
-The publish path requires a GitHub-hosted runner supported by npm Trusted Publishing.
-
-The caller workflow grants GitHub Actions OIDC permission:
-
-```yaml
-permissions:
-  contents: read
-  id-token: write
-```
-
-The package must have an npm Trusted Publisher configured for the calling workflow.
-
-Releaseway invokes npm publication commands and relies on npm CLI Trusted Publishing for the short-lived publish credential.
-
-### 9.1 Supported registry
-
-The publication target is the public npm registry, `https://registry.npmjs.org/`.
-
-Other npm-compatible registries are outside the scope of npm-actions. If package publication resolves to another registry, npm-actions fails closed.
-
-### 9.2 Read authentication is separate
-
-OIDC publish authority does not replace credentials required to install private dependencies or read protected registry metadata.
-
-When such read access is needed, the caller may provide a read-only npm credential through the standard `NODE_AUTH_TOKEN` environment variable on the npm-actions step.
-
-A caller-owned read credential is not publish authority and must not be treated by npm-actions as a fallback publication credential.
-
-Registry inspection may consume that read credential. Releaseway materializes any required read authentication only in an isolated read configuration.
-
-The publication subprocess runs from a separate temporary context with token-bearing environment and npm authentication configuration removed. Token-bearing npm configuration, including authentication material embedded in publish-time config, is rejected rather than allowed to become a fallback credential. Publication succeeds only through the Trusted Publishing OIDC exchange.
-
-### 9.3 Package bootstrap
-
-Initial creation of a package on npm is outside npm-actions.
-
-A maintainer first creates the package through npm's account-level or interactive bootstrap path, then configures the Trusted Publisher for the repository workflow.
-
-After that bootstrap, npm-actions owns subsequent automated publication.
-
-This boundary also means a package configured with `publish.mode: stage` must already exist in the registry.
-
-### 9.4 Staged-publishing lifecycle
-
-OIDC authority is used to submit `npm stage publish`.
-
-Pending-stage inspection, approval, and rejection are not npm-actions responsibilities.
-
-Those operations remain maintainer-controlled and use npm's staged-publishing and 2FA flow.
-
-npm-actions therefore does not claim idempotent equality reconciliation for an already-pending stage. If npm rejects a stage submission because the version is already staged or otherwise conflicts with staged state, the action fails closed.
-
-## 10. Native distribution activation
-
-Native distribution is explicit configuration, not heuristic detection.
-
-A package is treated as a native GitHub Release-backed distribution when its package override declares `distribution`.
-
-Releaseway does not infer native intent from a missing `bin` target, asset filenames, or the mere existence of GitHub Release assets.
-
-
-## 11. Native package shape
-
-A multi-platform native CLI is still published as one npm package.
-
-Do not create platform-specific npm packages such as:
-
-```text
-@scope/tool-darwin-arm64
-@scope/tool-darwin-x64
-@scope/tool-linux-arm64
-@scope/tool-linux-x64
-@scope/tool-win32-x64
-```
-
-Do not place every platform binary into one npm tarball.
-
-The npm package contains the launcher and Releaseway-generated runtime metadata needed to locate the correct native asset.
-
-Actual native executables remain GitHub Release assets.
-
-## 12. Native target mapping
-
-Native target mapping is explicit and deterministic.
-
-A native distribution supports exactly one npm `bin` command and one native executable per runtime target.
-
-The package must declare exactly one `bin` entry. Its packed target path is reserved for a thin Releaseway wrapper, while `.releaseway/runtime.cjs` and `.releaseway/native.json` are reserved for the shared runtime and generated manifest. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`; other extensions fail closed because Node cannot reliably execute the generated JavaScript wrapper through them. `.mjs` always receives an ESM wrapper, `.cjs` always receives a CommonJS wrapper, and `.js` or an extensionless path follows the packed package's `type` (`module` -> ESM, otherwise CommonJS). Both wrapper forms resolve their own installed real path and load the same CommonJS runtime; the ESM wrapper uses `createRequire(import.meta.url)` rather than bundling CommonJS runtime dependencies into ESM. The wrapper passes the exact generated manifest path to the runtime, so runtime startup never walks parent directories looking for another package's metadata. If the package-manager-produced artifact already contains any generated path, native publication fails rather than overwriting caller content.
-
-The repository config declares:
-
-- the distribution backend;
-- the release-tag template;
-- the supported target set;
-- the exact asset name for each target;
-- the exact archive-relative executable path for each target.
-
-Example:
-
-```yaml
-distribution:
-  type: github-release
-  tag: "v{version}"
-  targets:
-    darwin-arm64:
-      asset: tool_darwin_arm64.tar.gz
-      executable: tool
-    linux-x64-gnu:
-      asset: tool_linux_x64.tar.gz
-      executable: tool
-    win32-x64:
-      asset: tool_windows_x64.zip
-      executable: tool.exe
-```
-
-Supported runtime target identifiers are:
-
-```text
-darwin-arm64
-darwin-x64
-linux-arm64-gnu
-linux-x64-gnu
-linux-arm64-musl
-linux-x64-musl
-win32-arm64
-win32-x64
-```
-
-Linux target selection includes libc detection. If the runtime cannot determine whether the system is GNU libc or musl, it fails rather than selecting a Linux target heuristically.
-
-A package may declare any subset of the supported targets. Runtime execution fails clearly when the current target is not declared.
-
-Releaseway does not infer target identity, asset name, or executable path from filenames.
-
-The supported asset formats are `.tar.gz` and `.zip`. Bare executable assets and other archive formats are outside the native distribution contract.
-
-Ambiguous, duplicate, incomplete, or unsupported target mappings fail closed.
-
-## 13. GitHub Release provenance
-
-Before an npm artifact can reference a GitHub Release-backed native asset, Releaseway verifies the release and referenced assets.
-
-The native distribution precondition includes:
-
-- the expected release exists;
-- the release is published;
-- the release is immutable;
-- the configured release tag resolves to the expected source commit;
-- every configured asset name resolves uniquely;
-- every referenced asset is in uploaded state;
-- every referenced asset has a valid SHA-256 digest.
-
-The exact digest is obtained from the release state and pinned into Releaseway-generated runtime metadata.
-
-The user does not manually duplicate asset digests into `packages.yml`.
-
-### 13.1 Native release scope
-
-A `github-release` distribution always refers to the same GitHub.com repository that is running npm-actions. The config does not accept another repository identifier.
-
-Native distribution requires the repository and its referenced Release assets to be publicly downloadable without credentials.
-
-Private GitHub Release-backed native distribution is not supported because installed npm packages must be able to resolve their native executable without inheriting repository credentials.
-
-Ordinary npm packages may still be published from private source repositories when npm Trusted Publishing permits it; the public-repository requirement applies specifically to GitHub Release-backed native runtime assets.
-
-The configured release tag must resolve to the checked-out source commit, and the checkout must represent the caller workflow's source commit.
-
-## 14. Generated native runtime metadata
-
-Releaseway may modify only the publication artifact when it needs to add the generated bin wrapper, shared `.releaseway/runtime.cjs`, or generated `.releaseway/native.json`.
-
-The source repository does not need to contain generated per-platform npm packages or generated digest metadata.
-
-Conceptually, the generated metadata contains an exact mapping such as:
-
-```json
-{
-  "repository": "owner/repo",
-  "version": "1.2.3",
-  "tag": "v1.2.3",
-  "targets": {
-    "darwin-arm64": {
-      "asset": "tool_darwin_arm64.tar.gz",
-      "executable": "tool",
-      "sha256": "..."
-    },
-    "linux-x64-gnu": {
-      "asset": "tool_linux_x64.tar.gz",
-      "executable": "tool",
-      "sha256": "..."
-    }
-  }
-}
-```
-
-This is an internal publication artifact, not user-authored configuration.
-
-## 15. Native runtime behavior
-
-Native binaries are not downloaded during package installation.
-
-Releaseway does not require or inject a `postinstall` downloader.
-
-The runtime flow is:
-
-```text
-npm install
-    |
-    v
-no native download
-    |
-    v
-CLI invocation
-    |
-    v
-resolve current OS / architecture / Linux libc target
-    |
-    v
-select exactly one configured asset
-    |
-    v
-resolve digest-keyed cache
-    |
-    +-- valid cached executable -> execute
-    |
-    +-- cache miss/corruption
-           |
-           v
-       download asset anonymously
-           |
-           v
-       verify release SHA-256
-           |
-           v
-       safely extract declared executable
-           |
-           v
-       atomically populate cache
-           |
-           v
-       execute native binary
-```
-
-This remains compatible with installations performed using `npm install --ignore-scripts`.
-
-A digest mismatch discards the downloaded asset and fails execution.
-
-No fallback to another target is permitted.
-
-### 15.1 Cache contract
-
-The native cache is user-scoped and content-addressed. Archive identity is the verified GitHub Release asset SHA-256, not a mutable tag or asset URL. Executable identity is the normalized archive-relative executable path within that archive.
-
-Default cache roots are platform-native and versioned so the v2 layout never aliases legacy cache entries:
-
-```text
-Linux   -> $XDG_CACHE_HOME/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
-           or ~/.cache/releaseway/npm-actions/native/v2/sha256/<archive-digest>/ when XDG_CACHE_HOME is unset
-macOS   -> ~/Library/Caches/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
-Windows -> %LOCALAPPDATA%\releaseway\npm-actions\native\v2\sha256\<archive-digest>\
-```
-
-Each archive directory contains the verified archive and independent executable subtrees:
-
-```text
-<archive-digest>/
-  archive.bin
-  archive.json
-  executables/
-    <sha256(normalized executable path)>/
-      <executable basename>
-      metadata.json
-```
-
-The archive is downloaded and SHA-256 verified once per archive digest. Different packages may select different executable paths from the same archive; those paths are extracted into separate executable subtrees and never replace each other, even when their basenames are equal.
-
-Archive download and executable extraction use separate locks. Concurrent requests for different executables share one archive download while preparing their executable entries independently. Concurrent requests for the same executable converge on one completed executable entry.
-
-A cache hit validates both the archive digest and the recorded executable digest. Corrupt archive files are refreshed without deleting verified executable subtrees. Corrupt executable content removes and rebuilds only that executable subtree from the cached verified archive.
-
-### 15.2 Archive safety
-
-Archive extraction is limited to the explicitly configured executable path.
-
-Archive entries with absolute paths, parent-directory traversal, duplicate target paths, symbolic links, hard links, device entries, or other non-regular executable targets are rejected.
-
-The launcher never extracts arbitrary archive paths into a caller-controlled working directory.
-
-## 16. Fail-closed rules
-
-Releaseway prefers failure over inference or mutation when the intended state is ambiguous.
-
-Examples include:
-
-- package-manager identity required for reproducible packing is missing;
-- workspace dependency ordering contains a hard-edge cycle;
-- an existing `name@version` has missing, invalid, or different SHA-512 artifact integrity;
-- npm reports that a direct or staged publication conflicts with existing staged state;
-- a discovered publishable package does not yet exist in the npm registry and therefore has no Trusted Publisher bootstrap;
-- publication resolves to a registry other than `https://registry.npmjs.org/`;
-- the caller workflow cannot obtain npm Trusted Publishing authority through OIDC;
-- native target mapping is ambiguous or incomplete;
-- a configured native asset is missing or duplicated;
-- GitHub Release provenance does not match the expected source;
-- asset state or SHA-256 validation fails.
-
-Releaseway does not silently repair these states.
-
-## 17. Action shape
-
-The public entry point is a root JavaScript action:
-
-```yaml
-runs:
-  using: node24
-  main: dist/main.js
-```
-
-The caller workflow owns the release job and invokes `releaseway/npm-actions` directly.
-
-This keeps publication in the caller workflow context rather than hiding npm publication behind a separate reusable workflow identity. The caller does not need to install Node.js for the action itself.
-
-### 17.1 Public interface
-
-The action has no functional inputs.
-
-It operates on the repository checked out at `GITHUB_WORKSPACE`, discovers the repository-level package set, and reads Releaseway policy only from the fixed `.github/npm/packages.yml` path when that file exists.
-
-There is no `package-path`, package selector, registry, publish-mode, auth, or config-path input.
-
-The checkout HEAD must equal `GITHUB_SHA`, and the checkout repository identity must match `GITHUB_REPOSITORY`. Any checkout that cannot be bound exactly to those caller-context identities fails closed.
-
-Every publishable package must have npm repository metadata that resolves to the same GitHub repository, as required by npm Trusted Publishing.
-
-The action fails when no publishable packages are discovered. Duplicate discovered npm package names and config entries that do not select a discovered package also fail.
-
-The action exposes one output:
-
-```text
-packages
-```
-
-`packages` is a JSON array ordered by publication execution order. Each element contains:
-
-```json
-{
-  "name": "@scope/package",
-  "version": "1.2.3",
-  "state": "published"
-}
-```
-
-The stable state values are:
-
-```text
-published  -> newly published through direct mode
-staged     -> newly submitted through staged mode
-existing   -> exact name@version artifact already live
-```
-
-Manifests excluded by publication policy, including `private: true`, are not included in the output.
-
-## 18. Responsibility boundaries
-
-Caller responsibilities:
-
-- version selection;
-- version bumping;
-- changelog and release-trigger policy;
-- source build steps;
-- producing GitHub Release assets when native distribution is used;
-- running publication on a GitHub-hosted runner supported by npm Trusted Publishing;
-- granting the workflow `id-token: write`;
-- configuring the npm Trusted Publisher for the calling workflow;
-- enabling direct publication in npm publisher settings when `publish.mode: direct` requires it;
-- bootstrapping a package before npm-actions manages subsequent releases;
-- supplying read-only registry credentials when private dependency or metadata access is required;
-- inspecting, approving, or rejecting pending staged publications.
-
-npm-actions responsibilities:
-
-- workspace discovery;
-- publishable-package filtering;
-- package-manager selection;
-- deterministic packing;
-- artifact inspection;
-- live-registry reconciliation;
-- workspace dependency ordering;
-- enforcement of the public npm registry (`https://registry.npmjs.org/`) as the publication target;
-- direct or staged publication through npm Trusted Publishing and GitHub Actions OIDC;
-- never treating caller-owned read credentials as publish authority;
-- native distribution config validation;
-- GitHub Release provenance and digest verification;
-- generation of native launcher/runtime metadata when required;
-- idempotent no-op behavior for matching live-published versions;
-- fail-closed behavior for pending-stage conflicts and other ambiguous state.
-
-## 19. Design summary
-
-```text
-repository
-|
-+-- package.json / workspace metadata
-|     -> npm identity and package semantics
-|
-+-- .github/npm/packages.yml
-      -> Releaseway-only persistent policy
-
-               |
-               v
-
-workspace discovery
-        |
-        v
-publishable package set
-        |
-        v
-dependency graph
-        |
-        v
-package-manager-native pack
-        |
-        v
-verified package artifacts
-        |
-        v
-npm package identity
-        |
-        +-- package absent -> fail; maintainer bootstrap required
-        |
-        +-- package exists
-               |
-               v
-        live version reconciliation
-               |
-               +-- identical SHA-512 artifact -> no-op
-               |
-               +-- conflicting live version -> fail
-               |
-               +-- version absent
-                      |
-                      +-- direct -> OIDC -> npm publish
-                      |
-                      +-- stage  -> OIDC -> npm stage publish
-                                          |
-                                          +-- pending-stage conflict -> fail
-                                          +-- approval/rejection -> maintainer
-
-Native package override:
-
-packages.yml distribution
-        |
-        v
-explicit target -> GitHub Release asset mapping
-        |
-        v
-published immutable release + source provenance
-        |
-        v
-asset SHA-256 pinning
-        |
-        v
-generated launcher / manifest in npm artifact
-        |
-        v
-runtime downloads exactly one target on demand
-```
+Local integration tests cover manager-native packing and final installed wrappers. The separate npm-actions-fixture repository covers actual OIDC publication, immutable Release assets and installed first-run/cache-hit behavior. Local tests must not mutate the real registry. Fixture assertions must use this action revision's output contract.

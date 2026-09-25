@@ -1,9 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 
 export async function sha512Integrity(path: string): Promise<string> {
-  const bytes = await readFile(path);
-  return "sha512-" + createHash("sha512").update(bytes).digest("base64");
+  const hash = createHash("sha512");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return "sha512-" + hash.digest("base64");
 }
 
 function decodeSha512(token: string): Buffer | undefined {

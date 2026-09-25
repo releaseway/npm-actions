@@ -16,14 +16,10 @@ test("action metadata uses the Node 24 bundle and exposes only packages", async 
 
 test("JavaScript action root derives from the bundled main entrypoint", () => {
   assert.equal(
-    resolveActionPath(
-      undefined,
-      {},
-      [
-        "/opt/hostedtoolcache/node/bin/node",
-        "/home/runner/work/_actions/releaseway/npm-actions/sha/dist/main.js",
-      ],
-    ),
+    resolveActionPath(undefined, {}, [
+      "/opt/hostedtoolcache/node/bin/node",
+      "/home/runner/work/_actions/releaseway/npm-actions/sha/dist/main.js",
+    ]),
     "/home/runner/work/_actions/releaseway/npm-actions/sha",
   );
 });
@@ -34,7 +30,7 @@ test("action writes packages output only after successful orchestration", async 
     {
       name: "@scope/a",
       version: "1.2.3",
-      state: "existing",
+      state: "already-published",
     },
     {
       name: "@scope/b",
@@ -78,7 +74,7 @@ test("action does not write output when orchestration fails", async () => {
         GITHUB_WORKSPACE: "/workspace",
         GITHUB_REPOSITORY: "releaseway/example",
         GITHUB_SHA: "0123456789abcdef0123456789abcdef01234567",
-        },
+      },
       release: async () => {
         throw new Error("preflight failed");
       },

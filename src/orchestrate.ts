@@ -1,19 +1,14 @@
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
-
 import { loadConfig } from "./config/load.ts";
 import {
   buildWorkspaceDependencyGraph,
-  type WorkspaceDependencyGraph,
+  type DependencyRequirement,
 } from "./graph/dependencies.ts";
 import { topologicalPublishOrder } from "./graph/topo.ts";
+import { immutableJson } from "./immutable.ts";
 import { augmentNativeArtifact } from "./native/augment.ts";
 import {
   NativeReleaseResolver,
@@ -23,26 +18,23 @@ import {
   validateNativeDistribution,
   type ValidatedNativeDistribution,
 } from "./native/validate.ts";
-import {
-  packAllPackages,
-  resolvePackCommand,
-} from "./pack/index.ts";
-import {
-  inspectPackedTarball,
-  type PackedArtifact,
-} from "./pack/inspect.ts";
-import {
-  assertTrustedPublishingEnvironment,
-} from "./publish/environment.ts";
+import { packAllPackages, resolvePackCommand } from "./pack/index.ts";
+import { inspectPackedTarball, type PackedArtifact } from "./pack/inspect.ts";
+import { assertTrustedPublishingEnvironment } from "./publish/environment.ts";
 import {
   publishPackage,
-  type PublicationMutationState,
+  assertPreparedTarball,
+  PublishCommandError,
+  isPendingRegistryScanConflict,
+  type PublishRequest,
 } from "./publish/index.ts";
 import { derivePublishOptions } from "./publish/options.ts";
 import {
   NpmRegistryClient,
-  type RegistryReconciliation,
+  type RegistryReader,
+  type RegistryPackageSnapshot,
 } from "./registry/client.ts";
+import { sha512Integrity } from "./registry/integrity.ts";
 import {
   bootstrapReleasewayToolchain,
   type ReleasewayToolchain,
@@ -58,35 +50,38 @@ import {
   type GithubContext,
   verifySourceIdentity,
 } from "./workspace/identity.ts";
+import {
+  parseGitHubRepository,
+  repositoryFullName,
+} from "./workspace/repository.ts";
 
 export interface PackageResult {
-  name: string;
-  version: string;
-  state: "published" | "staged" | "existing";
+  readonly name: string;
+  readonly version: string;
+  readonly state: "already-published" | "published" | "staged";
 }
-
-interface PreparedPackage {
-  pkg: PublishablePackage;
-  artifact: PackedArtifact;
-  reconciliation: RegistryReconciliation;
+export interface PlannedPublication {
+  readonly request: PublishRequest;
+  readonly manifest: PackedArtifact["manifest"];
+  readonly requirements: readonly DependencyRequirement[];
 }
-
-export interface PreparedRelease {
-  packages: PublishablePackage[];
-  prepared: Map<string, PreparedPackage>;
-  graph: WorkspaceDependencyGraph;
-  existingOrder: string[];
-  publishOrder: string[];
-  toolchain: ReleasewayToolchain;
-  registryClient: NpmRegistryClient;
-  runRoot: string;
+interface ReleaseBase {
+  readonly alreadyPublished: readonly PackageResult[];
 }
-
+export type PreparedRelease =
+  | (ReleaseBase & { readonly kind: "noop" })
+  | (ReleaseBase & {
+      readonly kind: "ready";
+      readonly source: GithubContext;
+      readonly publications: readonly PlannedPublication[];
+      readonly toolchain: ReleasewayToolchain;
+      readonly registryClient: RegistryReader;
+      readonly runRoot: string;
+    });
 export interface OrchestrationContext extends GithubContext {
   actionPath: string;
   env: NodeJS.ProcessEnv;
 }
-
 export interface OrchestrationDependencies {
   verifySource?: typeof verifySourceIdentity;
   loadRepositoryConfig?: typeof loadConfig;
@@ -96,59 +91,59 @@ export interface OrchestrationDependencies {
   packAll?: typeof packAllPackages;
   inspect?: typeof inspectPackedTarball;
   nativeResolver?: NativeReleaseResolver;
-  registryClient?: NpmRegistryClient;
+  registryClient?: RegistryReader;
   publish?: typeof publishPackage;
   waitForDirectLive?: typeof waitForDirectLive;
   validatePublishEnvironment?: typeof assertTrustedPublishingEnvironment;
 }
 
-function defaultRunRoot(context: OrchestrationContext): string {
-  return resolve(context.env.RUNNER_TEMP ?? tmpdir());
-}
-
-const DIRECT_SCAN_POLL_MS = 10_000;
-const DIRECT_SCAN_TIMEOUT_MS = 20 * 60_000;
-
+/** Poll only registry bytes; the expected digest was fixed before any mutation. */
 export async function waitForDirectLive(
-  registry: NpmRegistryClient,
+  registry: RegistryReader,
   name: string,
   version: string,
-  tarballPath: string,
+  expectedIntegrity: string,
   options: {
     pollMs?: number;
     timeoutMs?: number;
-    sleep?: (milliseconds: number) => Promise<void>;
+    sleep?: (ms: number) => Promise<void>;
     now?: () => number;
   } = {},
 ): Promise<void> {
-  const pollMs = options.pollMs ?? DIRECT_SCAN_POLL_MS;
-  const timeoutMs = options.timeoutMs ?? DIRECT_SCAN_TIMEOUT_MS;
+  const pollMs = options.pollMs ?? 10_000;
+  const timeoutMs = options.timeoutMs ?? 20 * 60_000;
+  if (
+    !Number.isFinite(pollMs) ||
+    pollMs <= 0 ||
+    !Number.isFinite(timeoutMs) ||
+    timeoutMs <= 0
+  )
+    throw new Error("Registry polling budgets must be positive finite numbers");
+  const now = options.now ?? Date.now;
   const sleep =
     options.sleep ??
-    ((milliseconds: number) =>
-      new Promise<void>((resolvePromise) => {
-        setTimeout(resolvePromise, milliseconds);
-      }));
-  const now = options.now ?? Date.now;
+    ((ms: number) => new Promise<void>((done) => setTimeout(done, ms)));
   const started = now();
-
+  const expired = () =>
+    new Error(
+      name +
+        "@" +
+        version +
+        " is not verified live within the visibility budget; publish-time scanning or a pending stage may require maintainer review",
+    );
   while (true) {
-    const reconciliation = await registry.reconcile(
+    const remaining = timeoutMs - (now() - started);
+    if (remaining <= 0) throw expired();
+    const signal = AbortSignal.timeout(Math.max(1, Math.ceil(remaining)));
+    const result = await registry.verifyPublishedArtifact(
       name,
       version,
-      tarballPath,
+      expectedIntegrity,
+      { signal },
     );
-    if (reconciliation.state === "existing") {
-      return;
-    }
-
-    if (now() - started >= timeoutMs) {
-      throw new Error(
-        `${name}@${version} was accepted by npm but is not live after ${Math.round(timeoutMs / 60_000)} minutes; publish-time malware scanning may still be pending or may require maintainer review`,
-      );
-    }
-
-    await sleep(pollMs);
+    if (now() - started >= timeoutMs) throw expired();
+    if (result === "matched") return;
+    await sleep(Math.min(pollMs, timeoutMs - (now() - started)));
   }
 }
 
@@ -172,7 +167,9 @@ function rootManifest(
     (pkg) => resolve(pkg.directory) === resolve(workspace),
   );
   if (!root) {
-    throw new Error("Workspace discovery did not return the repository root package");
+    throw new Error(
+      "Workspace discovery did not return the repository root package",
+    );
   }
   return root;
 }
@@ -247,167 +244,172 @@ async function applyNativeAugmentation(
   }
 }
 
-function preflightPublishOptions(
-  packages: readonly PublishablePackage[],
-  artifacts: ReadonlyMap<string, PackedArtifact>,
-  reconciliations: ReadonlyMap<string, RegistryReconciliation>,
-): void {
-  for (const pkg of packages) {
-    const reconciliation = reconciliations.get(pkg.name);
-    if (!reconciliation || reconciliation.state !== "candidate") {
-      continue;
-    }
-    const artifact = artifacts.get(pkg.name);
-    if (!artifact) {
-      throw new Error(`Missing final artifact for ${pkg.name}`);
-    }
-
-    derivePublishOptions(
-      artifact.manifest,
-      pkg.version,
-      reconciliation.latestVersion,
-    );
-  }
-}
-
 export async function prepareRelease(
   context: OrchestrationContext,
   dependencies: OrchestrationDependencies = {},
 ): Promise<PreparedRelease> {
-  const verifySource = dependencies.verifySource ?? verifySourceIdentity;
-  const loadRepositoryConfig =
-    dependencies.loadRepositoryConfig ?? loadConfig;
-  const discover = dependencies.discover ?? discoverWorkspace;
-  const selectPackages =
-    dependencies.selectPackages ?? selectPublishablePackages;
-  const bootstrapToolchain =
-    dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain;
-  const packAll = dependencies.packAll ?? packAllPackages;
-  const inspect = dependencies.inspect ?? inspectPackedTarball;
-  const nativeResolver =
-    dependencies.nativeResolver ?? new NativeReleaseResolver();
-  const registryClient =
-    dependencies.registryClient ??
-    new NpmRegistryClient({
-      readToken: context.env.NODE_AUTH_TOKEN,
-    });
-  const validatePublishEnvironment =
-    dependencies.validatePublishEnvironment ??
-    assertTrustedPublishingEnvironment;
-
-  verifySource(context);
-
+  (dependencies.verifySource ?? verifySourceIdentity)(context);
   const [config, discovered] = await Promise.all([
-    loadRepositoryConfig(context.workspace),
-    discover(context.workspace),
+    (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
+    (dependencies.discover ?? discoverWorkspace)(context.workspace),
   ]);
-  const packages = selectPackages(
-    discovered,
-    config,
-    context.repository,
+  const packages = immutableJson(
+    (dependencies.selectPackages ?? selectPublishablePackages)(
+      discovered,
+      config,
+      context.repository,
+    ),
   );
-  if (packages.length === 0) {
+  if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  const registry =
+    dependencies.registryClient ??
+    new NpmRegistryClient({ readToken: context.env.NODE_AUTH_TOKEN });
+  const snapshots = new Map<string, RegistryPackageSnapshot>();
+  const candidates: PublishablePackage[] = [];
+  const alreadyPublished: PackageResult[] = [];
+  // Classification must finish for the complete workspace before any package-manager work.
+  for (const pkg of packages) {
+    const lookup = await registry.lookupVersion(pkg.name, pkg.version);
+    snapshots.set(pkg.name, lookup.snapshot);
+    if (lookup.state === "already-published")
+      alreadyPublished.push({
+        name: pkg.name,
+        version: pkg.version,
+        state: "already-published",
+      });
+    else candidates.push(pkg);
   }
-
-  const root = rootManifest(discovered, context.workspace);
-  const runBase = defaultRunRoot(context);
-  await mkdir(runBase, { recursive: true });
-  const runRoot = await mkdtemp(
-    join(runBase, "releaseway-npm-actions-run-"),
+  const skipped = immutableJson(
+    alreadyPublished.sort((a, b) => a.name.localeCompare(b.name)),
   );
-
+  if (candidates.length === 0)
+    return Object.freeze({ kind: "noop", alreadyPublished: skipped });
+  (
+    dependencies.validatePublishEnvironment ??
+    assertTrustedPublishingEnvironment
+  )(context.env);
+  const root = rootManifest(discovered, context.workspace);
+  const base = resolve(context.env.RUNNER_TEMP ?? tmpdir());
+  await mkdir(base, { recursive: true });
+  const runRoot = await mkdtemp(join(base, "releaseway-npm-actions-run-"));
   try {
-    const toolchain = await bootstrapToolchain({
-      rootBase: runRoot,
-    });
+    const toolchain = await (
+      dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain
+    )({ rootBase: runRoot });
     const command = await resolvePackCommand(
       { packageManager: root.manifest.packageManager },
       toolchain,
       context.workspace,
       packageOperationEnvironment(context.env),
     );
-    const packed = await packAll(
+    const packed = await (dependencies.packAll ?? packAllPackages)(
       context.workspace,
-      packages,
+      candidates,
       command,
       join(runRoot, "packed"),
     );
-    const artifacts = artifactMap(packages, packed);
-
+    const artifacts = artifactMap(candidates, packed);
     await applyNativeAugmentation(
       context,
-      packages,
+      candidates,
       artifacts,
       runRoot,
-      inspect,
-      nativeResolver,
+      dependencies.inspect ?? inspectPackedTarball,
+      dependencies.nativeResolver ?? new NativeReleaseResolver(),
     );
-
-    const graph = buildWorkspaceDependencyGraph(packages, artifacts);
-    const reconciliations = new Map<string, RegistryReconciliation>();
-
-    for (const pkg of packages) {
-      const artifact = artifacts.get(pkg.name);
-      if (!artifact) {
-        throw new Error(`Missing final artifact for ${pkg.name}`);
-      }
-      reconciliations.set(
+    const requests = new Map<string, PublishRequest>();
+    for (const pkg of candidates) {
+      const artifact = artifacts.get(pkg.name)!;
+      if (
+        artifact.manifest.name !== pkg.name ||
+        artifact.manifest.version !== pkg.version ||
+        artifact.manifest.private === true
+      )
+        throw new Error(
+          "Final packed identity is not publishable: " +
+            pkg.name +
+            "@" +
+            pkg.version,
+        );
+      if (
+        repositoryFullName(
+          parseGitHubRepository(artifact.manifest.repository),
+        ).toLowerCase() !== context.repository.toLowerCase()
+      )
+        throw new Error(
+          "Final packed repository does not match source for " + pkg.name,
+        );
+      const publishOptions = derivePublishOptions(
+        artifact.manifest,
+        pkg.version,
+        snapshots.get(pkg.name)!.latestVersion,
+      );
+      requests.set(
         pkg.name,
-        await registryClient.reconcile(
-          pkg.name,
-          pkg.version,
-          artifact.tarballPath,
-        ),
+        immutableJson({
+          name: pkg.name,
+          version: pkg.version,
+          mode: pkg.publishMode,
+          tarballPath: resolve(artifact.tarballPath),
+          integrity: await sha512Integrity(artifact.tarballPath),
+          publishOptions: {
+            ...publishOptions,
+            tag: publishOptions.tag ?? "latest",
+          },
+        }),
       );
     }
-
-    preflightPublishOptions(packages, artifacts, reconciliations);
-
-    const candidates = new Set(
-      packages
-        .filter(
-          (pkg) =>
-            reconciliations.get(pkg.name)?.state === "candidate",
-        )
-        .map((pkg) => pkg.name),
-    );
-    const existingOrder = packages
-      .filter(
-        (pkg) =>
-          reconciliations.get(pkg.name)?.state === "existing",
-      )
-      .map((pkg) => pkg.name)
-      .sort();
-
-    const publishOrder = topologicalPublishOrder(graph, candidates);
-    if (publishOrder.length > 0) {
-      validatePublishEnvironment(context.env);
-    }
-
-    const prepared = new Map<string, PreparedPackage>();
-    for (const pkg of packages) {
-      const artifact = artifacts.get(pkg.name);
-      const reconciliation = reconciliations.get(pkg.name);
-      if (!artifact || !reconciliation) {
-        throw new Error(`Incomplete preflight state for ${pkg.name}`);
-      }
-      prepared.set(pkg.name, { pkg, artifact, reconciliation });
-    }
-
-    return {
-      packages,
-      prepared,
+    const graph = buildWorkspaceDependencyGraph(packages, artifacts, snapshots);
+    const order = topologicalPublishOrder(
       graph,
-      existingOrder,
-      publishOrder,
-      toolchain,
-      registryClient,
+      new Set(candidates.map((pkg) => pkg.name)),
+    );
+    const publications = immutableJson(
+      order.map((name) => ({
+        request: requests.get(name)!,
+        manifest: artifacts.get(name)!.manifest,
+        requirements: graph.requirements.get(name)!,
+      })),
+    );
+    return Object.freeze({
+      kind: "ready",
+      alreadyPublished: skipped,
+      publications,
+      source: immutableJson({
+        repository: context.repository,
+        sha: context.sha,
+        workspace: context.workspace,
+      }),
+      toolchain: Object.freeze({ ...toolchain }),
+      registryClient: registry,
       runRoot,
-    };
+    });
   } catch (error) {
     await rm(runRoot, { recursive: true, force: true });
     throw error;
+  }
+}
+
+async function assertDirectDependenciesLive(
+  registry: RegistryReader,
+  publication: PlannedPublication,
+): Promise<void> {
+  if (publication.request.mode !== "direct") return;
+  for (const dependency of publication.requirements) {
+    if (dependency.field !== "dependencies") continue;
+    const lookup = await registry.lookupVersion(
+      dependency.name,
+      dependency.version,
+    );
+    if (lookup.state !== "already-published")
+      throw new Error(
+        publication.request.name +
+          " required dependency is no longer live: " +
+          dependency.name +
+          "@" +
+          dependency.version,
+      );
   }
 }
 
@@ -416,86 +418,107 @@ export async function executePreparedRelease(
   prepared: PreparedRelease,
   dependencies: OrchestrationDependencies = {},
 ): Promise<PackageResult[]> {
+  const results: PackageResult[] = [...prepared.alreadyPublished];
+  if (prepared.kind === "noop") return results;
+  if (
+    context.repository !== prepared.source.repository ||
+    context.sha !== prepared.source.sha ||
+    resolve(context.workspace) !== resolve(prepared.source.workspace)
+  )
+    throw new Error("Prepared release source context changed");
+  const registry = prepared.registryClient;
   const publisher = dependencies.publish ?? publishPackage;
-  const waitForLive =
-    dependencies.waitForDirectLive ?? waitForDirectLive;
-  const results: PackageResult[] = [];
-
-  for (const name of prepared.existingOrder) {
-    const entry = prepared.prepared.get(name);
-    if (!entry || entry.reconciliation.state !== "existing") {
-      throw new Error(`Invalid existing preflight state for ${name}`);
-    }
-    results.push({
-      name: entry.pkg.name,
-      version: entry.pkg.version,
-      state: "existing",
-    });
-  }
-
+  const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
+  // Detect alteration of any prepared artifact before the first registry mutation.
+  for (const publication of prepared.publications)
+    await assertPreparedTarball(publication.request);
   const completed: PackageResult[] = [];
-  for (const name of prepared.publishOrder) {
-    const entry = prepared.prepared.get(name);
-    if (!entry || entry.reconciliation.state !== "candidate") {
-      throw new Error(`Invalid candidate preflight state for ${name}`);
-    }
-
+  for (const publication of prepared.publications) {
+    const request = publication.request;
     try {
-      const mutationState: PublicationMutationState = await publisher(
-        prepared.toolchain,
-        {
-          mode: entry.pkg.publishMode,
-          name: entry.pkg.name,
-          version: entry.pkg.version,
-          tarballPath: entry.artifact.tarballPath,
-          manifest: entry.artifact.manifest,
-          latestVersion: entry.reconciliation.latestVersion,
-        },
-        {
-          env: context.env,
-          tempRoot: prepared.runRoot,
-        },
-      );
-
+      await assertPreparedTarball(request);
       let state: PackageResult["state"];
-      if (mutationState === "direct-accepted") {
-        await waitForLive(
-          prepared.registryClient,
-          entry.pkg.name,
-          entry.pkg.version,
-          entry.artifact.tarballPath,
-        );
+      if (
+        (await registry.verifyPublishedArtifact(
+          request.name,
+          request.version,
+          request.integrity,
+        )) === "matched"
+      ) {
         state = "published";
       } else {
-        state = "staged";
+        await assertDirectDependenciesLive(registry, publication);
+        let submitted;
+        try {
+          submitted = await publisher(prepared.toolchain, request, {
+            env: context.env,
+            tempRoot: prepared.runRoot,
+          });
+        } catch (error) {
+          // The request may have succeeded remotely before its local failure. Read, never retry the write.
+          if (
+            (await registry.verifyPublishedArtifact(
+              request.name,
+              request.version,
+              request.integrity,
+            )) === "matched"
+          ) {
+            submitted = "verified-live" as const;
+          } else if (
+            request.mode === "direct" &&
+            error instanceof PublishCommandError &&
+            isPendingRegistryScanConflict(error.output)
+          ) {
+            await waitForLive(
+              registry,
+              request.name,
+              request.version,
+              request.integrity,
+            );
+            submitted = "verified-live" as const;
+          } else {
+            throw error;
+          }
+        }
+        if (submitted === "direct-accepted") {
+          await waitForLive(
+            registry,
+            request.name,
+            request.version,
+            request.integrity,
+          );
+          state = "published";
+        } else if (submitted === "verified-live") state = "published";
+        else if (submitted === "staged") state = "staged";
+        else throw new Error("Unknown publication result");
       }
-
       const result: PackageResult = {
-        name: entry.pkg.name,
-        version: entry.pkg.version,
+        name: request.name,
+        version: request.version,
         state,
       };
       completed.push(result);
       results.push(result);
     } catch (error) {
-      const completedSummary =
-        completed.length === 0
-          ? "none"
-          : completed
-              .map(
-                (item) =>
-                  `${item.name}@${item.version}(${item.state})`,
-              )
-              .join(", ");
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const summary =
+        completed
+          .map(
+            (item) => item.name + "@" + item.version + "(" + item.state + ")",
+          )
+          .join(", ") || "none";
       throw new Error(
-        `Publication failed for ${entry.pkg.name}@${entry.pkg.version}; completed before failure: ${completedSummary}; cause: ${message}`,
+        "Publication failed for " +
+          request.name +
+          "@" +
+          request.version +
+          "; completed before failure: " +
+          summary +
+          "; cause: " +
+          (error instanceof Error ? error.message : String(error)),
         { cause: error },
       );
     }
   }
-
   return results;
 }
 
@@ -505,12 +528,9 @@ export async function runRelease(
 ): Promise<PackageResult[]> {
   const prepared = await prepareRelease(context, dependencies);
   try {
-    return await executePreparedRelease(
-      context,
-      prepared,
-      dependencies,
-    );
+    return await executePreparedRelease(context, prepared, dependencies);
   } finally {
-    await rm(prepared.runRoot, { recursive: true, force: true });
+    if (prepared.kind === "ready")
+      await rm(prepared.runRoot, { recursive: true, force: true });
   }
 }

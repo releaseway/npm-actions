@@ -30,9 +30,9 @@ test("README quick start matches zero-input OIDC action contract", async () => {
 
 test("README Releaseway config examples are accepted by the real parser", async () => {
   const source = await readFile(README, "utf8");
-  const yamlBlocks = [
-    ...source.matchAll(/```yaml\n([\s\S]*?)```/g),
-  ].map((match) => match[1]);
+  const yamlBlocks = [...source.matchAll(/```yaml\n([\s\S]*?)```/g)].map(
+    (match) => match[1],
+  );
 
   const configExamples = yamlBlocks.filter((block) =>
     /^schema:\s*1/m.test(block),
@@ -58,10 +58,7 @@ test("README native target list exactly matches runtime support", async () => {
     .filter(Boolean)
     .sort();
 
-  assert.deepEqual(
-    documented,
-    [...SUPPORTED_NATIVE_TARGETS].sort(),
-  );
+  assert.deepEqual(documented, [...SUPPORTED_NATIVE_TARGETS].sort());
 });
 
 test("README keeps current security and scope boundaries explicit", async () => {
@@ -91,4 +88,17 @@ test("README keeps current security and scope boundaries explicit", async () => 
   ]) {
     assert.equal(source.includes(stale), false, stale);
   }
+});
+
+test("documentation describes one registry-first contract without historical repacking", async () => {
+  for (const file of ["README.md", "DESIGN.md", "IMPLEMENTATION.md"]) {
+    const text = await readFile(file, "utf8");
+    assert.ok(text.includes("already-published"), file);
+    assert.doesNotMatch(text, /state: \"existing\"|\"state\":\"existing\"/);
+    assert.doesNotMatch(text, /Exact existing-version reconciliation/);
+  }
+  const readme = await readFile(README, "utf8");
+  assert.match(readme, /without packing, provisioning a toolchain/);
+  assert.match(readme, /caller owns version bumps/);
+  assert.match(readme, /identical concurrent publication/);
 });
