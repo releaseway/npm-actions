@@ -18655,81 +18655,105 @@ function validateAsset(assets, expected, label) {
     sha256: asset.digest.slice("sha256:".length).toLowerCase()
   };
 }
+async function loadReleaseSnapshot(repository, tag, fetchImpl) {
+  const repoRaw = await apiJson(repository, "", fetchImpl);
+  if (!repoRaw || typeof repoRaw !== "object" || Array.isArray(repoRaw) || repoRaw.private !== false) {
+    throw new Error(
+      `Native distribution repository ${repository} must be public`
+    );
+  }
+  const release = releaseObject(
+    await apiJson(
+      repository,
+      `/releases/tags/${encodeURIComponent(tag)}`,
+      fetchImpl
+    )
+  );
+  if (release.tag_name !== tag) {
+    throw new Error(
+      `GitHub Release tag does not match expected ${tag}`
+    );
+  }
+  if (release.draft !== false || typeof release.published_at !== "string") {
+    throw new Error(`GitHub Release ${tag} must be published`);
+  }
+  if (release.immutable !== true) {
+    throw new Error(`GitHub Release ${tag} must be immutable`);
+  }
+  if (!Array.isArray(release.assets)) {
+    throw new Error(`GitHub Release ${tag} assets are malformed`);
+  }
+  return {
+    repository,
+    tag,
+    sourceCommit: await resolveTagCommit(repository, tag, fetchImpl),
+    assets: release.assets
+  };
+}
+function materializeVerifiedRelease(snapshot, version, sourceCommit, distribution) {
+  if (snapshot.tag !== distribution.tag) {
+    throw new Error(
+      `Cached GitHub Release tag ${snapshot.tag} does not match expected ${distribution.tag}`
+    );
+  }
+  const expectedCommit = sourceCommit.toLowerCase();
+  if (snapshot.sourceCommit !== expectedCommit) {
+    throw new Error(
+      `GitHub Release tag ${distribution.tag} resolves to ${snapshot.sourceCommit}, expected ${expectedCommit}`
+    );
+  }
+  const targets = {};
+  for (const [target, targetPolicy] of Object.entries(
+    distribution.targets
+  )) {
+    targets[target] = validateAsset(
+      snapshot.assets,
+      targetPolicy,
+      `${distribution.tag} ${target}`
+    );
+  }
+  return {
+    repository: snapshot.repository,
+    version,
+    tag: snapshot.tag,
+    targets
+  };
+}
 var NativeReleaseResolver = class {
   #fetchImpl;
-  #cache = /* @__PURE__ */ new Map();
+  #snapshotCache = /* @__PURE__ */ new Map();
   constructor(fetchImpl = fetch) {
     this.#fetchImpl = fetchImpl;
   }
-  resolve(repository, version, sourceCommit, distribution) {
-    const key = `${repository}\0${version}\0${sourceCommit}\0${distribution.tag}`;
-    const existing = this.#cache.get(key);
-    if (existing) {
-      return existing;
-    }
-    const pending = this.#resolve(
-      repository,
+  async resolve(repository, version, sourceCommit, distribution) {
+    const snapshot = await this.#snapshot(repository, distribution.tag);
+    return materializeVerifiedRelease(
+      snapshot,
       version,
       sourceCommit,
       distribution
     );
-    this.#cache.set(key, pending);
-    return pending;
   }
-  async #resolve(repository, version, sourceCommit, distribution) {
-    const repoRaw = await apiJson(repository, "", this.#fetchImpl);
-    if (!repoRaw || typeof repoRaw !== "object" || Array.isArray(repoRaw) || repoRaw.private !== false) {
-      throw new Error(
-        `Native distribution repository ${repository} must be public`
-      );
+  async #snapshot(repository, tag) {
+    const key = `${repository}\0${tag}`;
+    const existing = this.#snapshotCache.get(key);
+    if (existing) {
+      return existing;
     }
-    const release = releaseObject(
-      await apiJson(
-        repository,
-        `/releases/tags/${encodeURIComponent(distribution.tag)}`,
-        this.#fetchImpl
-      )
-    );
-    if (release.tag_name !== distribution.tag) {
-      throw new Error(
-        `GitHub Release tag does not match expected ${distribution.tag}`
-      );
-    }
-    if (release.draft !== false || typeof release.published_at !== "string") {
-      throw new Error(`GitHub Release ${distribution.tag} must be published`);
-    }
-    if (release.immutable !== true) {
-      throw new Error(`GitHub Release ${distribution.tag} must be immutable`);
-    }
-    if (!Array.isArray(release.assets)) {
-      throw new Error(`GitHub Release ${distribution.tag} assets are malformed`);
-    }
-    const commit = await resolveTagCommit(
+    const pending = loadReleaseSnapshot(
       repository,
-      distribution.tag,
+      tag,
       this.#fetchImpl
     );
-    if (commit !== sourceCommit.toLowerCase()) {
-      throw new Error(
-        `GitHub Release tag ${distribution.tag} resolves to ${commit}, expected ${sourceCommit.toLowerCase()}`
-      );
+    this.#snapshotCache.set(key, pending);
+    try {
+      return await pending;
+    } catch (error) {
+      if (this.#snapshotCache.get(key) === pending) {
+        this.#snapshotCache.delete(key);
+      }
+      throw error;
     }
-    const targets = {};
-    for (const [target, targetPolicy] of Object.entries(
-      distribution.targets
-    )) {
-      targets[target] = validateAsset(
-        release.assets,
-        targetPolicy,
-        `${distribution.tag} ${target}`
-      );
-    }
-    return {
-      repository,
-      version,
-      tag: distribution.tag,
-      targets
-    };
   }
 };
 

@@ -226,7 +226,7 @@ test("native validation rejects ambiguous or unsafe distribution contracts", () 
   );
 });
 
-test("public immutable release provenance returns exact target digests and caches", async () => {
+test("public immutable release provenance materializes fresh package results from one cached snapshot", async () => {
   const state = baseGithubState();
   const requests = [];
   const resolver = new NativeReleaseResolver(fakeGithubFetch(state, requests));
@@ -249,7 +249,8 @@ test("public immutable release provenance returns exact target digests and cache
     distribution,
   );
 
-  assert.strictEqual(first, second);
+  assert.notStrictEqual(first, second);
+  assert.deepEqual(first, second);
   assert.equal(requests.length, count);
   assert.equal(first.repository, "releaseway/example");
   assert.equal(first.tag, "v1.2.3");
@@ -261,6 +262,174 @@ test("public immutable release provenance returns exact target digests and cache
     first.targets["linux-x64-gnu"].sha256,
     "b".repeat(64),
   );
+});
+
+test("cached release snapshots do not reuse another package target mapping", async () => {
+  const state = baseGithubState();
+  state.release.assets.push({
+    name: "tool_alt_linux_x64.tar.gz",
+    state: "uploaded",
+    digest:
+      "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  });
+  const requests = [];
+  const resolver = new NativeReleaseResolver(fakeGithubFetch(state, requests));
+
+  const firstDistribution = validateNativeDistribution(
+    nativePackage({
+      targets: {
+        "linux-x64-gnu": {
+          asset: "tool_linux_x64.tar.gz",
+          executable: "bin/a",
+        },
+      },
+    }),
+    packedArtifact(),
+  );
+  const secondDistribution = validateNativeDistribution(
+    nativePackage({
+      targets: {
+        "linux-x64-gnu": {
+          asset: "tool_alt_linux_x64.tar.gz",
+          executable: "bin/b",
+        },
+      },
+    }),
+    packedArtifact(),
+  );
+
+  const first = await resolver.resolve(
+    "releaseway/example",
+    "1.2.3",
+    SOURCE_SHA,
+    firstDistribution,
+  );
+  const requestCount = requests.length;
+  const second = await resolver.resolve(
+    "releaseway/example",
+    "1.2.3",
+    SOURCE_SHA,
+    secondDistribution,
+  );
+
+  assert.equal(requests.length, requestCount);
+  assert.notStrictEqual(first, second);
+  assert.deepEqual(first.targets["linux-x64-gnu"], {
+    asset: "tool_linux_x64.tar.gz",
+    executable: "bin/a",
+    sha256: "b".repeat(64),
+  });
+  assert.deepEqual(second.targets["linux-x64-gnu"], {
+    asset: "tool_alt_linux_x64.tar.gz",
+    executable: "bin/b",
+    sha256: "c".repeat(64),
+  });
+});
+
+test("cached release snapshots still validate missing package assets", async () => {
+  const state = baseGithubState();
+  const requests = [];
+  const resolver = new NativeReleaseResolver(fakeGithubFetch(state, requests));
+
+  await resolver.resolve(
+    "releaseway/example",
+    "1.2.3",
+    SOURCE_SHA,
+    validateNativeDistribution(nativePackage(), packedArtifact()),
+  );
+  const requestCount = requests.length;
+
+  await assert.rejects(
+    resolver.resolve(
+      "releaseway/example",
+      "1.2.3",
+      SOURCE_SHA,
+      validateNativeDistribution(
+        nativePackage({
+          targets: {
+            "linux-x64-gnu": {
+              asset: "missing.tar.gz",
+              executable: "bin/tool",
+            },
+          },
+        }),
+        packedArtifact(),
+      ),
+    ),
+    /exactly one uploaded GitHub Release asset/,
+  );
+  assert.equal(requests.length, requestCount);
+});
+
+test("cached release snapshots still validate each expected source commit", async () => {
+  const state = baseGithubState();
+  const requests = [];
+  const resolver = new NativeReleaseResolver(fakeGithubFetch(state, requests));
+  const distribution = validateNativeDistribution(
+    nativePackage(),
+    packedArtifact(),
+  );
+
+  await resolver.resolve(
+    "releaseway/example",
+    "1.2.3",
+    SOURCE_SHA,
+    distribution,
+  );
+  const requestCount = requests.length;
+
+  await assert.rejects(
+    resolver.resolve(
+      "releaseway/example",
+      "1.2.3",
+      "ffffffffffffffffffffffffffffffffffffffff",
+      distribution,
+    ),
+    /resolves to .* expected/,
+  );
+  assert.equal(requests.length, requestCount);
+});
+
+test("failed release snapshot loads are evicted so a later resolve can retry", async () => {
+  const state = baseGithubState();
+  const requests = [];
+  const healthyFetch = fakeGithubFetch(state, requests);
+  let failFirst = true;
+  const fetch = async (input, init) => {
+    if (failFirst) {
+      failFirst = false;
+      return new Response(JSON.stringify({ message: "temporary failure" }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return healthyFetch(input, init);
+  };
+
+  const resolver = new NativeReleaseResolver(fetch);
+  const distribution = validateNativeDistribution(
+    nativePackage(),
+    packedArtifact(),
+  );
+
+  await assert.rejects(
+    resolver.resolve(
+      "releaseway/example",
+      "1.2.3",
+      SOURCE_SHA,
+      distribution,
+    ),
+    /HTTP 503/,
+  );
+
+  const result = await resolver.resolve(
+    "releaseway/example",
+    "1.2.3",
+    SOURCE_SHA,
+    distribution,
+  );
+  assert.equal(result.targets["linux-x64-gnu"].sha256, "b".repeat(64));
+  assert.ok(requests.length > 0);
 });
 
 test("annotated release tags are peeled to the source commit", async () => {

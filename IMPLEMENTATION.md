@@ -393,7 +393,7 @@ For packages with `distribution.type: github-release`:
 
 Resolve `tag` using only the supported `{version}` placeholder.
 
-Use GitHub's public REST API for the public native repository and cache responses by expanded tag during one action run.
+Use GitHub's public REST API for the public native repository and cache one raw validated Release snapshot by `repository + expanded tag` during an action run. The snapshot contains the resolved tag commit and raw Release asset inventory only. Apply the expected source commit and each package's target/asset/executable mapping on every resolver call, returning a fresh package-specific verified result. Failed snapshot loads are evicted so transient read failures do not poison the rest of the action run.
 
 Verify before artifact augmentation:
 
