@@ -604,11 +604,15 @@ Cache contract:
 - Linux XDG cache root with `~/.cache` fallback;
 - macOS `~/Library/Caches`;
 - Windows `%LOCALAPPDATA%`;
-- SHA-256 directory key;
-- unique temporary build directory;
-- atomic rename/promotion;
-- losing concurrent writer validates winner and reuses it;
-- corrupt cache entry is removed and rebuilt.
+- versioned `native/v2/sha256` root so legacy entries never alias v2;
+- archive directory key = verified asset SHA-256;
+- archive files = `archive.bin` + `archive.json`;
+- executable directory key = SHA-256 of the normalized archive-relative executable path;
+- archive download lock and executable extraction lock are independent;
+- different executable paths in one archive retain independent cache paths even when basenames match;
+- executable corruption rebuilds only that executable subtree from the cached archive;
+- archive corruption refreshes only archive files without deleting verified executable subtrees;
+- concurrent requests share one archive download and converge per executable identity.
 
 Archive rejection:
 
@@ -629,8 +633,11 @@ Acceptance:
 
 - first run downloads and executes;
 - second run is cache-only;
-- digest corruption redownloads;
-- two concurrent first runs converge to one valid cache entry;
+- archive digest corruption redownloads the archive without deleting valid executable subtrees;
+- executable corruption re-extracts from the cached archive without redownloading;
+- two different executable paths from one archive return distinct stable paths and share one download;
+- concurrent requests for different executable paths share one archive download;
+- concurrent requests for the same executable converge to one valid executable entry;
 - malicious archives are rejected;
 - process exit status and argv propagate correctly;
 - GNU/musl and OS/architecture target selection are covered.

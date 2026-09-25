@@ -555,22 +555,34 @@ No fallback to another target is permitted.
 
 ### 15.1 Cache contract
 
-The native cache is user-scoped and keyed by the verified GitHub Release asset SHA-256, not by mutable tags or asset URLs.
+The native cache is user-scoped and content-addressed. Archive identity is the verified GitHub Release asset SHA-256, not a mutable tag or asset URL. Executable identity is the normalized archive-relative executable path within that archive.
 
-Default cache roots are platform-native:
+Default cache roots are platform-native and versioned so the v2 layout never aliases legacy cache entries:
 
 ```text
-Linux   -> $XDG_CACHE_HOME/releaseway/npm-actions/native/sha256/<digest>/
-           or ~/.cache/releaseway/npm-actions/native/sha256/<digest>/ when XDG_CACHE_HOME is unset
-macOS   -> ~/Library/Caches/releaseway/npm-actions/native/sha256/<digest>/
-Windows -> %LOCALAPPDATA%\releaseway\npm-actions\native\sha256\<digest>\
+Linux   -> $XDG_CACHE_HOME/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
+           or ~/.cache/releaseway/npm-actions/native/v2/sha256/<archive-digest>/ when XDG_CACHE_HOME is unset
+macOS   -> ~/Library/Caches/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
+Windows -> %LOCALAPPDATA%\releaseway\npm-actions\native\v2\sha256\<archive-digest>\
 ```
 
-On a cache miss, the launcher downloads and prepares content in a unique temporary location. It verifies the archive SHA-256 before extraction, records a digest for the extracted executable, and atomically promotes the completed cache entry.
+Each archive directory contains the verified archive and independent executable subtrees:
 
-Concurrent first runs do not share a partially populated directory. If another process wins the atomic promotion race, the losing process discards its temporary entry, validates the completed cache entry, and uses it.
+```text
+<archive-digest>/
+  archive.bin
+  archive.json
+  executables/
+    <sha256(normalized executable path)>/
+      <executable basename>
+      metadata.json
+```
 
-A cache hit validates the recorded executable digest before execution. Missing or corrupt cache content is discarded and rebuilt from the immutable release asset.
+The archive is downloaded and SHA-256 verified once per archive digest. Different packages may select different executable paths from the same archive; those paths are extracted into separate executable subtrees and never replace each other, even when their basenames are equal.
+
+Archive download and executable extraction use separate locks. Concurrent requests for different executables share one archive download while preparing their executable entries independently. Concurrent requests for the same executable converge on one completed executable entry.
+
+A cache hit validates both the archive digest and the recorded executable digest. Corrupt archive files are refreshed without deleting verified executable subtrees. Corrupt executable content removes and rebuilds only that executable subtree from the cached verified archive.
 
 ### 15.2 Archive safety
 

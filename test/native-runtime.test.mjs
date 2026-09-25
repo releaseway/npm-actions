@@ -273,7 +273,7 @@ test("cache roots follow platform-native locations", () => {
       env: { XDG_CACHE_HOME: "/cache" },
       home: "/home/user",
     }),
-    "/cache/releaseway/npm-actions/native/sha256",
+    "/cache/releaseway/npm-actions/native/v2/sha256",
   );
   assert.equal(
     nativeCacheRoot({
@@ -281,7 +281,7 @@ test("cache roots follow platform-native locations", () => {
       env: {},
       home: "/home/user",
     }),
-    "/home/user/.cache/releaseway/npm-actions/native/sha256",
+    "/home/user/.cache/releaseway/npm-actions/native/v2/sha256",
   );
   assert.equal(
     nativeCacheRoot({
@@ -289,7 +289,7 @@ test("cache roots follow platform-native locations", () => {
       env: {},
       home: "/Users/user",
     }),
-    "/Users/user/Library/Caches/releaseway/npm-actions/native/sha256",
+    "/Users/user/Library/Caches/releaseway/npm-actions/native/v2/sha256",
   );
   assert.throws(
     () =>
@@ -302,19 +302,26 @@ test("cache roots follow platform-native locations", () => {
   );
 });
 
-test("native cache handles first run, cache hit, corruption, and concurrent promotion", async () => {
-  const root = await mkdtemp(join(tmpdir(), "releaseway-native-cache-test-"));
+test("native cache v2 separates archive and executable-path identities", async () => {
+  const root = await mkdtemp(join(tmpdir(), "releaseway-native-cache-v2-test-"));
   try {
     const archivePath = await makeTarGz(root, [
-      { type: "file", path: "bin/tool", contents: "native-binary" },
+      { type: "file", path: "a/tool", contents: "A" },
+      { type: "file", path: "b/tool", contents: "B" },
     ]);
     const archiveBytes = await readFile(archivePath);
-    const target = {
+    const digest = sha256(archiveBytes);
+    const targetA = {
       asset: "tool.tar.gz",
-      executable: "bin/tool",
-      sha256: sha256(archiveBytes),
+      executable: "a/tool",
+      sha256: digest,
     };
-    const manifest = runtimeManifest(target);
+    const targetB = {
+      asset: "tool.tar.gz",
+      executable: "b/tool",
+      sha256: digest,
+    };
+    const manifest = runtimeManifest(targetA);
     const cacheRoot = join(root, "cache");
 
     let downloads = 0;
@@ -323,88 +330,127 @@ test("native cache handles first run, cache hit, corruption, and concurrent prom
       return archiveBytes;
     };
 
-    const first = await prepareNativeExecutable(manifest, target, {
+    const pathA = await prepareNativeExecutable(manifest, targetA, {
       root: cacheRoot,
       platform: "linux",
       download,
     });
-    assert.equal(await readFile(first, "utf8"), "native-binary");
+    const pathB = await prepareNativeExecutable(manifest, targetB, {
+      root: cacheRoot,
+      platform: "linux",
+      download,
+    });
+
+    assert.notEqual(pathA, pathB);
+    assert.equal(await readFile(pathA, "utf8"), "A");
+    assert.equal(await readFile(pathB, "utf8"), "B");
     assert.equal(downloads, 1);
 
-    const second = await prepareNativeExecutable(manifest, target, {
+    const againA = await prepareNativeExecutable(manifest, targetA, {
       root: cacheRoot,
       platform: "linux",
       download,
     });
-    assert.equal(second, first);
+    assert.equal(againA, pathA);
     assert.equal(downloads, 1);
 
-    await writeFile(first, "corrupt");
-    const repaired = await prepareNativeExecutable(manifest, target, {
+    await writeFile(pathA, "corrupt");
+    const repairedA = await prepareNativeExecutable(manifest, targetA, {
       root: cacheRoot,
       platform: "linux",
       download,
     });
-    assert.equal(repaired, first);
-    assert.equal(await readFile(repaired, "utf8"), "native-binary");
+    assert.equal(repairedA, pathA);
+    assert.equal(await readFile(repairedA, "utf8"), "A");
+    assert.equal(await readFile(pathB, "utf8"), "B");
+    assert.equal(downloads, 1);
+
+    const cachedArchive = join(cacheRoot, digest, "archive.bin");
+    await writeFile(cachedArchive, "corrupt archive");
+    const afterArchiveRepair = await prepareNativeExecutable(
+      manifest,
+      targetB,
+      {
+        root: cacheRoot,
+        platform: "linux",
+        download,
+      },
+    );
+    assert.equal(afterArchiveRepair, pathB);
+    assert.equal(await readFile(pathA, "utf8"), "A");
+    assert.equal(await readFile(pathB, "utf8"), "B");
     assert.equal(downloads, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
-    const otherCache = join(root, "concurrent-cache");
-    downloads = 0;
-    const [a, b] = await Promise.all([
-      prepareNativeExecutable(manifest, target, {
-        root: otherCache,
-        platform: "linux",
-        download,
-      }),
-      prepareNativeExecutable(manifest, target, {
-        root: otherCache,
-        platform: "linux",
-        download,
-      }),
+test("native cache v2 shares one archive download across concurrent executable paths", async () => {
+  const root = await mkdtemp(join(tmpdir(), "releaseway-native-cache-race-"));
+  try {
+    const archivePath = await makeTarGz(root, [
+      { type: "file", path: "a/tool", contents: "A" },
+      { type: "file", path: "b/tool", contents: "B" },
     ]);
-    assert.equal(a, b);
-    assert.equal(await readFile(a, "utf8"), "native-binary");
-    assert.equal(downloads, 1);
+    const archiveBytes = await readFile(archivePath);
+    const digest = sha256(archiveBytes);
+    const targetA = {
+      asset: "tool.tar.gz",
+      executable: "a/tool",
+      sha256: digest,
+    };
+    const targetB = {
+      asset: "tool.tar.gz",
+      executable: "b/tool",
+      sha256: digest,
+    };
+    const manifest = runtimeManifest(targetA);
+    const cacheRoot = join(root, "cache");
 
-    await writeFile(a, "corrupt");
-    downloads = 0;
-    let enteredResolve;
-    let releaseResolve;
-    const entered = new Promise((resolve) => {
-      enteredResolve = resolve;
-    });
-    const releaseDownload = new Promise((resolve) => {
-      releaseResolve = resolve;
-    });
-    const slowDownload = async () => {
+    let downloads = 0;
+    const download = async () => {
       downloads += 1;
-      enteredResolve();
-      await releaseDownload;
       return archiveBytes;
     };
 
-    const repairA = prepareNativeExecutable(manifest, target, {
-      root: otherCache,
-      platform: "linux",
-      download: slowDownload,
-      lockPollMs: 1,
-    });
-    await entered;
-    const repairB = prepareNativeExecutable(manifest, target, {
-      root: otherCache,
-      platform: "linux",
-      download: slowDownload,
-      lockPollMs: 1,
-    });
-    releaseResolve();
-
-    const [repairedA, repairedB] = await Promise.all([
-      repairA,
-      repairB,
+    const [pathA, pathB] = await Promise.all([
+      prepareNativeExecutable(manifest, targetA, {
+        root: cacheRoot,
+        platform: "linux",
+        download,
+        lockPollMs: 1,
+      }),
+      prepareNativeExecutable(manifest, targetB, {
+        root: cacheRoot,
+        platform: "linux",
+        download,
+        lockPollMs: 1,
+      }),
     ]);
-    assert.equal(repairedA, repairedB);
-    assert.equal(await readFile(repairedA, "utf8"), "native-binary");
+
+    assert.notEqual(pathA, pathB);
+    assert.equal(await readFile(pathA, "utf8"), "A");
+    assert.equal(await readFile(pathB, "utf8"), "B");
+    assert.equal(downloads, 1);
+
+    const sameCache = join(root, "same-executable-cache");
+    downloads = 0;
+    const [first, second] = await Promise.all([
+      prepareNativeExecutable(manifest, targetA, {
+        root: sameCache,
+        platform: "linux",
+        download,
+        lockPollMs: 1,
+      }),
+      prepareNativeExecutable(manifest, targetA, {
+        root: sameCache,
+        platform: "linux",
+        download,
+        lockPollMs: 1,
+      }),
+    ]);
+    assert.equal(first, second);
+    assert.equal(await readFile(first, "utf8"), "A");
     assert.equal(downloads, 1);
   } finally {
     await rm(root, { recursive: true, force: true });

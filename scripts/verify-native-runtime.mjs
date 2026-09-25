@@ -20,9 +20,10 @@ const root = await mkdtemp(join(tmpdir(), "releaseway-native-runtime-smoke-"));
 try {
   const source = join(root, "source");
   const executableName = basename(process.execPath);
-  const sourceExecutable = join(source, "bin", executableName);
-  await mkdir(join(source, "bin"), { recursive: true });
-  await copyFile(process.execPath, sourceExecutable);
+  await mkdir(join(source, "a"), { recursive: true });
+  await mkdir(join(source, "b"), { recursive: true });
+  await copyFile(process.execPath, join(source, "a", executableName));
+  await copyFile(process.execPath, join(source, "b", executableName));
 
   const archive = join(root, "node-fixture.tar.gz");
   await tar.c(
@@ -32,45 +33,80 @@ try {
       gzip: true,
       portable: true,
     },
-    ["bin"],
+    ["a", "b"],
   );
 
   const bytes = await readFile(archive);
   const digest = createHash("sha256").update(bytes).digest("hex");
   const targetName = detectNativeTarget();
-  const target = {
+  const targetA = {
     asset: "node-fixture.tar.gz",
-    executable: "bin/" + executableName,
+    executable: "a/" + executableName,
     sha256: digest,
   };
-  const manifest = {
+  const targetB = {
+    asset: "node-fixture.tar.gz",
+    executable: "b/" + executableName,
+    sha256: digest,
+  };
+  const manifestA = {
     repository: "releaseway/example",
     version: "0.0.0",
     tag: "fixture",
     targets: {
-      [targetName]: target,
+      [targetName]: targetA,
+    },
+  };
+  const manifestB = {
+    ...manifestA,
+    targets: {
+      [targetName]: targetB,
     },
   };
 
-  const cached = await prepareNativeExecutable(manifest, target, {
-    root: join(root, "cache"),
-    download: async () => bytes,
-  });
-  const result = spawnSync(cached, ["--version"], {
-    encoding: "utf8",
-  });
+  let downloads = 0;
+  const download = async () => {
+    downloads += 1;
+    return bytes;
+  };
+  const cacheRoot = join(root, "cache");
+  const [cachedA, cachedB] = await Promise.all([
+    prepareNativeExecutable(manifestA, targetA, {
+      root: cacheRoot,
+      download,
+    }),
+    prepareNativeExecutable(manifestB, targetB, {
+      root: cacheRoot,
+      download,
+    }),
+  ]);
 
-  if (result.status !== 0) {
-    process.stderr.write(result.stderr ?? "");
+  if (cachedA === cachedB) {
+    throw new Error("Distinct executable paths reused one native cache path");
+  }
+  if (downloads !== 1) {
     throw new Error(
-      "Cached native executable failed with status " + String(result.status),
+      "Shared native archive downloaded " + String(downloads) + " times",
     );
   }
-  if ((result.stdout ?? "").trim() !== process.version) {
-    throw new Error(
-      "Cached native executable returned unexpected version: " +
-        (result.stdout ?? "").trim(),
-    );
+
+  for (const cached of [cachedA, cachedB]) {
+    const result = spawnSync(cached, ["--version"], {
+      encoding: "utf8",
+    });
+
+    if (result.status !== 0) {
+      process.stderr.write(result.stderr ?? "");
+      throw new Error(
+        "Cached native executable failed with status " + String(result.status),
+      );
+    }
+    if ((result.stdout ?? "").trim() !== process.version) {
+      throw new Error(
+        "Cached native executable returned unexpected version: " +
+          (result.stdout ?? "").trim(),
+      );
+    }
   }
 } finally {
   await rm(root, { recursive: true, force: true });

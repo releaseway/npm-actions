@@ -241,18 +241,18 @@ On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, w
 
 The launcher rejects traversal paths, absolute paths, symbolic links, hard links, device entries, unsupported archive types, digest mismatches, and undeclared runtime targets.
 
-Cache locations follow the platform:
+Cache locations follow the platform and use a versioned content-addressed layout:
 
 ```text
-Linux   $XDG_CACHE_HOME/releaseway/npm-actions/native/sha256/<digest>/
-        or ~/.cache/releaseway/npm-actions/native/sha256/<digest>/
+Linux   $XDG_CACHE_HOME/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
+        or ~/.cache/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
 
-macOS   ~/Library/Caches/releaseway/npm-actions/native/sha256/<digest>/
+macOS   ~/Library/Caches/releaseway/npm-actions/native/v2/sha256/<archive-digest>/
 
-Windows %LOCALAPPDATA%\releaseway\npm-actions\native\sha256\<digest>\
+Windows %LOCALAPPDATA%\releaseway\npm-actions\native\v2\sha256\<archive-digest>\
 ```
 
-Concurrent first runs converge on one completed cache entry. A corrupt cache entry is discarded and rebuilt from the immutable release asset.
+Each archive digest directory stores one verified `archive.bin` plus independent executable entries under `executables/<sha256(normalized executable path)>/`. Packages that select different executable paths from the same archive therefore share one archive download without overwriting each other's executable cache. Corrupt executable content rebuilds only that executable entry; corrupt archive content refreshes only the archive files and leaves other verified executable entries intact.
 
 ## Read-only npm authentication
 

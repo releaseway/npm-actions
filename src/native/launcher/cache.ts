@@ -10,11 +10,14 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, join, posix, resolve } from "node:path";
+import { join, posix, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { extractExecutable } from "./archive.ts";
+import {
+  extractExecutable,
+  normalizeArchivePath,
+} from "./archive.ts";
 import {
   downloadReleaseAsset,
   verifySha256,
@@ -24,13 +27,20 @@ import type {
   RuntimeNativeTarget,
 } from "./manifest.ts";
 
-interface CacheMetadata {
-  schema: 1;
+type ArchiveFormat = "tar.gz" | "zip";
+
+interface ArchiveCacheMetadata {
+  schema: 2;
   assetSha256: string;
+  archiveFormat: ArchiveFormat;
+}
+
+interface ExecutableCacheMetadata {
+  schema: 2;
+  assetSha256: string;
+  sourceExecutable: string;
   executableSha256: string;
   executableFile: string;
-  asset: string;
-  sourceExecutable: string;
 }
 
 interface CacheOptions {
@@ -52,6 +62,16 @@ function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function archiveFormat(asset: string): ArchiveFormat {
+  if (asset.endsWith(".tar.gz")) {
+    return "tar.gz";
+  }
+  if (asset.endsWith(".zip")) {
+    return "zip";
+  }
+  throw new Error(`Unsupported native archive format: ${asset}`);
+}
+
 export function nativeCacheRoot(
   options: Pick<CacheOptions, "env" | "platform" | "home"> = {},
 ): string {
@@ -64,7 +84,14 @@ export function nativeCacheRoot(
       env.XDG_CACHE_HOME && env.XDG_CACHE_HOME.length > 0
         ? env.XDG_CACHE_HOME
         : join(home, ".cache");
-    return resolve(base, "releaseway", "npm-actions", "native", "sha256");
+    return resolve(
+      base,
+      "releaseway",
+      "npm-actions",
+      "native",
+      "v2",
+      "sha256",
+    );
   }
 
   if (platform === "darwin") {
@@ -75,6 +102,7 @@ export function nativeCacheRoot(
       "releaseway",
       "npm-actions",
       "native",
+      "v2",
       "sha256",
     );
   }
@@ -88,6 +116,7 @@ export function nativeCacheRoot(
       "releaseway",
       "npm-actions",
       "native",
+      "v2",
       "sha256",
     );
   }
@@ -95,43 +124,76 @@ export function nativeCacheRoot(
   throw new Error(`Unsupported native cache platform: ${platform}`);
 }
 
-function cachedExecutableName(target: RuntimeNativeTarget): string {
-  const name = posix.basename(target.executable);
+function normalizedExecutable(target: RuntimeNativeTarget): string {
+  return normalizeArchivePath(target.executable);
+}
+
+function cachedExecutableName(executable: string): string {
+  const name = posix.basename(executable);
   if (!name || name === "." || name === "..") {
-    throw new Error(`Invalid cached executable name: ${target.executable}`);
+    throw new Error(`Invalid cached executable name: ${executable}`);
   }
   return name;
 }
 
-async function validateCacheEntry(
+function executableCacheKey(executable: string): string {
+  return sha256(Buffer.from(executable, "utf8"));
+}
+
+async function validateArchiveCache(
   directory: string,
   target: RuntimeNativeTarget,
 ): Promise<string | undefined> {
   try {
     const metadata = JSON.parse(
-      await readFile(join(directory, "metadata.json"), "utf8"),
-    ) as CacheMetadata;
-
+      await readFile(join(directory, "archive.json"), "utf8"),
+    ) as ArchiveCacheMetadata;
     if (
-      metadata.schema !== 1 ||
+      metadata.schema !== 2 ||
       metadata.assetSha256 !== target.sha256 ||
-      metadata.asset !== target.asset ||
-      metadata.sourceExecutable !== target.executable ||
-      typeof metadata.executableSha256 !== "string" ||
-      !/^[0-9a-f]{64}$/.test(metadata.executableSha256) ||
-      typeof metadata.executableFile !== "string" ||
-      metadata.executableFile !== cachedExecutableName(target)
+      metadata.archiveFormat !== archiveFormat(target.asset)
     ) {
       return undefined;
     }
 
-    const executable = join(directory, metadata.executableFile);
-    const bytes = await readFile(executable);
-    if (sha256(bytes) !== metadata.executableSha256) {
+    const archive = join(directory, "archive.bin");
+    const bytes = await readFile(archive);
+    if (sha256(bytes) !== target.sha256) {
+      return undefined;
+    }
+    return archive;
+  } catch {
+    return undefined;
+  }
+}
+
+async function validateExecutableCache(
+  directory: string,
+  target: RuntimeNativeTarget,
+  executable: string,
+): Promise<string | undefined> {
+  try {
+    const metadata = JSON.parse(
+      await readFile(join(directory, "metadata.json"), "utf8"),
+    ) as ExecutableCacheMetadata;
+    const executableFile = cachedExecutableName(executable);
+    if (
+      metadata.schema !== 2 ||
+      metadata.assetSha256 !== target.sha256 ||
+      metadata.sourceExecutable !== executable ||
+      typeof metadata.executableSha256 !== "string" ||
+      !/^[0-9a-f]{64}$/.test(metadata.executableSha256) ||
+      metadata.executableFile !== executableFile
+    ) {
       return undefined;
     }
 
-    return executable;
+    const path = join(directory, executableFile);
+    const bytes = await readFile(path);
+    if (sha256(bytes) !== metadata.executableSha256) {
+      return undefined;
+    }
+    return path;
   } catch {
     return undefined;
   }
@@ -142,29 +204,28 @@ interface CacheLockOwner {
   release: () => Promise<void>;
 }
 
-interface CacheLockCached {
+interface CacheLockCached<T> {
   kind: "cached";
-  executable: string;
+  value: T;
 }
 
-type CacheLockResult = CacheLockOwner | CacheLockCached;
+type CacheLockResult<T> = CacheLockOwner | CacheLockCached<T>;
 
-async function acquireCacheLock(
-  root: string,
-  finalDirectory: string,
-  target: RuntimeNativeTarget,
+async function acquireCacheLock<T>(
+  lockDirectory: string,
+  validate: () => Promise<T | undefined>,
+  label: string,
   options: CacheOptions,
-): Promise<CacheLockResult> {
-  const lockDirectory = join(root, `.${target.sha256}.lock`);
+): Promise<CacheLockResult<T>> {
   const pollMs = options.lockPollMs ?? 50;
   const timeoutMs = options.lockTimeoutMs ?? 5 * 60 * 1000;
   const staleMs = options.lockStaleMs ?? 15 * 60 * 1000;
   const started = Date.now();
 
   while (true) {
-    const cached = await validateCacheEntry(finalDirectory, target);
-    if (cached) {
-      return { kind: "cached", executable: cached };
+    const cached = await validate();
+    if (cached !== undefined) {
+      return { kind: "cached", value: cached };
     }
 
     try {
@@ -203,22 +264,20 @@ async function acquireCacheLock(
     }
 
     if (Date.now() - started > timeoutMs) {
-      throw new Error(
-        `Timed out waiting for native cache lock for ${target.asset}`,
-      );
+      throw new Error(`Timed out waiting for native cache lock for ${label}`);
     }
     await delay(pollMs);
   }
 }
 
-async function promote(
+async function promoteDirectory(
   temp: string,
   finalDirectory: string,
-  target: RuntimeNativeTarget,
+  validate: () => Promise<string | undefined>,
 ): Promise<string | undefined> {
   try {
     await rename(temp, finalDirectory);
-    return validateCacheEntry(finalDirectory, target);
+    return validate();
   } catch (error) {
     if (
       !error ||
@@ -230,7 +289,171 @@ async function promote(
     }
 
     await rm(temp, { recursive: true, force: true });
-    return validateCacheEntry(finalDirectory, target);
+    return validate();
+  }
+}
+
+async function prepareNativeArchive(
+  manifest: RuntimeNativeManifest,
+  target: RuntimeNativeTarget,
+  root: string,
+  options: CacheOptions,
+): Promise<string> {
+  const directory = join(root, target.sha256);
+  const executables = join(directory, "executables");
+  await mkdir(executables, { recursive: true });
+
+  const validate = () => validateArchiveCache(directory, target);
+  const existing = await validate();
+  if (existing) {
+    return existing;
+  }
+
+  const lock = await acquireCacheLock(
+    join(directory, ".archive.lock"),
+    validate,
+    target.asset,
+    options,
+  );
+  if (lock.kind === "cached") {
+    return lock.value;
+  }
+
+  try {
+    const afterLock = await validate();
+    if (afterLock) {
+      return afterLock;
+    }
+
+    await rm(join(directory, "archive.bin"), { force: true });
+    await rm(join(directory, "archive.json"), { force: true });
+
+    const temp = await mkdtemp(
+      join(root, `.${target.sha256}.archive.tmp-`),
+    );
+    try {
+      const download =
+        options.download ??
+        ((repository, tag, asset) =>
+          downloadReleaseAsset(repository, tag, asset));
+      const archiveBytes = await download(
+        manifest.repository,
+        manifest.tag,
+        target.asset,
+      );
+      verifySha256(archiveBytes, target.sha256);
+
+      const tempArchive = join(temp, "archive.bin");
+      const tempMetadata = join(temp, "archive.json");
+      await writeFile(tempArchive, archiveBytes, { mode: 0o600 });
+      const metadata: ArchiveCacheMetadata = {
+        schema: 2,
+        assetSha256: target.sha256,
+        archiveFormat: archiveFormat(target.asset),
+      };
+      await writeFile(
+        tempMetadata,
+        JSON.stringify(metadata, null, 2) + "\n",
+        { encoding: "utf8", mode: 0o600 },
+      );
+
+      await rename(tempArchive, join(directory, "archive.bin"));
+      await rename(tempMetadata, join(directory, "archive.json"));
+
+      const promoted = await validate();
+      if (!promoted) {
+        throw new Error(
+          `Unable to create a valid native archive cache entry for ${target.asset}`,
+        );
+      }
+      return promoted;
+    } finally {
+      await rm(temp, { recursive: true, force: true });
+    }
+  } finally {
+    await lock.release();
+  }
+}
+
+async function prepareExecutableFromArchive(
+  archivePath: string,
+  target: RuntimeNativeTarget,
+  root: string,
+  options: CacheOptions,
+): Promise<string> {
+  const executable = normalizedExecutable(target);
+  const key = executableCacheKey(executable);
+  const executables = join(root, target.sha256, "executables");
+  const finalDirectory = join(executables, key);
+  const validate = () =>
+    validateExecutableCache(finalDirectory, target, executable);
+
+  const existing = await validate();
+  if (existing) {
+    return existing;
+  }
+
+  const lock = await acquireCacheLock(
+    join(executables, `.${key}.lock`),
+    validate,
+    executable,
+    options,
+  );
+  if (lock.kind === "cached") {
+    return lock.value;
+  }
+
+  try {
+    const afterLock = await validate();
+    if (afterLock) {
+      return afterLock;
+    }
+
+    await rm(finalDirectory, { recursive: true, force: true });
+    const temp = await mkdtemp(join(executables, `.${key}.tmp-`));
+
+    try {
+      const executableBytes = await extractExecutable(
+        archivePath,
+        target.asset,
+        executable,
+      );
+      const executableFile = cachedExecutableName(executable);
+      const executablePath = join(temp, executableFile);
+      await writeFile(executablePath, executableBytes, { mode: 0o755 });
+      if ((options.platform ?? process.platform) !== "win32") {
+        await chmod(executablePath, 0o755);
+      }
+
+      const metadata: ExecutableCacheMetadata = {
+        schema: 2,
+        assetSha256: target.sha256,
+        sourceExecutable: executable,
+        executableSha256: sha256(executableBytes),
+        executableFile,
+      };
+      await writeFile(
+        join(temp, "metadata.json"),
+        JSON.stringify(metadata, null, 2) + "\n",
+        { encoding: "utf8", mode: 0o600 },
+      );
+
+      const promoted = await promoteDirectory(
+        temp,
+        finalDirectory,
+        validate,
+      );
+      if (!promoted) {
+        throw new Error(
+          `Unable to create a valid native executable cache entry for ${executable}`,
+        );
+      }
+      return promoted;
+    } finally {
+      await rm(temp, { recursive: true, force: true });
+    }
+  } finally {
+    await lock.release();
   }
 }
 
@@ -248,90 +471,18 @@ export async function prepareNativeExecutable(
     });
   await mkdir(root, { recursive: true });
 
-  const finalDirectory = join(root, target.sha256);
-  const existing = await validateCacheEntry(finalDirectory, target);
-  if (existing) {
-    return existing;
-  }
-
-  const lock = await acquireCacheLock(
-    root,
-    finalDirectory,
+  const archivePath = await prepareNativeArchive(
+    manifest,
     target,
+    root,
     options,
   );
-  if (lock.kind === "cached") {
-    return lock.executable;
-  }
-
-  try {
-    const afterLock = await validateCacheEntry(finalDirectory, target);
-    if (afterLock) {
-      return afterLock;
-    }
-
-    // Only the digest-lock owner may remove an invalid cache entry.
-    await rm(finalDirectory, { recursive: true, force: true });
-
-    const temp = await mkdtemp(
-      join(root, `.${target.sha256}.tmp-`),
-    );
-
-    try {
-      const download =
-        options.download ??
-        ((repository, tag, asset) =>
-          downloadReleaseAsset(repository, tag, asset));
-      const archiveBytes = await download(
-        manifest.repository,
-        manifest.tag,
-        target.asset,
-      );
-      verifySha256(archiveBytes, target.sha256);
-
-      const archivePath = join(temp, "asset");
-      await writeFile(archivePath, archiveBytes, { mode: 0o600 });
-      const executableBytes = await extractExecutable(
-        archivePath,
-        target.asset,
-        target.executable,
-      );
-      await rm(archivePath, { force: true });
-
-      const executableFile = cachedExecutableName(target);
-      const executablePath = join(temp, executableFile);
-      await writeFile(executablePath, executableBytes, { mode: 0o755 });
-      if ((options.platform ?? process.platform) !== "win32") {
-        await chmod(executablePath, 0o755);
-      }
-
-      const metadata: CacheMetadata = {
-        schema: 1,
-        assetSha256: target.sha256,
-        executableSha256: sha256(executableBytes),
-        executableFile,
-        asset: target.asset,
-        sourceExecutable: target.executable,
-      };
-      await writeFile(
-        join(temp, "metadata.json"),
-        JSON.stringify(metadata, null, 2) + "\n",
-        { encoding: "utf8", mode: 0o600 },
-      );
-
-      const promoted = await promote(temp, finalDirectory, target);
-      if (!promoted) {
-        throw new Error(
-          `Unable to create a valid native cache entry for ${target.asset}`,
-        );
-      }
-      return promoted;
-    } finally {
-      await rm(temp, { recursive: true, force: true });
-    }
-  } finally {
-    await lock.release();
-  }
+  return prepareExecutableFromArchive(
+    archivePath,
+    target,
+    root,
+    options,
+  );
 }
 
 export async function temporaryNativeCacheRoot(): Promise<string> {
