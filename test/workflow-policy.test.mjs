@@ -37,6 +37,10 @@ test("check workflow contains the required validation gates", async () => {
     ],
   );
 
+  const runtimeMatrix = JSON.stringify(workflow.jobs["runtime-matrix"]);
+  assert.match(runtimeMatrix, /verify:native-runtime/);
+  assert.match(runtimeMatrix, /verify:native-install/);
+
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.equal(source.includes("id-token: write"), false);
   assert.equal(/\bnpm\s+(?:stage\s+)?publish\b/.test(source), false);
@@ -128,8 +132,7 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   for (const required of [
     "action.yml",
     "dist/main.js",
-    "dist/native-launcher.cjs",
-    "dist/native-launcher.mjs",
+    "dist/native-runtime.cjs",
     ".github/workflows/check.yml",
     ".github/workflows/release.yml",
   ]) {
@@ -146,6 +149,7 @@ test("release workflow certifies the tagged source before immutable GitHub relea
     "npm run verify:pack",
     "npm run verify:yarn-corepack",
     "npm run verify:native-runtime",
+    "npm run verify:native-install",
     "node:24-alpine",
     "git diff --exit-code",
   ]) {

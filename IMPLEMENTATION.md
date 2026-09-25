@@ -53,12 +53,12 @@ Create this baseline layout:
 │       └── release.yml
 ├── dist/
 │   ├── main.js
-│   ├── native-launcher.cjs
-│   └── native-launcher.mjs
+│   └── native-runtime.cjs
 ├── scripts/
 │   ├── build.mjs
 │   ├── update-toolchain.mjs
-│   └── verify-dist.mjs
+│   ├── verify-dist.mjs
+│   └── verify-native-install.mjs
 ├── src/
 │   ├── main.ts
 │   ├── errors.ts
@@ -99,11 +99,13 @@ Create this baseline layout:
 │       ├── augment.ts
 │       ├── deterministic-tar.ts
 │       └── launcher/
-│           ├── main.ts
 │           ├── target.ts
 │           ├── cache.ts
 │           ├── download.ts
-│           └── archive.ts
+│           ├── archive.ts
+│           ├── manifest.ts
+│           ├── runtime.ts
+│           └── wrapper.ts
 ├── test/
 │   ├── fixtures/
 │   ├── unit/
@@ -423,18 +425,16 @@ Native augmentation operates on the package-manager-produced tarball, not on the
 For a native package:
 
 1. inspect the declared packed `bin` path;
-2. require that the path is not occupied by caller content;
+2. require that the bin target, `.releaseway/native.json`, and `.releaseway/runtime.cjs` are not occupied by caller content;
 3. generate immutable runtime manifest containing repository, version, expanded tag, targets, assets, executable paths, and SHA-256 digests;
-4. inject the appropriate bundled launcher at the declared `bin` target;
-5. inject internal manifest at a Releaseway-owned package path;
-6. repack deterministically.
+4. inject the single bundled CommonJS runtime at `.releaseway/runtime.cjs`;
+5. generate a thin CommonJS or ESM wrapper at the declared `bin` target;
+6. inject the manifest at `.releaseway/native.json`;
+7. repack deterministically.
 
-Build two launcher bundles from the same source:
+Build one runtime bundle from `src/native/launcher/runtime.ts`. Generated bin wrappers use Node built-ins only. The CommonJS wrapper resolves `__filename` through `realpathSync()`; the ESM wrapper resolves `import.meta.url` through `fileURLToPath()` and `realpathSync()`, then uses `createRequire(import.meta.url)` to load the shared CommonJS runtime. Both wrappers pass the exact generated manifest path to the runtime.
 
-- CommonJS launcher;
-- ESM launcher.
-
-Choose the launcher form from the packed package/module/bin context without rewriting the user's npm `bin` identity. Only extensionless, `.js`, `.mjs`, and `.cjs` bin targets are supported; `.mjs` is ESM, `.cjs` is CommonJS, and `.js`/extensionless targets follow the packed package `type` field.
+Choose the wrapper form from the packed package/module/bin context without rewriting the user's npm `bin` identity. Only extensionless, `.js`, `.mjs`, and `.cjs` bin targets are supported; `.mjs` is ESM, `.cjs` is CommonJS, and `.js`/extensionless targets follow the packed package `type` field. The runtime does not search parent directories for a manifest.
 
 Deterministic repack rules:
 
@@ -451,8 +451,9 @@ Acceptance:
 
 - same input twice => same SHA-512;
 - source checkout remains unchanged;
-- occupied bin target fails;
+- occupied bin/runtime/manifest target fails;
 - manifest content matches verified GitHub Release state;
+- installed CommonJS and ESM bins work through local `.bin`, `npm exec`, `npm run`, and global-prefix shims with `--ignore-scripts`;
 - ordinary non-native package tarball remains exactly package-manager-produced.
 
 ### WI-007 — Implement dependency validation and topological ordering

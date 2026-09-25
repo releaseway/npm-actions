@@ -390,7 +390,7 @@ Native target mapping is explicit and deterministic.
 
 A native distribution supports exactly one npm `bin` command and one native executable per runtime target.
 
-The package must declare exactly one `bin` entry. Its packed target path is reserved for the Releaseway launcher. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`; other extensions fail closed because Node cannot reliably execute the generated JavaScript launcher through them. `.mjs` always receives the ESM launcher, `.cjs` always receives the CommonJS launcher, and `.js` or an extensionless path follows the packed package's `type` (`module` -> ESM, otherwise CommonJS). If the package-manager-produced artifact already contains a regular file at that path, native publication fails rather than overwriting caller content.
+The package must declare exactly one `bin` entry. Its packed target path is reserved for a thin Releaseway wrapper, while `.releaseway/runtime.cjs` and `.releaseway/native.json` are reserved for the shared runtime and generated manifest. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`; other extensions fail closed because Node cannot reliably execute the generated JavaScript wrapper through them. `.mjs` always receives an ESM wrapper, `.cjs` always receives a CommonJS wrapper, and `.js` or an extensionless path follows the packed package's `type` (`module` -> ESM, otherwise CommonJS). Both wrapper forms resolve their own installed real path and load the same CommonJS runtime; the ESM wrapper uses `createRequire(import.meta.url)` rather than bundling CommonJS runtime dependencies into ESM. The wrapper passes the exact generated manifest path to the runtime, so runtime startup never walks parent directories looking for another package's metadata. If the package-manager-produced artifact already contains any generated path, native publication fails rather than overwriting caller content.
 
 The repository config declares:
 
@@ -473,7 +473,7 @@ The configured release tag must resolve to the checked-out source commit, and th
 
 ## 14. Generated native runtime metadata
 
-Releaseway may modify only the publication artifact when it needs to add a launcher or generated native manifest.
+Releaseway may modify only the publication artifact when it needs to add the generated bin wrapper, shared `.releaseway/runtime.cjs`, or generated `.releaseway/native.json`.
 
 The source repository does not need to contain generated per-platform npm packages or generated digest metadata.
 

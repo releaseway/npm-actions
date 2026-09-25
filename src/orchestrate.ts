@@ -152,18 +152,16 @@ export async function waitForDirectLive(
   }
 }
 
-async function launcherBundles(actionPath: string): Promise<{
-  cjs: Buffer;
-  esm: Buffer;
+async function nativeRuntimeBundle(actionPath: string): Promise<{
+  runtime: Buffer;
 }> {
-  const [cjs, esm] = await Promise.all([
-    readFile(resolve(actionPath, "dist", "native-launcher.cjs")),
-    readFile(resolve(actionPath, "dist", "native-launcher.mjs")),
-  ]);
-  if (cjs.byteLength === 0 || esm.byteLength === 0) {
-    throw new Error("Releaseway native launcher bundles are missing or empty");
+  const runtime = await readFile(
+    resolve(actionPath, "dist", "native-runtime.cjs"),
+  );
+  if (runtime.byteLength === 0) {
+    throw new Error("Releaseway native runtime bundle is missing or empty");
   }
-  return { cjs, esm };
+  return { runtime };
 }
 
 function rootManifest(
@@ -213,7 +211,7 @@ async function applyNativeAugmentation(
     return;
   }
 
-  const launchers = await launcherBundles(context.actionPath);
+  const runtimeBundle = await nativeRuntimeBundle(context.actionPath);
   const outputRoot = join(runRoot, "final-native");
   await mkdir(outputRoot, { recursive: true });
 
@@ -242,7 +240,7 @@ async function applyNativeAugmentation(
       distribution,
       release,
       outputPath,
-      launchers,
+      runtimeBundle,
       { tempRoot: runRoot },
     );
     artifacts.set(pkg.name, await inspect(outputPath));

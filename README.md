@@ -194,7 +194,7 @@ packages:
           executable: tool.exe
 ```
 
-A native package must declare exactly one npm `bin` command. The package-manager-produced tarball must leave that packed bin target available for the generated Releaseway launcher. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses the ESM launcher, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed package's `type` field.
+A native package must declare exactly one npm `bin` command. The package-manager-produced tarball must leave that packed bin target available for a generated thin Releaseway wrapper and must not occupy the Releaseway-owned `.releaseway/native.json` or `.releaseway/runtime.cjs` paths. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses an ESM wrapper, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed package's `type` field. Both wrapper forms resolve their installed real path, load the same bundled CommonJS runtime, and pass that runtime the exact generated manifest path rather than searching parent directories.
 
 Supported runtime targets are:
 
@@ -228,7 +228,7 @@ Private GitHub Release-backed native assets are not supported.
 
 Installing the npm package does not download a native binary. npm-actions does not add a `postinstall` downloader, so installation remains compatible with `npm install --ignore-scripts`.
 
-On first CLI execution, the generated launcher:
+On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, which:
 
 1. detects the current OS, CPU architecture, and Linux libc variant;
 2. selects exactly one configured target;

@@ -16,6 +16,7 @@ import * as tar from "tar";
 import {
   augmentNativeArtifact,
   NATIVE_MANIFEST_PATH,
+  NATIVE_RUNTIME_PATH,
   selectLauncherKind,
 } from "../src/native/augment.ts";
 import { validateNativeDistribution } from "../src/native/validate.ts";
@@ -96,9 +97,8 @@ function verifiedRelease() {
   };
 }
 
-const launchers = {
-  cjs: Buffer.from("#!/usr/bin/env node\nconsole.log('cjs');\n"),
-  esm: Buffer.from("#!/usr/bin/env node\nconsole.log('esm');\n"),
+const runtimeBundle = {
+  runtime: Buffer.from("module.exports = { main() {} };\n"),
 };
 
 test("launcher format follows Node 24 package type and supported bin extensions", () => {
@@ -156,7 +156,7 @@ test("native augmentation is byte-deterministic and injects canonical manifest",
       distribution,
       verifiedRelease(),
       join(root, "first.tgz"),
-      launchers,
+      runtimeBundle,
       { tempRoot: root },
     );
     const second = await augmentNativeArtifact(
@@ -165,7 +165,7 @@ test("native augmentation is byte-deterministic and injects canonical manifest",
       distribution,
       verifiedRelease(),
       join(root, "second.tgz"),
-      launchers,
+      runtimeBundle,
       { tempRoot: root },
     );
 
@@ -181,14 +181,25 @@ test("native augmentation is byte-deterministic and injects canonical manifest",
     await mkdir(extracted);
     await tar.x({ cwd: extracted, file: first.tarballPath, strict: true });
 
-    assert.equal(
-      await readFile(join(extracted, "package", "bin", "launcher.js"), "utf8"),
-      launchers.cjs.toString("utf8"),
+    const launcherSource = await readFile(
+      join(extracted, "package", "bin", "launcher.js"),
+      "utf8",
     );
+    assert.ok(launcherSource.startsWith("#!/usr/bin/env node\n"));
+    assert.ok(launcherSource.includes("realpathSync(__filename)"));
+    assert.ok(launcherSource.includes("../.releaseway/runtime.cjs"));
+    assert.ok(launcherSource.includes("../.releaseway/native.json"));
     const launcherStat = await stat(
       join(extracted, "package", "bin", "launcher.js"),
     );
     assert.notEqual(launcherStat.mode & 0o111, 0);
+    assert.equal(
+      await readFile(
+        join(extracted, "package", ...NATIVE_RUNTIME_PATH.split("/")),
+        "utf8",
+      ),
+      runtimeBundle.runtime.toString("utf8"),
+    );
 
     const generated = JSON.parse(
       await readFile(
@@ -227,7 +238,7 @@ test("type module .js bin receives the ESM launcher", async () => {
       distribution,
       verifiedRelease(),
       join(root, "output.tgz"),
-      launchers,
+      runtimeBundle,
       { tempRoot: root },
     );
 
@@ -235,17 +246,27 @@ test("type module .js bin receives the ESM launcher", async () => {
     const extracted = join(root, "extracted");
     await mkdir(extracted);
     await tar.x({ cwd: extracted, file: result.tarballPath, strict: true });
-    assert.equal(
-      await readFile(join(extracted, "package", "bin", "launcher.js"), "utf8"),
-      launchers.esm.toString("utf8"),
+    const launcherSource = await readFile(
+      join(extracted, "package", "bin", "launcher.js"),
+      "utf8",
     );
+    assert.ok(launcherSource.includes('import { createRequire } from "node:module"'));
+    assert.ok(
+      launcherSource.includes("realpathSync(fileURLToPath(import.meta.url))"),
+    );
+    assert.ok(launcherSource.includes("../.releaseway/runtime.cjs"));
+    assert.ok(launcherSource.includes("../.releaseway/native.json"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("native augmentation never overwrites caller bin or manifest content", async () => {
-  for (const reserved of ["bin/launcher.js", NATIVE_MANIFEST_PATH]) {
+test("native augmentation never overwrites caller bin or Releaseway runtime content", async () => {
+  for (const reserved of [
+    "bin/launcher.js",
+    NATIVE_MANIFEST_PATH,
+    NATIVE_RUNTIME_PATH,
+  ]) {
     const root = await mkdtemp(join(tmpdir(), "releaseway-native-reserved-"));
     try {
       const manifest = {
@@ -269,7 +290,7 @@ test("native augmentation never overwrites caller bin or manifest content", asyn
           distribution,
           verifiedRelease(),
           join(root, "output.tgz"),
-          launchers,
+          runtimeBundle,
           { tempRoot: root },
         ),
         /cannot overwrite packed caller content/,

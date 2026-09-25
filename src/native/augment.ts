@@ -16,12 +16,13 @@ import type { PackedArtifact } from "../pack/inspect.ts";
 import type { PublishablePackage } from "../workspace/discover.ts";
 import type { VerifiedNativeRelease } from "./release.ts";
 import type { ValidatedNativeDistribution } from "./validate.ts";
+import { renderNativeLauncher } from "./launcher/wrapper.ts";
 
 export const NATIVE_MANIFEST_PATH = ".releaseway/native.json";
+export const NATIVE_RUNTIME_PATH = ".releaseway/runtime.cjs";
 
-export interface LauncherBundles {
-  cjs: Uint8Array;
-  esm: Uint8Array;
+export interface NativeRuntimeBundle {
+  runtime: Uint8Array;
 }
 
 export interface NativeAugmentOptions {
@@ -143,9 +144,16 @@ function assertReservedPathsAvailable(
   artifact: PackedArtifact,
   binPath: string,
 ): void {
+  if (binPath === NATIVE_MANIFEST_PATH || binPath === NATIVE_RUNTIME_PATH) {
+    throw new Error(
+      `Native npm bin path conflicts with Releaseway-owned path ${binPath}`,
+    );
+  }
+
   const reserved = new Set([
     packageEntryPath(binPath),
     packageEntryPath(NATIVE_MANIFEST_PATH),
+    packageEntryPath(NATIVE_RUNTIME_PATH),
   ]);
 
   for (const entry of artifact.entries) {
@@ -164,7 +172,7 @@ export async function augmentNativeArtifact(
   distribution: ValidatedNativeDistribution,
   release: VerifiedNativeRelease,
   outputPath: string,
-  launchers: LauncherBundles,
+  runtimeBundle: NativeRuntimeBundle,
   options: NativeAugmentOptions = {},
 ): Promise<{
   tarballPath: string;
@@ -201,28 +209,41 @@ export async function augmentNativeArtifact(
 
     await assertInjectionParentsSafe(packageRoot, distribution.bin.path);
     await assertInjectionParentsSafe(packageRoot, NATIVE_MANIFEST_PATH);
+    await assertInjectionParentsSafe(packageRoot, NATIVE_RUNTIME_PATH);
+
+    if (runtimeBundle.runtime.byteLength === 0) {
+      throw new Error("Releaseway native runtime bundle is empty");
+    }
 
     const launcherKind = selectLauncherKind(
       artifact.manifest,
       distribution.bin.path,
     );
-    const launcher =
-      launcherKind === "esm" ? launchers.esm : launchers.cjs;
-    if (launcher.byteLength === 0) {
-      throw new Error(`Generated ${launcherKind} native launcher is empty`);
-    }
+    const launcher = renderNativeLauncher({
+      kind: launcherKind,
+      binPath: distribution.bin.path,
+      runtimePath: NATIVE_RUNTIME_PATH,
+      manifestPath: NATIVE_MANIFEST_PATH,
+    });
 
     const launcherPath = join(packageRoot, ...distribution.bin.path.split("/"));
     await mkdir(dirname(launcherPath), { recursive: true });
-    await writeFile(launcherPath, launcher);
+    await writeFile(launcherPath, launcher, { encoding: "utf8", mode: 0o755 });
     await chmod(launcherPath, 0o755);
+
+    const releasewayRoot = join(packageRoot, ".releaseway");
+    await mkdir(releasewayRoot, { recursive: true });
+    const runtimePath = join(
+      packageRoot,
+      ...NATIVE_RUNTIME_PATH.split("/"),
+    );
+    await writeFile(runtimePath, runtimeBundle.runtime, { mode: 0o644 });
 
     const generatedManifest = buildNativeManifest(release);
     const manifestPath = join(
       packageRoot,
       ...NATIVE_MANIFEST_PATH.split("/"),
     );
-    await mkdir(dirname(manifestPath), { recursive: true });
     await writeFile(
       manifestPath,
       JSON.stringify(generatedManifest, null, 2) + "\n",

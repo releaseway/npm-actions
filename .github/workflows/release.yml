@@ -45,8 +45,7 @@ jobs:
           for path in \
             action.yml \
             dist/main.js \
-            dist/native-launcher.cjs \
-            dist/native-launcher.mjs \
+            dist/native-runtime.cjs \
             .github/workflows/check.yml \
             .github/workflows/release.yml; do
             git cat-file -e "$TAG:$path"
@@ -98,6 +97,7 @@ jobs:
       - run: npm run verify:pack
       - run: npm run verify:yarn-corepack
       - run: npm run verify:native-runtime
+      - run: npm run verify:native-install
 
       - name: Verify native runtime on current Node 24 Alpine
         shell: bash

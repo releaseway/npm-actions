@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { dirname, parse, resolve } from "node:path";
 
 import { SUPPORTED_NATIVE_TARGETS } from "../validate.ts";
 
@@ -86,40 +85,15 @@ export function parseNativeManifest(
   return { repository, version, tag, targets };
 }
 
-export async function findNativeManifest(
-  launcherPath: string,
-): Promise<{ packageRoot: string; manifest: RuntimeNativeManifest }> {
-  let current = dirname(resolve(launcherPath));
-
-  while (true) {
-    const manifestPath = resolve(current, ".releaseway", "native.json");
-    try {
-      const source = await readFile(manifestPath, "utf8");
-      return {
-        packageRoot: current,
-        manifest: parseNativeManifest(JSON.parse(source)),
-      };
-    } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "ENOENT"
-      ) {
-        const parent = dirname(current);
-        if (parent === current) {
-          break;
-        }
-        current = parent;
-        continue;
-      }
-      throw new Error(
-        `Failed to read native runtime manifest ${manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+export async function loadNativeManifest(
+  manifestPath: string,
+): Promise<RuntimeNativeManifest> {
+  try {
+    const source = await readFile(manifestPath, "utf8");
+    return parseNativeManifest(JSON.parse(source));
+  } catch (error) {
+    throw new Error(
+      `Failed to read native runtime manifest ${manifestPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  throw new Error(
-    `Unable to locate .releaseway/native.json above launcher ${launcherPath}`,
-  );
 }

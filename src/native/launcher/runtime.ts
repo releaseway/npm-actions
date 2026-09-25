@@ -3,7 +3,7 @@ import process from "node:process";
 
 import { prepareNativeExecutable } from "./cache.ts";
 import {
-  findNativeManifest,
+  loadNativeManifest,
   type RuntimeNativeManifest,
 } from "./manifest.ts";
 import {
@@ -12,7 +12,7 @@ import {
 } from "./target.ts";
 
 interface RuntimeOptions {
-  launcherPath?: string;
+  manifestPath: string;
   args?: readonly string[];
   target?: SupportedNativeTarget;
   prepare?: typeof prepareNativeExecutable;
@@ -20,7 +20,7 @@ interface RuntimeOptions {
 }
 
 export async function resolveLauncherExecutable(
-  launcherPath: string,
+  manifestPath: string,
   target?: SupportedNativeTarget,
   prepare: typeof prepareNativeExecutable = prepareNativeExecutable,
 ): Promise<{
@@ -28,33 +28,28 @@ export async function resolveLauncherExecutable(
   manifest: RuntimeNativeManifest;
   target: SupportedNativeTarget;
 }> {
-  const located = await findNativeManifest(launcherPath);
+  const manifest = await loadNativeManifest(manifestPath);
   const selected = target ?? detectNativeTarget();
-  const targetPolicy = located.manifest.targets[selected];
+  const targetPolicy = manifest.targets[selected];
   if (!targetPolicy) {
     throw new Error(
       `Native package does not support runtime target ${selected}`,
     );
   }
 
-  const executable = await prepare(located.manifest, targetPolicy);
+  const executable = await prepare(manifest, targetPolicy);
   return {
     executable,
-    manifest: located.manifest,
+    manifest,
     target: selected,
   };
 }
 
 export async function runNativeLauncher(
-  options: RuntimeOptions = {},
+  options: RuntimeOptions,
 ): Promise<number> {
-  const launcherPath = options.launcherPath ?? process.argv[1];
-  if (!launcherPath) {
-    throw new Error("Unable to determine native launcher path");
-  }
-
   const resolved = await resolveLauncherExecutable(
-    launcherPath,
+    options.manifestPath,
     options.target,
     options.prepare,
   );
@@ -80,4 +75,17 @@ export async function runNativeLauncher(
     throw new Error("Native executable terminated without an exit status");
   }
   return result.status;
+}
+
+export function main(options: Pick<RuntimeOptions, "manifestPath">): void {
+  void runNativeLauncher(options)
+    .then((status) => {
+      process.exitCode = status;
+    })
+    .catch((error) => {
+      const message =
+        error instanceof Error ? error.stack ?? error.message : String(error);
+      console.error(message);
+      process.exitCode = 1;
+    });
 }

@@ -11829,9 +11829,9 @@ var require_parse3 = __commonJS({
                 const idx = prev.value.lastIndexOf("[");
                 const pre = prev.value.slice(0, idx);
                 const rest2 = prev.value.slice(idx + 2);
-                const posix3 = POSIX_REGEX_SOURCE[rest2];
-                if (posix3) {
-                  prev.value = pre + posix3;
+                const posix4 = POSIX_REGEX_SOURCE[rest2];
+                if (posix4) {
+                  prev.value = pre + posix4;
                   state.backtrack = true;
                   advance();
                   if (!bos.output && tokens.indexOf(prev) === 1) {
@@ -12352,7 +12352,7 @@ var require_picomatch = __commonJS({
         throw new TypeError("Expected pattern to be a non-empty string");
       }
       const opts = options || {};
-      const posix3 = utils.isWindows(options);
+      const posix4 = utils.isWindows(options);
       const regex = isState ? picomatch.compileRe(glob, options) : picomatch.makeRe(glob, options, false, true);
       const state = regex.state;
       delete regex.state;
@@ -12362,8 +12362,8 @@ var require_picomatch = __commonJS({
         isIgnored = picomatch(opts.ignore, ignoreOpts, returnState);
       }
       const matcher = (input, returnObject = false) => {
-        const { isMatch, match, output } = picomatch.test(input, regex, options, { glob, posix: posix3 });
-        const result = { glob, state, regex, posix: posix3, input, output, match, isMatch };
+        const { isMatch, match, output } = picomatch.test(input, regex, options, { glob, posix: posix4 });
+        const result = { glob, state, regex, posix: posix4, input, output, match, isMatch };
         if (typeof opts.onResult === "function") {
           opts.onResult(result);
         }
@@ -12388,7 +12388,7 @@ var require_picomatch = __commonJS({
       }
       return matcher;
     };
-    picomatch.test = (input, regex, options, { glob, posix: posix3 } = {}) => {
+    picomatch.test = (input, regex, options, { glob, posix: posix4 } = {}) => {
       if (typeof input !== "string") {
         throw new TypeError("Expected input to be a string");
       }
@@ -12396,7 +12396,7 @@ var require_picomatch = __commonJS({
         return { isMatch: false, output: "" };
       }
       const opts = options || {};
-      const format = opts.format || (posix3 ? utils.toPosixSlashes : null);
+      const format = opts.format || (posix4 ? utils.toPosixSlashes : null);
       let match = input === glob;
       let output = match && format ? format(input) : input;
       if (match === false) {
@@ -12405,14 +12405,14 @@ var require_picomatch = __commonJS({
       }
       if (match === false || opts.capture === true) {
         if (opts.matchBase === true || opts.basename === true) {
-          match = picomatch.matchBase(input, regex, options, posix3);
+          match = picomatch.matchBase(input, regex, options, posix4);
         } else {
           match = regex.exec(output);
         }
       }
       return { isMatch: Boolean(match), match, output };
     };
-    picomatch.matchBase = (input, glob, options, posix3 = utils.isWindows(options)) => {
+    picomatch.matchBase = (input, glob, options, posix4 = utils.isWindows(options)) => {
       const regex = glob instanceof RegExp ? glob : picomatch.makeRe(glob, options);
       return regex.test(path.basename(input));
     };
@@ -12601,9 +12601,9 @@ var require_micromatch = __commonJS({
       return [].concat(patterns).every((p2) => picomatch(p2, options)(str));
     };
     micromatch.capture = (glob, input, options) => {
-      let posix3 = utils.isWindows(options);
+      let posix4 = utils.isWindows(options);
       let regex = picomatch.makeRe(String(glob), { ...options, capture: true });
-      let match = regex.exec(posix3 ? utils.toPosixSlashes(input) : input);
+      let match = regex.exec(posix4 ? utils.toPosixSlashes(input) : input);
       if (match) {
         return match.slice(1).map((v2) => v2 === void 0 ? "" : v2);
       }
@@ -15055,19 +15055,19 @@ var require_out4 = __commonJS({
         return utils.path.convertPathToPattern(source);
       }
       FastGlob2.convertPathToPattern = convertPathToPattern;
-      let posix3;
-      (function(posix4) {
+      let posix4;
+      (function(posix5) {
         function escapePath2(source) {
           assertPatternsInput(source);
           return utils.path.escapePosixPath(source);
         }
-        posix4.escapePath = escapePath2;
+        posix5.escapePath = escapePath2;
         function convertPathToPattern2(source) {
           assertPatternsInput(source);
           return utils.path.convertPosixPathToPattern(source);
         }
-        posix4.convertPathToPattern = convertPathToPattern2;
-      })(posix3 = FastGlob2.posix || (FastGlob2.posix = {}));
+        posix5.convertPathToPattern = convertPathToPattern2;
+      })(posix4 = FastGlob2.posix || (FastGlob2.posix = {}));
       let win32;
       (function(win322) {
         function escapePath2(source) {
@@ -15102,11 +15102,11 @@ var require_out4 = __commonJS({
 
 // src/action.ts
 var import_node_fs7 = require("node:fs");
-var import_node_path20 = require("node:path");
+var import_node_path21 = require("node:path");
 
 // src/orchestrate.ts
 var import_promises11 = require("node:fs/promises");
-var import_node_path19 = require("node:path");
+var import_node_path20 = require("node:path");
 var import_node_os4 = require("node:os");
 
 // src/config/load.ts
@@ -15375,7 +15375,7 @@ function topologicalPublishOrder(graph, candidates) {
 
 // src/native/augment.ts
 var import_promises3 = require("node:fs/promises");
-var import_node_path11 = require("node:path");
+var import_node_path12 = require("node:path");
 var import_node_os = require("node:os");
 
 // node_modules/tar/dist/esm/index.min.js
@@ -18347,13 +18347,63 @@ var To = (s3) => {
   s3.mtimeCache || (s3.mtimeCache = /* @__PURE__ */ new Map()), s3.filter = t ? (e, i) => t(e, i) && !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0)) : (e, i) => !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0));
 };
 
+// src/native/launcher/wrapper.ts
+var import_node_path11 = require("node:path");
+function relativeFromBin(binPath, targetPath) {
+  const relative2 = import_node_path11.posix.relative(import_node_path11.posix.dirname(binPath), targetPath);
+  if (!relative2 || import_node_path11.posix.isAbsolute(relative2)) {
+    throw new Error(
+      `Unable to resolve generated native launcher path from ${binPath} to ${targetPath}`
+    );
+  }
+  return relative2;
+}
+function renderNativeLauncher(spec) {
+  const runtimeRelative = JSON.stringify(
+    relativeFromBin(spec.binPath, spec.runtimePath)
+  );
+  const manifestRelative = JSON.stringify(
+    relativeFromBin(spec.binPath, spec.manifestPath)
+  );
+  if (spec.kind === "cjs") {
+    return `#!/usr/bin/env node
+"use strict";
+
+const { realpathSync } = require("node:fs");
+const { dirname, resolve } = require("node:path");
+
+const self = realpathSync(__filename);
+const runtime = require(resolve(dirname(self), ${runtimeRelative}));
+
+runtime.main({
+  manifestPath: resolve(dirname(self), ${manifestRelative}),
+});
+`;
+  }
+  return `#!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const self = realpathSync(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const runtime = require(resolve(dirname(self), ${runtimeRelative}));
+
+runtime.main({
+  manifestPath: resolve(dirname(self), ${manifestRelative}),
+});
+`;
+}
+
 // src/native/augment.ts
 var NATIVE_MANIFEST_PATH = ".releaseway/native.json";
+var NATIVE_RUNTIME_PATH = ".releaseway/runtime.cjs";
 function packageEntryPath(relativePath) {
   return `package/${relativePath}`;
 }
 function selectLauncherKind(manifest, binPath) {
-  const extension = (0, import_node_path11.extname)(binPath).toLowerCase();
+  const extension = (0, import_node_path12.extname)(binPath).toLowerCase();
   if (extension === ".mjs") {
     return "esm";
   }
@@ -18388,7 +18438,7 @@ async function assertInjectionParentsSafe(packageRoot, relativePath) {
   const parts = relativePath.split("/");
   let current = packageRoot;
   for (const part of parts.slice(0, -1)) {
-    current = (0, import_node_path11.join)(current, part);
+    current = (0, import_node_path12.join)(current, part);
     try {
       const stat = await (0, import_promises3.lstat)(current);
       if (!stat.isDirectory() || stat.isSymbolicLink()) {
@@ -18405,11 +18455,11 @@ async function assertInjectionParentsSafe(packageRoot, relativePath) {
   }
 }
 async function collectArchiveEntries(root, relativePath = "package") {
-  const absolute = (0, import_node_path11.resolve)(root, relativePath);
+  const absolute = (0, import_node_path12.resolve)(root, relativePath);
   const entries = await (0, import_promises3.readdir)(absolute, { withFileTypes: true });
   const paths = [];
   for (const entry of entries) {
-    const child = import_node_path11.posix.join(relativePath.replaceAll("\\", "/"), entry.name);
+    const child = import_node_path12.posix.join(relativePath.replaceAll("\\", "/"), entry.name);
     if (entry.isDirectory()) {
       paths.push(...await collectArchiveEntries(root, child));
     } else {
@@ -18419,9 +18469,15 @@ async function collectArchiveEntries(root, relativePath = "package") {
   return paths.sort();
 }
 function assertReservedPathsAvailable(artifact, binPath) {
+  if (binPath === NATIVE_MANIFEST_PATH || binPath === NATIVE_RUNTIME_PATH) {
+    throw new Error(
+      `Native npm bin path conflicts with Releaseway-owned path ${binPath}`
+    );
+  }
   const reserved = /* @__PURE__ */ new Set([
     packageEntryPath(binPath),
-    packageEntryPath(NATIVE_MANIFEST_PATH)
+    packageEntryPath(NATIVE_MANIFEST_PATH),
+    packageEntryPath(NATIVE_RUNTIME_PATH)
   ]);
   for (const entry of artifact.entries) {
     const normalized = entry.path.replace(/\/$/, "");
@@ -18432,13 +18488,13 @@ function assertReservedPathsAvailable(artifact, binPath) {
     }
   }
 }
-async function augmentNativeArtifact(pkg, artifact, distribution, release, outputPath, launchers, options = {}) {
+async function augmentNativeArtifact(pkg, artifact, distribution, release, outputPath, runtimeBundle, options = {}) {
   if (release.repository.length === 0 || release.version !== pkg.version || release.tag !== distribution.tag) {
     throw new Error(`Verified native release does not match ${pkg.name}@${pkg.version}`);
   }
   assertReservedPathsAvailable(artifact, distribution.bin.path);
   const root = await (0, import_promises3.mkdtemp)(
-    (0, import_node_path11.join)(options.tempRoot ?? (0, import_node_os.tmpdir)(), "releaseway-native-augment-")
+    (0, import_node_path12.join)(options.tempRoot ?? (0, import_node_os.tmpdir)(), "releaseway-native-augment-")
   );
   try {
     await So({
@@ -18447,38 +18503,50 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
       strict: true,
       preservePaths: false
     });
-    const packageRoot = (0, import_node_path11.join)(root, "package");
+    const packageRoot = (0, import_node_path12.join)(root, "package");
     const packageStat = await (0, import_promises3.lstat)(packageRoot);
     if (!packageStat.isDirectory() || packageStat.isSymbolicLink()) {
       throw new Error("Packed package root must be a real directory");
     }
     await assertInjectionParentsSafe(packageRoot, distribution.bin.path);
     await assertInjectionParentsSafe(packageRoot, NATIVE_MANIFEST_PATH);
+    await assertInjectionParentsSafe(packageRoot, NATIVE_RUNTIME_PATH);
+    if (runtimeBundle.runtime.byteLength === 0) {
+      throw new Error("Releaseway native runtime bundle is empty");
+    }
     const launcherKind = selectLauncherKind(
       artifact.manifest,
       distribution.bin.path
     );
-    const launcher = launcherKind === "esm" ? launchers.esm : launchers.cjs;
-    if (launcher.byteLength === 0) {
-      throw new Error(`Generated ${launcherKind} native launcher is empty`);
-    }
-    const launcherPath = (0, import_node_path11.join)(packageRoot, ...distribution.bin.path.split("/"));
-    await (0, import_promises3.mkdir)((0, import_node_path11.dirname)(launcherPath), { recursive: true });
-    await (0, import_promises3.writeFile)(launcherPath, launcher);
+    const launcher = renderNativeLauncher({
+      kind: launcherKind,
+      binPath: distribution.bin.path,
+      runtimePath: NATIVE_RUNTIME_PATH,
+      manifestPath: NATIVE_MANIFEST_PATH
+    });
+    const launcherPath = (0, import_node_path12.join)(packageRoot, ...distribution.bin.path.split("/"));
+    await (0, import_promises3.mkdir)((0, import_node_path12.dirname)(launcherPath), { recursive: true });
+    await (0, import_promises3.writeFile)(launcherPath, launcher, { encoding: "utf8", mode: 493 });
     await (0, import_promises3.chmod)(launcherPath, 493);
+    const releasewayRoot = (0, import_node_path12.join)(packageRoot, ".releaseway");
+    await (0, import_promises3.mkdir)(releasewayRoot, { recursive: true });
+    const runtimePath = (0, import_node_path12.join)(
+      packageRoot,
+      ...NATIVE_RUNTIME_PATH.split("/")
+    );
+    await (0, import_promises3.writeFile)(runtimePath, runtimeBundle.runtime, { mode: 420 });
     const generatedManifest = buildNativeManifest(release);
-    const manifestPath = (0, import_node_path11.join)(
+    const manifestPath = (0, import_node_path12.join)(
       packageRoot,
       ...NATIVE_MANIFEST_PATH.split("/")
     );
-    await (0, import_promises3.mkdir)((0, import_node_path11.dirname)(manifestPath), { recursive: true });
     await (0, import_promises3.writeFile)(
       manifestPath,
       JSON.stringify(generatedManifest, null, 2) + "\n",
       { encoding: "utf8", mode: 420 }
     );
-    const output = (0, import_node_path11.resolve)(outputPath);
-    await (0, import_promises3.mkdir)((0, import_node_path11.dirname)(output), { recursive: true });
+    const output = (0, import_node_path12.resolve)(outputPath);
+    await (0, import_promises3.mkdir)((0, import_node_path12.dirname)(output), { recursive: true });
     const entries = await collectArchiveEntries(root);
     await Qn(
       {
@@ -18666,7 +18734,7 @@ var NativeReleaseResolver = class {
 };
 
 // src/native/validate.ts
-var import_node_path12 = require("node:path");
+var import_node_path13 = require("node:path");
 var SUPPORTED_NATIVE_TARGETS = /* @__PURE__ */ new Set([
   "darwin-arm64",
   "darwin-x64",
@@ -18681,8 +18749,8 @@ function safePackagePath(value, label) {
   if (value.length === 0 || value.includes("\\") || value.startsWith("/") || value.includes("\0")) {
     throw new Error(`${label} must be a safe relative POSIX path`);
   }
-  const normalized = import_node_path12.posix.normalize(value.replace(/^\.\//, ""));
-  if (normalized === "." || normalized === ".." || normalized.startsWith("../") || import_node_path12.posix.isAbsolute(normalized)) {
+  const normalized = import_node_path13.posix.normalize(value.replace(/^\.\//, ""));
+  if (normalized === "." || normalized === ".." || normalized.startsWith("../") || import_node_path13.posix.isAbsolute(normalized)) {
     throw new Error(`${label} must be a safe relative POSIX path`);
   }
   return normalized;
@@ -18767,7 +18835,7 @@ function validateNativeDistribution(pkg, artifact) {
 // src/pack/index.ts
 var import_node_child_process3 = require("node:child_process");
 var import_promises7 = require("node:fs/promises");
-var import_node_path15 = require("node:path");
+var import_node_path16 = require("node:path");
 var import_node_process2 = __toESM(require("node:process"));
 
 // src/toolchain/bootstrap.ts
@@ -18775,7 +18843,7 @@ var import_node_child_process = require("node:child_process");
 var import_node_crypto2 = require("node:crypto");
 var import_promises4 = require("node:fs/promises");
 var import_node_os2 = require("node:os");
-var import_node_path13 = require("node:path");
+var import_node_path14 = require("node:path");
 var import_node_process = __toESM(require("node:process"));
 var import_semver2 = __toESM(require_semver2());
 
@@ -18829,8 +18897,8 @@ async function downloadAndExtract(name, spec, root, fetchImpl) {
   }
   const bytes = Buffer.from(await response.arrayBuffer());
   verifyIntegrity(bytes, spec.integrity);
-  const archive = (0, import_node_path13.join)(root, `${name}.tgz`);
-  const destination = (0, import_node_path13.join)(root, name);
+  const archive = (0, import_node_path14.join)(root, `${name}.tgz`);
+  const destination = (0, import_node_path14.join)(root, name);
   await (0, import_promises4.mkdir)(destination, { recursive: true });
   await (0, import_promises4.writeFile)(archive, bytes);
   try {
@@ -18843,22 +18911,22 @@ async function downloadAndExtract(name, spec, root, fetchImpl) {
   } finally {
     await (0, import_promises4.rm)(archive, { force: true });
   }
-  const cli = (0, import_node_path13.resolve)(destination, spec.bin);
+  const cli = (0, import_node_path14.resolve)(destination, spec.bin);
   await (0, import_promises4.access)(cli);
   return cli;
 }
 async function bootstrapReleasewayToolchain(options = {}) {
-  const base = (0, import_node_path13.resolve)(
+  const base = (0, import_node_path14.resolve)(
     options.rootBase ?? import_node_process.default.env.RUNNER_TEMP ?? (0, import_node_os2.tmpdir)()
   );
   await (0, import_promises4.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises4.mkdtemp)((0, import_node_path13.join)(base, "releaseway-npm-actions-toolchain-"));
+  const root = await (0, import_promises4.mkdtemp)((0, import_node_path14.join)(base, "releaseway-npm-actions-toolchain-"));
   const fetchImpl = options.fetchImpl ?? fetch;
   const [npmCli, corepackCli] = await Promise.all([
     downloadAndExtract("npm", toolchain_lock_default.npm, root, fetchImpl),
     downloadAndExtract("corepack", toolchain_lock_default.corepack, root, fetchImpl)
   ]);
-  const corepackHome = (0, import_node_path13.join)(root, "corepack-home");
+  const corepackHome = (0, import_node_path14.join)(root, "corepack-home");
   await (0, import_promises4.mkdir)(corepackHome, { recursive: true });
   return { root, npmCli, corepackCli, corepackHome };
 }
@@ -19001,7 +19069,7 @@ async function inspectPackedTarball(tarballPath) {
 var import_node_child_process2 = require("node:child_process");
 var import_node_crypto3 = require("node:crypto");
 var import_promises6 = require("node:fs/promises");
-var import_node_path14 = require("node:path");
+var import_node_path15 = require("node:path");
 var import_fast_glob = __toESM(require_out4());
 var defaultRunGit = (args, cwd) => {
   const result = (0, import_node_child_process2.spawnSync)("git", [...args], {
@@ -19026,7 +19094,7 @@ function runGit(runGit2, cwd, args) {
 async function hashRepositoryFiles(root, paths) {
   const hash = (0, import_node_crypto3.createHash)("sha256");
   for (const relativePath of paths) {
-    const absolute = (0, import_node_path14.resolve)(root, relativePath);
+    const absolute = (0, import_node_path15.resolve)(root, relativePath);
     const stat = await (0, import_promises6.lstat)(absolute);
     hash.update(relativePath);
     hash.update("\0");
@@ -19121,9 +19189,9 @@ async function resolvePackCommand(rootManifest2, toolchain, workspaceRoot, env =
     );
   }
   const [pnpmWorkspace, pnpmLock, yarnLock] = await Promise.all([
-    pathExists((0, import_node_path15.resolve)(workspaceRoot, "pnpm-workspace.yaml")),
-    pathExists((0, import_node_path15.resolve)(workspaceRoot, "pnpm-lock.yaml")),
-    pathExists((0, import_node_path15.resolve)(workspaceRoot, "yarn.lock"))
+    pathExists((0, import_node_path16.resolve)(workspaceRoot, "pnpm-workspace.yaml")),
+    pathExists((0, import_node_path16.resolve)(workspaceRoot, "pnpm-lock.yaml")),
+    pathExists((0, import_node_path16.resolve)(workspaceRoot, "yarn.lock"))
   ]);
   if (pnpmWorkspace || pnpmLock) {
     throw new Error(
@@ -19139,7 +19207,7 @@ async function resolvePackCommand(rootManifest2, toolchain, workspaceRoot, env =
 }
 function packArguments(command, outputDirectory) {
   if (command.name === "yarn") {
-    const fixedOutput = (0, import_node_path15.join)(outputDirectory, "package.tgz");
+    const fixedOutput = (0, import_node_path16.join)(outputDirectory, "package.tgz");
     return {
       args: ["pack", "--out", fixedOutput],
       fixedOutput
@@ -19156,10 +19224,10 @@ async function findSingleTarball(outputDirectory) {
       `Expected exactly one packed tarball in ${outputDirectory}, found ${files.length}`
     );
   }
-  return (0, import_node_path15.resolve)(outputDirectory, files[0]);
+  return (0, import_node_path16.resolve)(outputDirectory, files[0]);
 }
 async function packPackage(pkg, command, outputRoot, runManager = defaultRunManager) {
-  const outputDirectory = (0, import_node_path15.resolve)(outputRoot, encodeURIComponent(pkg.name));
+  const outputDirectory = (0, import_node_path16.resolve)(outputRoot, encodeURIComponent(pkg.name));
   await (0, import_promises7.mkdir)(outputDirectory, { recursive: true });
   const invocation = packArguments(command, outputDirectory);
   const result = runManager(command, invocation.args, pkg.directory);
@@ -19232,7 +19300,7 @@ function isolatedPublisherEnvironment(source, home) {
 // src/publish/index.ts
 var import_node_child_process4 = require("node:child_process");
 var import_promises9 = require("node:fs/promises");
-var import_node_path16 = require("node:path");
+var import_node_path17 = require("node:path");
 var import_node_os3 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"));
 
@@ -19451,7 +19519,7 @@ function publicationArgs(request, userConfig, globalConfig) {
     request.version,
     request.latestVersion
   );
-  const args = request.mode === "direct" ? ["publish", (0, import_node_path16.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path16.resolve)(request.tarballPath)];
+  const args = request.mode === "direct" ? ["publish", (0, import_node_path17.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path17.resolve)(request.tarballPath)];
   args.push(
     `--registry=${REGISTRY}/`,
     `--userconfig=${userConfig}`,
@@ -19471,16 +19539,16 @@ function isPendingRegistryScanConflict(output) {
 async function publishPackage(toolchain, request, options = {}) {
   const sourceEnv = options.env ?? import_node_process3.default.env;
   assertTrustedPublishingEnvironment(sourceEnv);
-  const base = (0, import_node_path16.resolve)(
+  const base = (0, import_node_path17.resolve)(
     options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os3.tmpdir)()
   );
   await (0, import_promises9.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises9.mkdtemp)((0, import_node_path16.join)(base, "releaseway-npm-publish-"));
+  const root = await (0, import_promises9.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-publish-"));
   try {
-    const home = (0, import_node_path16.join)(root, "home");
+    const home = (0, import_node_path17.join)(root, "home");
     await (0, import_promises9.mkdir)(home, { recursive: true });
-    const userConfig = (0, import_node_path16.join)(root, "user.npmrc");
-    const globalConfig = (0, import_node_path16.join)(root, "global.npmrc");
+    const userConfig = (0, import_node_path17.join)(root, "user.npmrc");
+    const globalConfig = (0, import_node_path17.join)(root, "global.npmrc");
     const safeConfig = `registry=${REGISTRY}/
 `;
     await Promise.all([
@@ -19540,7 +19608,7 @@ function packageOperationEnvironment(source) {
 
 // src/workspace/discover.ts
 var import_promises10 = require("node:fs/promises");
-var import_node_path17 = require("node:path");
+var import_node_path18 = require("node:path");
 var import_fast_glob2 = __toESM(require_out4());
 var import_yaml2 = __toESM(require_dist());
 
@@ -19623,7 +19691,7 @@ function packageJsonWorkspacePatterns(manifest) {
   throw new Error("package.json workspaces must be an array or mapping");
 }
 async function pnpmWorkspacePatterns(workspaceRoot) {
-  const path = (0, import_node_path17.resolve)(workspaceRoot, "pnpm-workspace.yaml");
+  const path = (0, import_node_path18.resolve)(workspaceRoot, "pnpm-workspace.yaml");
   let source;
   try {
     source = await (0, import_promises10.readFile)(path, "utf8");
@@ -19665,14 +19733,14 @@ function packageManifestPatterns(patterns) {
   });
 }
 function assertWithinWorkspace(workspace, candidate) {
-  const rel = (0, import_node_path17.relative)(workspace, candidate);
-  if (rel === ".." || rel.startsWith("../") || (0, import_node_path17.isAbsolute)(rel)) {
+  const rel = (0, import_node_path18.relative)(workspace, candidate);
+  if (rel === ".." || rel.startsWith("../") || (0, import_node_path18.isAbsolute)(rel)) {
     throw new Error(`Workspace package escapes GITHUB_WORKSPACE: ${candidate}`);
   }
 }
 async function discoverWorkspace(workspaceRoot) {
-  const root = await (0, import_promises10.realpath)((0, import_node_path17.resolve)(workspaceRoot));
-  const rootManifestPath = (0, import_node_path17.resolve)(root, "package.json");
+  const root = await (0, import_promises10.realpath)((0, import_node_path18.resolve)(workspaceRoot));
+  const rootManifestPath = (0, import_node_path18.resolve)(root, "package.json");
   const rootManifest2 = await readJsonManifest(rootManifestPath);
   const pnpmPatterns = await pnpmWorkspacePatterns(root);
   const patterns = pnpmPatterns ?? packageJsonWorkspacePatterns(rootManifest2);
@@ -19687,14 +19755,14 @@ async function discoverWorkspace(workspaceRoot) {
       ignore: ["**/node_modules/**", "**/.git/**"]
     });
     for (const match of matches) {
-      manifestPaths.add((0, import_node_path17.resolve)(match));
+      manifestPaths.add((0, import_node_path18.resolve)(match));
     }
   }
   const discovered = [];
   for (const manifestPath of [...manifestPaths].sort()) {
-    const directory = await (0, import_promises10.realpath)((0, import_node_path17.dirname)(manifestPath));
+    const directory = await (0, import_promises10.realpath)((0, import_node_path18.dirname)(manifestPath));
     assertWithinWorkspace(root, directory);
-    const relativeDirectory = (0, import_node_path17.relative)(root, directory) || ".";
+    const relativeDirectory = (0, import_node_path18.relative)(root, directory) || ".";
     discovered.push({
       directory,
       relativeDirectory,
@@ -19803,7 +19871,7 @@ function selectPublishablePackages(discovered, config, expectedRepository) {
 
 // src/workspace/identity.ts
 var import_node_child_process5 = require("node:child_process");
-var import_node_path18 = require("node:path");
+var import_node_path19 = require("node:path");
 var defaultRunGit2 = (args, cwd) => {
   const result = (0, import_node_child_process5.spawnSync)("git", [...args], {
     cwd,
@@ -19840,7 +19908,7 @@ function githubContextFromEnv(env = process.env) {
     throw new Error("GITHUB_REPOSITORY must be owner/repo");
   }
   return {
-    workspace: (0, import_node_path18.resolve)(workspace),
+    workspace: (0, import_node_path19.resolve)(workspace),
     repository,
     sha: sha.toLowerCase()
   };
@@ -19868,7 +19936,7 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 
 // src/orchestrate.ts
 function defaultRunRoot(context) {
-  return (0, import_node_path19.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
+  return (0, import_node_path20.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
 }
 var DIRECT_SCAN_POLL_MS = 1e4;
 var DIRECT_SCAN_TIMEOUT_MS = 20 * 6e4;
@@ -19897,19 +19965,18 @@ async function waitForDirectLive(registry, name, version, tarballPath, options =
     await sleep(pollMs);
   }
 }
-async function launcherBundles(actionPath) {
-  const [cjs, esm] = await Promise.all([
-    (0, import_promises11.readFile)((0, import_node_path19.resolve)(actionPath, "dist", "native-launcher.cjs")),
-    (0, import_promises11.readFile)((0, import_node_path19.resolve)(actionPath, "dist", "native-launcher.mjs"))
-  ]);
-  if (cjs.byteLength === 0 || esm.byteLength === 0) {
-    throw new Error("Releaseway native launcher bundles are missing or empty");
+async function nativeRuntimeBundle(actionPath) {
+  const runtime = await (0, import_promises11.readFile)(
+    (0, import_node_path20.resolve)(actionPath, "dist", "native-runtime.cjs")
+  );
+  if (runtime.byteLength === 0) {
+    throw new Error("Releaseway native runtime bundle is missing or empty");
   }
-  return { cjs, esm };
+  return { runtime };
 }
 function rootManifest(discovered, workspace) {
   const root = discovered.find(
-    (pkg) => (0, import_node_path19.resolve)(pkg.directory) === (0, import_node_path19.resolve)(workspace)
+    (pkg) => (0, import_node_path20.resolve)(pkg.directory) === (0, import_node_path20.resolve)(workspace)
   );
   if (!root) {
     throw new Error("Workspace discovery did not return the repository root package");
@@ -19937,8 +20004,8 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
   if (nativePackages.length === 0) {
     return;
   }
-  const launchers = await launcherBundles(context.actionPath);
-  const outputRoot = (0, import_node_path19.join)(runRoot, "final-native");
+  const runtimeBundle = await nativeRuntimeBundle(context.actionPath);
+  const outputRoot = (0, import_node_path20.join)(runRoot, "final-native");
   await (0, import_promises11.mkdir)(outputRoot, { recursive: true });
   for (const pkg of nativePackages) {
     const artifact = artifacts.get(pkg.name);
@@ -19952,7 +20019,7 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
       context.sha,
       distribution
     );
-    const outputPath = (0, import_node_path19.join)(
+    const outputPath = (0, import_node_path20.join)(
       outputRoot,
       encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz"
     );
@@ -19962,7 +20029,7 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
       distribution,
       release,
       outputPath,
-      launchers,
+      runtimeBundle,
       { tempRoot: runRoot }
     );
     artifacts.set(pkg.name, await inspect(outputPath));
@@ -20015,7 +20082,7 @@ async function prepareRelease(context, dependencies = {}) {
   const runBase = defaultRunRoot(context);
   await (0, import_promises11.mkdir)(runBase, { recursive: true });
   const runRoot = await (0, import_promises11.mkdtemp)(
-    (0, import_node_path19.join)(runBase, "releaseway-npm-actions-run-")
+    (0, import_node_path20.join)(runBase, "releaseway-npm-actions-run-")
   );
   try {
     const toolchain = await bootstrapToolchain({
@@ -20031,7 +20098,7 @@ async function prepareRelease(context, dependencies = {}) {
       context.workspace,
       packages,
       command,
-      (0, import_node_path19.join)(runRoot, "packed")
+      (0, import_node_path20.join)(runRoot, "packed")
     );
     const artifacts = artifactMap(packages, packed);
     await applyNativeAugmentation(
@@ -20196,16 +20263,16 @@ function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs
 }
 function resolveActionPath(explicit, env, argv = process.argv) {
   if (explicit) {
-    return (0, import_node_path20.resolve)(explicit);
+    return (0, import_node_path21.resolve)(explicit);
   }
   if (env.GITHUB_ACTION_PATH) {
-    return (0, import_node_path20.resolve)(env.GITHUB_ACTION_PATH);
+    return (0, import_node_path21.resolve)(env.GITHUB_ACTION_PATH);
   }
   const entrypoint = argv[1];
   if (!entrypoint) {
     throw new Error("Unable to determine JavaScript action entrypoint path");
   }
-  return (0, import_node_path20.resolve)((0, import_node_path20.dirname)(entrypoint), "..");
+  return (0, import_node_path21.resolve)((0, import_node_path21.dirname)(entrypoint), "..");
 }
 async function runAction(options = {}) {
   const env = options.env ?? process.env;

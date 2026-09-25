@@ -106,6 +106,7 @@ jobs:
 
       - run: npm ci
       - run: npm run verify:native-runtime
+      - run: npm run verify:native-install
 
   musl-runtime:
     runs-on: ubuntu-24.04

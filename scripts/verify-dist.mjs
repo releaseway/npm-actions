@@ -21,8 +21,7 @@ try {
 
   for (const filename of [
     "main.js",
-    "native-launcher.cjs",
-    "native-launcher.mjs",
+    "native-runtime.cjs",
   ]) {
     const [expected, actual] = await Promise.all([
       readFile(resolve("dist", filename)),

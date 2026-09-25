@@ -30,7 +30,7 @@ import {
   verifySha256,
 } from "../src/native/launcher/download.ts";
 import {
-  findNativeManifest,
+  loadNativeManifest,
   parseNativeManifest,
 } from "../src/native/launcher/manifest.ts";
 import { runNativeLauncher } from "../src/native/launcher/runtime.ts";
@@ -147,26 +147,23 @@ test("target detection covers supported OS/architecture/libc combinations", () =
   );
 });
 
-test("native manifest parsing and upward discovery are strict", async () => {
+test("native manifest parsing and explicit loading are strict", async () => {
   const root = await mkdtemp(join(tmpdir(), "releaseway-native-manifest-"));
   try {
-    const launcher = join(root, "bin", "launcher.js");
+    const manifestPath = join(root, ".releaseway", "native.json");
     await mkdir(join(root, ".releaseway"), { recursive: true });
-    await mkdir(join(root, "bin"), { recursive: true });
-    await writeFile(launcher, "");
     const manifest = runtimeManifest({
       asset: "tool.tar.gz",
       executable: "bin/tool",
       sha256: "a".repeat(64),
     });
-    await writeFile(
-      join(root, ".releaseway", "native.json"),
-      JSON.stringify(manifest),
-    );
+    await writeFile(manifestPath, JSON.stringify(manifest));
 
-    const located = await findNativeManifest(launcher);
-    assert.equal(located.packageRoot, root);
-    assert.deepEqual(located.manifest, manifest);
+    assert.deepEqual(await loadNativeManifest(manifestPath), manifest);
+    await assert.rejects(
+      loadNativeManifest(join(root, "missing", "native.json")),
+      /Failed to read native runtime manifest/,
+    );
 
     assert.throws(
       () =>
@@ -417,12 +414,10 @@ test("native cache handles first run, cache hit, corruption, and concurrent prom
 test("native launcher forwards argv and exit status to selected executable", async () => {
   const root = await mkdtemp(join(tmpdir(), "releaseway-native-runner-"));
   try {
-    const launcher = join(root, "bin", "launcher.js");
+    const manifestPath = join(root, ".releaseway", "native.json");
     await mkdir(join(root, ".releaseway"), { recursive: true });
-    await mkdir(join(root, "bin"), { recursive: true });
-    await writeFile(launcher, "");
     await writeFile(
-      join(root, ".releaseway", "native.json"),
+      manifestPath,
       JSON.stringify(
         runtimeManifest({
           asset: "tool.tar.gz",
@@ -434,7 +429,7 @@ test("native launcher forwards argv and exit status to selected executable", asy
 
     const calls = [];
     const status = await runNativeLauncher({
-      launcherPath: launcher,
+      manifestPath,
       target: "linux-x64-gnu",
       args: ["--version", "value"],
       prepare: async () => "/cache/tool",

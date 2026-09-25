@@ -12,6 +12,7 @@
     "verify:pack": "node scripts/verify-pack.mjs",
     "verify:yarn-corepack": "node scripts/verify-yarn-corepack.mjs",
     "verify:native-runtime": "node scripts/verify-native-runtime.mjs",
+    "verify:native-install": "node scripts/verify-native-install.mjs",
     "verify:versions": "node scripts/verify-versions.mjs",
     "verify:dist": "node scripts/verify-dist.mjs"
   },
