@@ -32,6 +32,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd,
     env: options.env,
     encoding: "utf8",
+    shell: options.shell ?? false,
   });
   if (result.error) {
     throw result.error;
@@ -52,6 +53,13 @@ function run(command, args, options = {}) {
 
 function runNpm(args, options = {}) {
   return run(process.execPath, [npmExecPath, ...args], options);
+}
+
+function runInstalledCommand(command, args, options = {}) {
+  return run(command, args, {
+    ...options,
+    shell: process.platform === "win32",
+  });
 }
 
 function expectVersion(result, label) {
@@ -279,7 +287,7 @@ try {
     );
 
     expectVersion(
-      run(localBinPath(project, command), ["--version"], {
+      runInstalledCommand(localBinPath(project, command), ["--version"], {
         cwd: project,
         env,
       }),
@@ -315,7 +323,7 @@ try {
       { env },
     );
     expectVersion(
-      run(globalBinPath(prefix, command), ["--version"], {
+      runInstalledCommand(globalBinPath(prefix, command), ["--version"], {
         cwd: root,
         env,
       }),
