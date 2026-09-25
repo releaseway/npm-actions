@@ -57,13 +57,13 @@ function expectVersion(result, label) {
 }
 
 function cacheEnvironment(root) {
-  const home = join(root, "home");
+  const home = join(root, "h");
   const env = {
     ...process.env,
     HOME: home,
     USERPROFILE: home,
-    XDG_CACHE_HOME: join(root, "xdg-cache"),
-    LOCALAPPDATA: join(root, "local-app-data"),
+    XDG_CACHE_HOME: join(root, "x"),
+    LOCALAPPDATA: join(root, "l"),
   };
   return { env, home };
 }
@@ -126,7 +126,7 @@ function globalBinPath(prefix, command) {
   return join(prefix, "bin", command);
 }
 
-const root = await mkdtemp(join(tmpdir(), "releaseway-native-install-"));
+const root = await mkdtemp(join(tmpdir(), "rw-ni-"));
 
 try {
   const runtimeBundle = {
