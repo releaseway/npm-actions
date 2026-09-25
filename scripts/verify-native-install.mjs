@@ -22,7 +22,10 @@ import { detectNativeTarget } from "../src/native/launcher/target.ts";
 import { validateNativeDistribution } from "../src/native/validate.ts";
 import { inspectPackedTarball } from "../src/pack/inspect.ts";
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmExecPath = process.env.npm_execpath;
+if (!npmExecPath) {
+  throw new Error("npm_execpath is required for native install verification");
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -45,6 +48,10 @@ function run(command, args, options = {}) {
     );
   }
   return result;
+}
+
+function runNpm(args, options = {}) {
+  return run(process.execPath, [npmExecPath, ...args], options);
 }
 
 function expectVersion(result, label) {
@@ -98,8 +105,7 @@ async function packFixture(directory, manifest) {
     join(directory, "package.json"),
     JSON.stringify(manifest, null, 2) + "\n",
   );
-  const packed = run(
-    npm,
+  const packed = runNpm(
     ["pack", "--ignore-scripts", "--json"],
     { cwd: directory },
   );
@@ -261,8 +267,7 @@ try {
       ) + "\n",
     );
 
-    run(
-      npm,
+    runNpm(
       [
         "install",
         "--ignore-scripts",
@@ -281,14 +286,14 @@ try {
       fixture.label + " local .bin",
     );
     expectVersion(
-      run(npm, ["exec", "--", command, "--version"], {
+      runNpm(["exec", "--", command, "--version"], {
         cwd: project,
         env,
       }),
       fixture.label + " npm exec",
     );
     expectVersion(
-      run(npm, ["run", "--silent", "probe"], {
+      runNpm(["run", "--silent", "probe"], {
         cwd: project,
         env,
       }),
@@ -296,8 +301,7 @@ try {
     );
 
     const prefix = join(root, "global-" + fixture.label);
-    run(
-      npm,
+    runNpm(
       [
         "install",
         "--global",
