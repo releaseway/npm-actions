@@ -158,6 +158,25 @@ test("git-tag version policy overrides template package versions before registry
   );
 });
 
+test("git-tag prerelease policy supplies the configured npm dist-tag", async () => {
+  await fixture(
+    [pkg("app", { version: "0.0.0" })],
+    async (h) => {
+      h.deps.resolveVersion = () => "2.3.4-rc.1";
+      const publish = h.deps.publish;
+      h.deps.publish = async (toolchain, request) => {
+        assert.equal(request.publishOptions.tag, "next");
+        return publish(toolchain, request);
+      };
+      const result = await runRelease(h.context, h.deps);
+      assert.deepEqual(result, [
+        { name: "app", version: "2.3.4-rc.1", state: "published" },
+      ]);
+    },
+    "schema: 1\nversion:\n  source: git-tag\n  prefix: v\n  prerelease-tag: next\npublish:\n  mode: direct\n",
+  );
+});
+
 test("all-published releases require no pack, native bundle, temporary toolchain or OIDC", async () => {
   await fixture(
     [pkg("native", { bin: "bin/tool.cjs" })],

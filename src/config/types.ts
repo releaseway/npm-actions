@@ -7,6 +7,7 @@ export interface PublishPolicy {
 export interface VersionPolicy {
   source: "git-tag";
   prefix: string;
+  prereleaseTag?: string;
 }
 
 export interface NativeTargetPolicy {

@@ -127,12 +127,15 @@ schema: 1
 version:
   source: git-tag
   prefix: v
+  prerelease-tag: next
 
 publish:
   mode: direct
 ```
 
 With this policy, npm-actions reads the remote `origin` tag graph, requires exactly one matching SemVer tag on `GITHUB_SHA`, and uses the tag version for registry planning and packing. Package manifests are materialized only while the package manager packs candidates and are restored byte-for-byte afterward. This keeps the checked-out source identity unchanged while making tag provenance the version authority.
+
+When the resolved tag is a prerelease, optional `prerelease-tag` supplies the npm dist-tag without mutating package metadata. A packed `publishConfig.tag` may agree with that value but cannot conflict with it. Stable tag-derived versions continue to use ordinary `latest` behavior unless package metadata explicitly selects another tag.
 
 The policy applies one lockstep version to every publishable workspace package. Repositories with independently versioned packages should keep `package.json` versions authoritative instead.
 

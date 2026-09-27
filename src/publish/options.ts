@@ -42,6 +42,7 @@ export function derivePublishOptions(
   manifest: PackageManifest,
   version: string,
   latestVersion?: string,
+  tagOverride?: string,
 ): PublishOptions {
   if (valid(version) !== version) {
     throw new Error(`Package version must be exact semver: ${version}`);
@@ -71,6 +72,19 @@ export function derivePublishOptions(
       );
     }
     tag = config.tag;
+  }
+  if (tagOverride !== undefined) {
+    if (tagOverride.length === 0 || validRange(tagOverride) !== null) {
+      throw new Error(
+        `publication tag override must be a non-empty non-SemVer-range tag: ${tagOverride}`,
+      );
+    }
+    if (tag !== undefined && tag !== tagOverride) {
+      throw new Error(
+        `packed publishConfig.tag ${tag} conflicts with publication tag override ${tagOverride}`,
+      );
+    }
+    tag = tagOverride;
   }
 
   let access: PublishAccess | undefined;

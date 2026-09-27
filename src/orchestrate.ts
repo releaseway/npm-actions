@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
+import { prerelease } from "semver";
 import { loadConfig } from "./config/load.ts";
 import {
   buildWorkspaceDependencyGraph,
@@ -349,10 +350,16 @@ export async function prepareRelease(
         throw new Error(
           "Final packed repository does not match source for " + pkg.name,
         );
+      const prereleaseTag =
+        config.version?.prereleaseTag !== undefined &&
+        prerelease(pkg.version) !== null
+          ? config.version.prereleaseTag
+          : undefined;
       const publishOptions = derivePublishOptions(
         artifact.manifest,
         pkg.version,
         snapshots.get(pkg.name)!.latestVersion,
+        prereleaseTag,
       );
       requests.set(
         pkg.name,

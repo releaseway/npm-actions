@@ -134,6 +134,36 @@ test("publish options honor explicit tag/access and reject token config", () => 
   }
 });
 
+test("publication tag overrides support tag-derived prereleases and reject conflicts", () => {
+  assert.deepEqual(
+    derivePublishOptions({}, "2.0.0-beta.1", "1.9.0", "next"),
+    { tag: "next", access: undefined },
+  );
+  assert.deepEqual(
+    derivePublishOptions(
+      { publishConfig: { tag: "next", access: "public" } },
+      "2.0.0-beta.1",
+      "1.9.0",
+      "next",
+    ),
+    { tag: "next", access: "public" },
+  );
+  assert.throws(
+    () =>
+      derivePublishOptions(
+        { publishConfig: { tag: "beta" } },
+        "2.0.0-beta.1",
+        "1.9.0",
+        "next",
+      ),
+    /conflicts with publication tag override/,
+  );
+  assert.throws(
+    () => derivePublishOptions({}, "2.0.0-beta.1", "1.9.0", "2.0.0"),
+    /publication tag override/,
+  );
+});
+
 test("pre-release and non-latest versions require explicit tag", () => {
   assert.throws(
     () => derivePublishOptions({}, "2.0.0-beta.1", "1.9.0"),

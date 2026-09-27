@@ -27,7 +27,7 @@ Initially public results are ordered by name, followed by candidate results in p
 
 Discover the root and workspace packages through package.json workspaces or pnpm-workspace.yaml. Exclude private:true packages. Reject duplicate names, stale config selectors, missing identities, invalid registry configuration and repository metadata that does not identify the calling repository.
 
-Checkout HEAD must equal GITHUB_SHA and origin must identify GITHUB_REPOSITORY. When Git-tag version provenance is configured, exactly one remote SemVer tag with the configured prefix must resolve to the same GITHUB_SHA. Build steps precede the action. Source validation binds this execution; it does not require previously published native assets to use this execution's commit.
+Checkout HEAD must equal GITHUB_SHA and origin must identify GITHUB_REPOSITORY. When Git-tag version provenance is configured, exactly one remote SemVer tag with the configured prefix must resolve to the same GITHUB_SHA. An optional prerelease dist-tag policy applies only when that resolved version is a prerelease and cannot conflict with packed package metadata. Build steps precede the action. Source validation binds this execution; it does not require previously published native assets to use this execution's commit.
 
 ## 4. Registry-first classification
 

@@ -58,6 +58,7 @@ schema: 1
 version:
   source: git-tag
   prefix: v
+  prerelease-tag: next
 publish:
   mode: direct
 packages:
@@ -74,7 +75,11 @@ packages:
           executable: cli
 `);
 
-  assert.deepEqual(config.version, { source: "git-tag", prefix: "v" });
+  assert.deepEqual(config.version, {
+    source: "git-tag",
+    prefix: "v",
+    prereleaseTag: "next",
+  });
   assert.equal(config.packages["@scope/cli"].publish.mode, "stage");
   assert.equal(config.packages["@scope/cli"].distribution.cacheEnv, "CLI_CACHE_DIR");
   assert.equal(

@@ -41,7 +41,7 @@ function readMode(value: unknown, label: string): PublishMode {
 
 function readVersion(value: unknown, label: string): VersionPolicy {
   const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["source", "prefix"], label);
+  assertKnownKeys(mapping, ["source", "prefix", "prerelease-tag"], label);
   if (mapping.source !== "git-tag") {
     throw new Error(`${label}.source must be git-tag`);
   }
@@ -49,7 +49,21 @@ function readVersion(value: unknown, label: string): VersionPolicy {
   if (typeof prefix !== "string" || /\s/.test(prefix)) {
     throw new Error(`${label}.prefix must be a whitespace-free string`);
   }
-  return { source: "git-tag", prefix };
+  let prereleaseTag: string | undefined;
+  if ("prerelease-tag" in mapping) {
+    if (
+      typeof mapping["prerelease-tag"] !== "string" ||
+      mapping["prerelease-tag"].length === 0
+    ) {
+      throw new Error(`${label}.prerelease-tag must be a non-empty string`);
+    }
+    prereleaseTag = mapping["prerelease-tag"];
+  }
+  return {
+    source: "git-tag",
+    prefix,
+    ...(prereleaseTag === undefined ? {} : { prereleaseTag }),
+  };
 }
 
 function readPublish(value: unknown, label: string): { mode: PublishMode } {
