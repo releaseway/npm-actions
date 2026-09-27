@@ -4,7 +4,7 @@ This document maps the canonical DESIGN.md contract to implementation and valida
 
 ## Data flow
 
-Discover identities → read registry snapshots → classify already-public versions and candidates → pack candidates → augment native candidates → freeze artifacts/options → plan dependency availability → execute verified artifacts.
+Discover identities → resolve optional Git-tag version provenance → read registry snapshots → classify already-public versions and candidates → materialize candidate versions for packing → augment native candidates → freeze artifacts/options → restore source bytes → plan dependency availability → execute verified artifacts.
 
 ## Registry reads and artifact checks
 
@@ -16,7 +16,7 @@ Registry snapshots are copied and frozen. Read requests have a 30-second timeout
 
 src/orchestrate.ts has distinct noop and ready PreparedRelease variants. Noop contains already-published results and has no toolchain/run directory. Ready contains a bound source identity, immutable ordered publications, the provisioned toolchain and owned run directory.
 
-prepareRelease classifies the entire workspace first. Only candidates reach resolvePackCommand, packAllPackages and applyNativeAugmentation. Final identity, repository, publish policy and SHA-512 are validated before freezing the plan. src/immutable.ts owns copied JSON freezing so pack adapter objects cannot mutate prepared metadata after the fact.
+prepareRelease binds source identity, resolves optional remote Git-tag version policy, then classifies the entire workspace first. Only candidates reach resolvePackCommand, packAllPackages and applyNativeAugmentation. packAllPackages temporarily materializes planned versions when source manifests use templates and restores exact original bytes after packing. Final identity, repository, publish policy and SHA-512 are validated before freezing the plan. src/immutable.ts owns copied JSON freezing so pack adapter objects cannot mutate prepared metadata after the fact.
 
 The plan records derived tag/access options rather than recalculating them in the publisher. The normal default tag is frozen as latest. All deterministic candidate validation and dependency planning complete before executePreparedRelease can mutate npm.
 
@@ -36,7 +36,7 @@ Package output states are already-published, published and staged. Published mea
 
 ## Tests and ownership
 
-The registry, graph, publisher and orchestration tests verify both successful and failing transitions. Existing native/runtime/install tests continue to cover the unchanged installed runtime. Documentation tests guard the current contract and examples. Rebuild dist/main.js after source or dependency changes and verify it matches a fresh build.
+The registry, graph, publisher and orchestration tests verify both successful and failing transitions. Version-provenance tests cover remote annotated/lightweight tag resolution and ambiguous tags. Native/runtime/install tests cover asset templates, shared archives, package-specific cache overrides, and the generated installed runtime. Documentation tests guard the current contract and examples. Rebuild dist/main.js after source or dependency changes and verify it matches a fresh build.
 
 Required local checks are npm test, npm run typecheck, npm run verify:dist, npm run verify:toolchain, npm run verify:pack, npm run verify:yarn-corepack, npm run verify:native-runtime and npm run verify:native-install. A passed local suite does not assert real OIDC publication or cross-platform execution in an unavailable environment.
 

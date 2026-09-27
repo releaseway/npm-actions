@@ -8946,11 +8946,11 @@ var require_valid = __commonJS({
   "node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid4 = (version, options) => {
+    var valid5 = (version, options) => {
       const v2 = parse(version, options);
       return v2 ? v2.version : null;
     };
-    module2.exports = valid4;
+    module2.exports = valid5;
   }
 });
 
@@ -10359,7 +10359,7 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid4 = require_valid();
+    var valid5 = require_valid();
     var clean = require_clean();
     var inc = require_inc();
     var diff = require_diff();
@@ -10398,7 +10398,7 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid: valid4,
+      valid: valid5,
       clean,
       inc,
       diff,
@@ -10753,8 +10753,8 @@ var require_npa = __commonJS({
         name = namePart;
         spec = arg.slice(nameEndsAt + 1) || "*";
       } else {
-        const valid4 = validatePackageName(arg);
-        if (valid4.validForOldPackages) {
+        const valid5 = validatePackageName(arg);
+        if (valid5.validForOldPackages) {
           name = arg;
           spec = "*";
         } else {
@@ -10824,8 +10824,8 @@ var require_npa = __commonJS({
       }
       return purl;
     }
-    function invalidPackageName(name, valid4, raw) {
-      const err = new Error(`Invalid package name "${name}" of package "${raw}": ${valid4.errors.join("; ")}.`);
+    function invalidPackageName(name, valid5, raw) {
+      const err = new Error(`Invalid package name "${name}" of package "${raw}": ${valid5.errors.join("; ")}.`);
       err.code = "EINVALIDPACKAGENAME";
       return err;
     }
@@ -10865,9 +10865,9 @@ var require_npa = __commonJS({
       }
       // TODO move this to a getter/setter in a semver major
       setName(name) {
-        const valid4 = validatePackageName(name);
-        if (!valid4.validForOldPackages) {
-          throw invalidPackageName(name, valid4, this.raw);
+        const valid5 = validatePackageName(name);
+        if (!valid5.validForOldPackages) {
+          throw invalidPackageName(name, valid5, this.raw);
         }
         this.name = name;
         this.scope = name[0] === "@" ? name.slice(0, name.indexOf("/")) : void 0;
@@ -16891,6 +16891,18 @@ function readMode(value, label) {
   }
   return value;
 }
+function readVersion(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["source", "prefix"], label);
+  if (mapping.source !== "git-tag") {
+    throw new Error(`${label}.source must be git-tag`);
+  }
+  const prefix = mapping.prefix ?? "v";
+  if (typeof prefix !== "string" || /\s/.test(prefix)) {
+    throw new Error(`${label}.prefix must be a whitespace-free string`);
+  }
+  return { source: "git-tag", prefix };
+}
 function readPublish(value, label) {
   const mapping = assertRecord(value, label);
   assertKnownKeys(mapping, ["mode"], label);
@@ -16915,12 +16927,19 @@ function readTarget(value, label) {
 }
 function readDistribution(value, label) {
   const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["type", "tag", "targets"], label);
+  assertKnownKeys(mapping, ["type", "tag", "cache-env", "targets"], label);
   if (mapping.type !== "github-release") {
     throw new Error(`${label}.type must be github-release`);
   }
   if (typeof mapping.tag !== "string" || mapping.tag.length === 0) {
     throw new Error(`${label}.tag must be a non-empty string`);
+  }
+  let cacheEnv;
+  if ("cache-env" in mapping) {
+    if (typeof mapping["cache-env"] !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping["cache-env"])) {
+      throw new Error(`${label}.cache-env must be an environment variable name`);
+    }
+    cacheEnv = mapping["cache-env"];
   }
   const targetsMapping = assertRecord(mapping.targets, `${label}.targets`);
   const entries = Object.entries(targetsMapping);
@@ -16934,6 +16953,7 @@ function readDistribution(value, label) {
   return {
     type: "github-release",
     tag: mapping.tag,
+    ...cacheEnv === void 0 ? {} : { cacheEnv },
     targets
   };
 }
@@ -16964,10 +16984,11 @@ function parseConfig(source) {
   }
   const raw = document.toJS();
   const root = assertRecord(raw, "config");
-  assertKnownKeys(root, ["schema", "publish", "packages"], "config");
+  assertKnownKeys(root, ["schema", "version", "publish", "packages"], "config");
   if (root.schema !== 1) {
     throw new Error("config.schema must be 1");
   }
+  const version = "version" in root ? readVersion(root.version, "config.version") : void 0;
   const publish = "publish" in root ? readPublish(root.publish, "config.publish") : DEFAULT_CONFIG.publish;
   const packages = {};
   if ("packages" in root) {
@@ -16984,6 +17005,7 @@ function parseConfig(source) {
   }
   return {
     schema: 1,
+    ...version === void 0 ? {} : { version },
     publish: { ...publish },
     packages
   };
@@ -20199,7 +20221,7 @@ function selectLauncherKind(manifest, binPath) {
   }
   return manifest.type === "module" ? "esm" : "cjs";
 }
-function buildNativeManifest(release) {
+function buildNativeManifest(release, distribution) {
   const targets = {};
   for (const target of Object.keys(release.targets).sort()) {
     const value = release.targets[target];
@@ -20213,6 +20235,7 @@ function buildNativeManifest(release) {
     repository: release.repository,
     version: release.version,
     tag: release.tag,
+    ...distribution?.cacheEnv === void 0 ? {} : { cacheEnv: distribution.cacheEnv },
     targets
   };
 }
@@ -20317,7 +20340,7 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
       ...NATIVE_RUNTIME_PATH.split("/")
     );
     await (0, import_promises3.writeFile)(runtimePath, runtimeBundle.runtime, { mode: 420 });
-    const generatedManifest = buildNativeManifest(release);
+    const generatedManifest = buildNativeManifest(release, distribution);
     const manifestPath = (0, import_node_path12.join)(
       packageRoot,
       ...NATIVE_MANIFEST_PATH.split("/")
@@ -20587,22 +20610,25 @@ function normalizeBin(packageName, value) {
     )
   };
 }
-function expandReleaseTag(template, version) {
+function expandVersionTemplate(template, version, label) {
   const placeholders = template.match(/\{[^}]*\}/g) ?? [];
   if (placeholders.some((placeholder) => placeholder !== "{version}")) {
-    throw new Error("distribution.tag contains an unsupported template placeholder");
+    throw new Error(`${label} contains an unsupported template placeholder`);
   }
   if (template.includes("{") || template.includes("}")) {
     const withoutSupported = template.replaceAll("{version}", "");
     if (withoutSupported.includes("{") || withoutSupported.includes("}")) {
-      throw new Error("distribution.tag contains malformed template syntax");
+      throw new Error(`${label} contains malformed template syntax`);
     }
   }
-  const tag = template.replaceAll("{version}", version);
-  if (!tag) {
-    throw new Error("distribution.tag expands to an empty tag");
+  const result = template.replaceAll("{version}", version);
+  if (!result) {
+    throw new Error(`${label} expands to an empty value`);
   }
-  return tag;
+  return result;
+}
+function expandReleaseTag(template, version) {
+  return expandVersionTemplate(template, version, "distribution.tag");
 }
 function validateNativeDistribution(pkg, artifact) {
   const distribution = pkg.policy?.distribution;
@@ -20610,31 +20636,32 @@ function validateNativeDistribution(pkg, artifact) {
     throw new Error(`${pkg.name} does not declare native distribution policy`);
   }
   const bin = normalizeBin(pkg.name, artifact.manifest.bin);
-  const seenAssets = /* @__PURE__ */ new Set();
+  const targets = {};
   for (const [target, targetPolicy] of Object.entries(distribution.targets)) {
     if (!SUPPORTED_NATIVE_TARGETS.has(target)) {
       throw new Error(`${pkg.name} has unsupported native target ${target}`);
     }
-    if (!targetPolicy.asset.endsWith(".tar.gz") && !targetPolicy.asset.endsWith(".zip")) {
+    const asset = expandVersionTemplate(
+      targetPolicy.asset,
+      pkg.version,
+      `${pkg.name} native asset for ${target}`
+    );
+    if (!asset.endsWith(".tar.gz") && !asset.endsWith(".zip")) {
       throw new Error(
-        `${pkg.name} native asset ${targetPolicy.asset} must be .tar.gz or .zip`
+        `${pkg.name} native asset ${asset} must be .tar.gz or .zip`
       );
     }
-    if (seenAssets.has(targetPolicy.asset)) {
-      throw new Error(
-        `${pkg.name} maps multiple native targets to asset ${targetPolicy.asset}`
-      );
-    }
-    seenAssets.add(targetPolicy.asset);
-    safePackagePath(
+    const executable = safePackagePath(
       targetPolicy.executable,
       `${pkg.name} native executable for ${target}`
     );
+    targets[target] = { asset, executable };
   }
   return {
     bin,
     tag: expandReleaseTag(distribution.tag, pkg.version),
-    targets: distribution.targets
+    ...distribution.cacheEnv === void 0 ? {} : { cacheEnv: distribution.cacheEnv },
+    targets
   };
 }
 
@@ -21051,17 +21078,54 @@ async function packPackage(pkg, command, outputRoot, runManager = defaultRunMana
   }
   return artifact;
 }
-async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager) {
-  const before = await snapshotSourceState(workspaceRoot);
-  const artifacts = [];
-  for (const pkg of packages) {
-    artifacts.push(
-      await packPackage(pkg, command, outputRoot, runManager)
-    );
-    const afterPackage = await snapshotSourceState(workspaceRoot);
-    assertSourceStateUnchanged(before, afterPackage);
+async function materializePackageVersions(packages) {
+  const originals = /* @__PURE__ */ new Map();
+  try {
+    for (const pkg of packages) {
+      if (pkg.manifest.version === pkg.version) {
+        continue;
+      }
+      const source = await (0, import_promises7.readFile)(pkg.manifestPath);
+      originals.set(pkg.manifestPath, source);
+      const manifest = JSON.parse(source.toString("utf8"));
+      manifest.version = pkg.version;
+      await (0, import_promises7.writeFile)(
+        pkg.manifestPath,
+        JSON.stringify(manifest, null, 2) + "\n",
+        { encoding: "utf8" }
+      );
+    }
+  } catch (error) {
+    for (const [path, source] of originals) {
+      await (0, import_promises7.writeFile)(path, source);
+    }
+    throw error;
   }
-  return artifacts;
+  return async () => {
+    for (const [path, source] of originals) {
+      await (0, import_promises7.writeFile)(path, source);
+    }
+  };
+}
+async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager) {
+  const original = await snapshotSourceState(workspaceRoot);
+  const restore = await materializePackageVersions(packages);
+  try {
+    const materialized = await snapshotSourceState(workspaceRoot);
+    const artifacts = [];
+    for (const pkg of packages) {
+      artifacts.push(
+        await packPackage(pkg, command, outputRoot, runManager)
+      );
+      const afterPackage = await snapshotSourceState(workspaceRoot);
+      assertSourceStateUnchanged(materialized, afterPackage);
+    }
+    return artifacts;
+  } finally {
+    await restore();
+    const restored = await snapshotSourceState(workspaceRoot);
+    assertSourceStateUnchanged(original, restored);
+  }
 }
 
 // src/publish/environment.ts
@@ -21648,7 +21712,7 @@ function validatePackageRepository(manifest, packageName, expectedRepository) {
     );
   }
 }
-function selectPublishablePackages(discovered, config, expectedRepository) {
+function selectPublishablePackages(discovered, config, expectedRepository, versionOverride) {
   const names = /* @__PURE__ */ new Map();
   for (const pkg of discovered) {
     if (typeof pkg.manifest.name !== "string" || pkg.manifest.name.length === 0) {
@@ -21675,14 +21739,17 @@ function selectPublishablePackages(discovered, config, expectedRepository) {
       continue;
     }
     const name = pkg.manifest.name;
-    const version = pkg.manifest.version;
+    const sourceVersion = pkg.manifest.version;
+    const version = versionOverride ?? sourceVersion;
     if (typeof name !== "string" || name.length === 0) {
       throw new Error(
         `Publishable package at ${pkg.relativeDirectory} is missing package.json.name`
       );
     }
     if (typeof version !== "string" || version.length === 0) {
-      throw new Error(`${name} is missing package.json.version`);
+      throw new Error(
+        versionOverride === void 0 ? `${name} is missing package.json.version` : `${name} resolved an empty publication version`
+      );
     }
     validateRegistry(pkg.manifest, name);
     validatePackageRepository(pkg.manifest, name, expectedRepository);
@@ -21761,6 +21828,68 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
       `Checkout origin ${remote} does not match GITHUB_REPOSITORY ${context.repository}`
     );
   }
+}
+
+// src/version/git-tag.ts
+var import_node_child_process6 = require("node:child_process");
+var import_semver5 = __toESM(require_semver2());
+var defaultRunGit3 = (args, cwd) => {
+  const result = (0, import_node_child_process6.spawnSync)("git", [...args], {
+    cwd,
+    encoding: "utf8"
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? ""
+  };
+};
+function runGitRequired2(runGit2, cwd, args) {
+  const result = runGit2(args, cwd);
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${args.join(" ")} failed: ${result.stderr.trim() || "<no stderr>"}`
+    );
+  }
+  return result.stdout;
+}
+function resolveGitTagVersion(context, policy, runGit2 = defaultRunGit3) {
+  const output = runGitRequired2(runGit2, context.workspace, ["ls-remote", "--tags", "origin"]);
+  const tags = /* @__PURE__ */ new Map();
+  for (const line of output.split("\n")) {
+    if (!line) continue;
+    const [sha, ref] = line.split("	");
+    if (!sha || !ref || !/^[0-9a-f]{40}$/i.test(sha)) continue;
+    if (!ref.startsWith("refs/tags/")) continue;
+    const peeled = ref.endsWith("^{}");
+    const name = ref.slice("refs/tags/".length, peeled ? -3 : void 0);
+    const entry = tags.get(name) ?? {};
+    if (peeled) entry.peeled = sha.toLowerCase();
+    else entry.direct = sha.toLowerCase();
+    tags.set(name, entry);
+  }
+  const candidates = [];
+  for (const [tag, target] of tags) {
+    if (!tag.startsWith(policy.prefix)) continue;
+    const version = tag.slice(policy.prefix.length);
+    if ((0, import_semver5.valid)(version) !== version) continue;
+    const commit = target.peeled ?? target.direct;
+    if (commit === context.sha.toLowerCase()) {
+      candidates.push({ tag, version });
+    }
+  }
+  candidates.sort((left, right) => left.tag.localeCompare(right.tag));
+  if (candidates.length === 0) {
+    throw new Error(
+      `No remote SemVer tag with prefix ${JSON.stringify(policy.prefix)} resolves to GITHUB_SHA ${context.sha}`
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `Multiple remote SemVer tags resolve to GITHUB_SHA ${context.sha}: ${candidates.map((candidate) => candidate.tag).join(", ")}`
+    );
+  }
+  return candidates[0].version;
 }
 
 // src/orchestrate.ts
@@ -21868,11 +21997,16 @@ async function prepareRelease(context, dependencies = {}) {
     (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
     (dependencies.discover ?? discoverWorkspace)(context.workspace)
   ]);
+  const versionOverride = config.version ? (dependencies.resolveVersion ?? resolveGitTagVersion)(
+    context,
+    config.version
+  ) : void 0;
   const packages = immutableJson(
     (dependencies.selectPackages ?? selectPublishablePackages)(
       discovered,
       config,
-      context.repository
+      context.repository,
+      versionOverride
     )
   );
   if (packages.length === 0)

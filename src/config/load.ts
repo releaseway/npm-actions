@@ -9,6 +9,7 @@ import {
   type PackagePolicy,
   type PublishMode,
   type ReleasewayConfig,
+  type VersionPolicy,
 } from "./types.ts";
 
 const CONFIG_PATH = ".github/npm/packages.yml";
@@ -36,6 +37,19 @@ function readMode(value: unknown, label: string): PublishMode {
     throw new Error(`${label} must be direct or stage`);
   }
   return value;
+}
+
+function readVersion(value: unknown, label: string): VersionPolicy {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["source", "prefix"], label);
+  if (mapping.source !== "git-tag") {
+    throw new Error(`${label}.source must be git-tag`);
+  }
+  const prefix = mapping.prefix ?? "v";
+  if (typeof prefix !== "string" || /\s/.test(prefix)) {
+    throw new Error(`${label}.prefix must be a whitespace-free string`);
+  }
+  return { source: "git-tag", prefix };
 }
 
 function readPublish(value: unknown, label: string): { mode: PublishMode } {
@@ -72,13 +86,24 @@ function readDistribution(
   label: string,
 ): GithubReleaseDistribution {
   const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["type", "tag", "targets"], label);
+  assertKnownKeys(mapping, ["type", "tag", "cache-env", "targets"], label);
 
   if (mapping.type !== "github-release") {
     throw new Error(`${label}.type must be github-release`);
   }
   if (typeof mapping.tag !== "string" || mapping.tag.length === 0) {
     throw new Error(`${label}.tag must be a non-empty string`);
+  }
+
+  let cacheEnv: string | undefined;
+  if ("cache-env" in mapping) {
+    if (
+      typeof mapping["cache-env"] !== "string" ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping["cache-env"])
+    ) {
+      throw new Error(`${label}.cache-env must be an environment variable name`);
+    }
+    cacheEnv = mapping["cache-env"];
   }
 
   const targetsMapping = assertRecord(mapping.targets, `${label}.targets`);
@@ -95,6 +120,7 @@ function readDistribution(
   return {
     type: "github-release",
     tag: mapping.tag,
+    ...(cacheEnv === undefined ? {} : { cacheEnv }),
     targets,
   };
 }
@@ -130,11 +156,14 @@ export function parseConfig(source: string): ReleasewayConfig {
 
   const raw = document.toJS();
   const root = assertRecord(raw, "config");
-  assertKnownKeys(root, ["schema", "publish", "packages"], "config");
+  assertKnownKeys(root, ["schema", "version", "publish", "packages"], "config");
 
   if (root.schema !== 1) {
     throw new Error("config.schema must be 1");
   }
+
+  const version =
+    "version" in root ? readVersion(root.version, "config.version") : undefined;
 
   const publish =
     "publish" in root
@@ -157,6 +186,7 @@ export function parseConfig(source: string): ReleasewayConfig {
 
   return {
     schema: 1,
+    ...(version === undefined ? {} : { version }),
     publish: { ...publish },
     packages,
   };

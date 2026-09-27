@@ -4,6 +4,11 @@ export interface PublishPolicy {
   mode: PublishMode;
 }
 
+export interface VersionPolicy {
+  source: "git-tag";
+  prefix: string;
+}
+
 export interface NativeTargetPolicy {
   asset: string;
   executable: string;
@@ -12,6 +17,7 @@ export interface NativeTargetPolicy {
 export interface GithubReleaseDistribution {
   type: "github-release";
   tag: string;
+  cacheEnv?: string;
   targets: Record<string, NativeTargetPolicy>;
 }
 
@@ -22,6 +28,7 @@ export interface PackagePolicy {
 
 export interface ReleasewayConfig {
   schema: 1;
+  version?: VersionPolicy;
   publish: PublishPolicy;
   packages: Record<string, PackagePolicy>;
 }

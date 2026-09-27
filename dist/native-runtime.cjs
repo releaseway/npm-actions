@@ -4600,6 +4600,12 @@ function nativeCacheRoot(options2 = {}) {
   const env = options2.env ?? import_node_process.default.env;
   const platform = options2.platform ?? import_node_process.default.platform;
   const home = options2.home ?? (0, import_node_os.homedir)();
+  const packageOverride = options2.cacheEnv && env[options2.cacheEnv]?.length ? env[options2.cacheEnv] : void 0;
+  const genericOverride = env.RELEASEWAY_NATIVE_CACHE_DIR?.length ? env.RELEASEWAY_NATIVE_CACHE_DIR : void 0;
+  const override = packageOverride ?? genericOverride;
+  if (override) {
+    return (0, import_node_path11.resolve)(override);
+  }
   if (platform === "linux") {
     const base = env.XDG_CACHE_HOME && env.XDG_CACHE_HOME.length > 0 ? env.XDG_CACHE_HOME : (0, import_node_path11.join)(home, ".cache");
     return (0, import_node_path11.resolve)(
@@ -4926,6 +4932,13 @@ function parseNativeManifest(value) {
   }
   const version = requiredString(root.version, "manifest.version");
   const tag = requiredString(root.tag, "manifest.tag");
+  let cacheEnv;
+  if (root.cacheEnv !== void 0) {
+    cacheEnv = requiredString(root.cacheEnv, "manifest.cacheEnv");
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cacheEnv)) {
+      throw new Error("manifest.cacheEnv must be an environment variable name");
+    }
+  }
   if (!root.targets || typeof root.targets !== "object" || Array.isArray(root.targets)) {
     throw new Error("manifest.targets must be a mapping");
   }
@@ -4963,7 +4976,13 @@ function parseNativeManifest(value) {
   if (Object.keys(targets).length === 0) {
     throw new Error("manifest.targets must not be empty");
   }
-  return { repository, version, tag, targets };
+  return {
+    repository,
+    version,
+    tag,
+    ...cacheEnv === void 0 ? {} : { cacheEnv },
+    targets
+  };
 }
 async function loadNativeManifest(manifestPath) {
   try {

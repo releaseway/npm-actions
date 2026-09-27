@@ -12,6 +12,7 @@ export interface RuntimeNativeManifest {
   repository: string;
   version: string;
   tag: string;
+  cacheEnv?: string;
   targets: Record<string, RuntimeNativeTarget>;
 }
 
@@ -40,6 +41,13 @@ export function parseNativeManifest(
 
   const version = requiredString(root.version, "manifest.version");
   const tag = requiredString(root.tag, "manifest.tag");
+  let cacheEnv: string | undefined;
+  if (root.cacheEnv !== undefined) {
+    cacheEnv = requiredString(root.cacheEnv, "manifest.cacheEnv");
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(cacheEnv)) {
+      throw new Error("manifest.cacheEnv must be an environment variable name");
+    }
+  }
 
   if (!root.targets || typeof root.targets !== "object" || Array.isArray(root.targets)) {
     throw new Error("manifest.targets must be a mapping");
@@ -82,7 +90,13 @@ export function parseNativeManifest(
     throw new Error("manifest.targets must not be empty");
   }
 
-  return { repository, version, tag, targets };
+  return {
+    repository,
+    version,
+    tag,
+    ...(cacheEnv === undefined ? {} : { cacheEnv }),
+    targets,
+  };
 }
 
 export async function loadNativeManifest(

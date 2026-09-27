@@ -54,6 +54,7 @@ import {
   parseGitHubRepository,
   repositoryFullName,
 } from "./workspace/repository.ts";
+import { resolveGitTagVersion } from "./version/git-tag.ts";
 
 export interface PackageResult {
   readonly name: string;
@@ -95,6 +96,7 @@ export interface OrchestrationDependencies {
   publish?: typeof publishPackage;
   waitForDirectLive?: typeof waitForDirectLive;
   validatePublishEnvironment?: typeof assertTrustedPublishingEnvironment;
+  resolveVersion?: typeof resolveGitTagVersion;
 }
 
 /** Poll only registry bytes; the expected digest was fixed before any mutation. */
@@ -253,11 +255,18 @@ export async function prepareRelease(
     (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
     (dependencies.discover ?? discoverWorkspace)(context.workspace),
   ]);
+  const versionOverride = config.version
+    ? (dependencies.resolveVersion ?? resolveGitTagVersion)(
+        context,
+        config.version,
+      )
+    : undefined;
   const packages = immutableJson(
     (dependencies.selectPackages ?? selectPublishablePackages)(
       discovered,
       config,
       context.repository,
+      versionOverride,
     ),
   );
   if (packages.length === 0)

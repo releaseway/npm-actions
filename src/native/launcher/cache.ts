@@ -73,11 +73,26 @@ function archiveFormat(asset: string): ArchiveFormat {
 }
 
 export function nativeCacheRoot(
-  options: Pick<CacheOptions, "env" | "platform" | "home"> = {},
+  options: Pick<CacheOptions, "env" | "platform" | "home"> & {
+    cacheEnv?: string;
+  } = {},
 ): string {
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
   const home = options.home ?? homedir();
+
+  const packageOverride =
+    options.cacheEnv && env[options.cacheEnv]?.length
+      ? env[options.cacheEnv]
+      : undefined;
+  const genericOverride =
+    env.RELEASEWAY_NATIVE_CACHE_DIR?.length
+      ? env.RELEASEWAY_NATIVE_CACHE_DIR
+      : undefined;
+  const override = packageOverride ?? genericOverride;
+  if (override) {
+    return resolve(override);
+  }
 
   if (platform === "linux") {
     const base =

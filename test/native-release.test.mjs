@@ -175,24 +175,30 @@ test("native validation rejects ambiguous or unsafe distribution contracts", () 
       ),
     /unsupported native target/,
   );
-  assert.throws(
-    () =>
-      validateNativeDistribution(
-        nativePackage({
-          targets: {
-            "darwin-arm64": {
-              asset: "same.tar.gz",
-              executable: "tool",
-            },
-            "linux-x64-gnu": {
-              asset: "same.tar.gz",
-              executable: "tool",
-            },
-          },
-        }),
-        packedArtifact(),
-      ),
-    /multiple native targets/,
+  const sharedAsset = validateNativeDistribution(
+    nativePackage({
+      cacheEnv: "TOOL_CACHE_DIR",
+      targets: {
+        "linux-x64-gnu": {
+          asset: "tool_{version}_linux.tar.gz",
+          executable: "tool",
+        },
+        "linux-x64-musl": {
+          asset: "tool_{version}_linux.tar.gz",
+          executable: "tool",
+        },
+      },
+    }),
+    packedArtifact(),
+  );
+  assert.equal(sharedAsset.cacheEnv, "TOOL_CACHE_DIR");
+  assert.equal(
+    sharedAsset.targets["linux-x64-gnu"].asset,
+    "tool_1.2.3_linux.tar.gz",
+  );
+  assert.equal(
+    sharedAsset.targets["linux-x64-musl"].asset,
+    "tool_1.2.3_linux.tar.gz",
   );
   assert.throws(
     () =>

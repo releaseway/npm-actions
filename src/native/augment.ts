@@ -33,6 +33,7 @@ export interface GeneratedNativeManifest {
   repository: string;
   version: string;
   tag: string;
+  cacheEnv?: string;
   targets: Record<
     string,
     {
@@ -70,6 +71,7 @@ export function selectLauncherKind(
 
 export function buildNativeManifest(
   release: VerifiedNativeRelease,
+  distribution?: Pick<ValidatedNativeDistribution, "cacheEnv">,
 ): GeneratedNativeManifest {
   const targets: GeneratedNativeManifest["targets"] = {};
 
@@ -86,6 +88,9 @@ export function buildNativeManifest(
     repository: release.repository,
     version: release.version,
     tag: release.tag,
+    ...(distribution?.cacheEnv === undefined
+      ? {}
+      : { cacheEnv: distribution.cacheEnv }),
     targets,
   };
 }
@@ -239,7 +244,7 @@ export async function augmentNativeArtifact(
     );
     await writeFile(runtimePath, runtimeBundle.runtime, { mode: 0o644 });
 
-    const generatedManifest = buildNativeManifest(release);
+    const generatedManifest = buildNativeManifest(release, distribution);
     const manifestPath = join(
       packageRoot,
       ...NATIVE_MANIFEST_PATH.split("/"),

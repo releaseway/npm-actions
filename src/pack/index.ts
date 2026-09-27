@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { access, mkdir, readdir } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
 
@@ -152,6 +152,40 @@ export async function packPackage(
   return artifact;
 }
 
+async function materializePackageVersions(
+  packages: readonly PublishablePackage[],
+): Promise<() => Promise<void>> {
+  const originals = new Map<string, Buffer>();
+
+  try {
+    for (const pkg of packages) {
+      if (pkg.manifest.version === pkg.version) {
+        continue;
+      }
+      const source = await readFile(pkg.manifestPath);
+      originals.set(pkg.manifestPath, source);
+      const manifest = JSON.parse(source.toString("utf8")) as Record<string, unknown>;
+      manifest.version = pkg.version;
+      await writeFile(
+        pkg.manifestPath,
+        JSON.stringify(manifest, null, 2) + "\n",
+        { encoding: "utf8" },
+      );
+    }
+  } catch (error) {
+    for (const [path, source] of originals) {
+      await writeFile(path, source);
+    }
+    throw error;
+  }
+
+  return async () => {
+    for (const [path, source] of originals) {
+      await writeFile(path, source);
+    }
+  };
+}
+
 export async function packAllPackages(
   workspaceRoot: string,
   packages: readonly PublishablePackage[],
@@ -159,17 +193,26 @@ export async function packAllPackages(
   outputRoot: string,
   runManager: RunManager = defaultRunManager,
 ): Promise<PackedArtifact[]> {
-  const before = await snapshotSourceState(workspaceRoot);
-  const artifacts: PackedArtifact[] = [];
+  const original = await snapshotSourceState(workspaceRoot);
+  const restore = await materializePackageVersions(packages);
 
-  for (const pkg of packages) {
-    artifacts.push(
-      await packPackage(pkg, command, outputRoot, runManager),
-    );
+  try {
+    const materialized = await snapshotSourceState(workspaceRoot);
+    const artifacts: PackedArtifact[] = [];
 
-    const afterPackage = await snapshotSourceState(workspaceRoot);
-    assertSourceStateUnchanged(before, afterPackage);
+    for (const pkg of packages) {
+      artifacts.push(
+        await packPackage(pkg, command, outputRoot, runManager),
+      );
+
+      const afterPackage = await snapshotSourceState(workspaceRoot);
+      assertSourceStateUnchanged(materialized, afterPackage);
+    }
+
+    return artifacts;
+  } finally {
+    await restore();
+    const restored = await snapshotSourceState(workspaceRoot);
+    assertSourceStateUnchanged(original, restored);
   }
-
-  return artifacts;
 }

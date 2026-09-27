@@ -249,6 +249,7 @@ export function selectPublishablePackages(
   discovered: readonly DiscoveredPackage[],
   config: ReleasewayConfig,
   expectedRepository: string,
+  versionOverride?: string,
 ): PublishablePackage[] {
   const names = new Map<string, DiscoveredPackage>();
   for (const pkg of discovered) {
@@ -279,14 +280,19 @@ export function selectPublishablePackages(
     }
 
     const name = pkg.manifest.name;
-    const version = pkg.manifest.version;
+    const sourceVersion = pkg.manifest.version;
+    const version = versionOverride ?? sourceVersion;
     if (typeof name !== "string" || name.length === 0) {
       throw new Error(
         `Publishable package at ${pkg.relativeDirectory} is missing package.json.name`,
       );
     }
     if (typeof version !== "string" || version.length === 0) {
-      throw new Error(`${name} is missing package.json.version`);
+      throw new Error(
+        versionOverride === undefined
+          ? `${name} is missing package.json.version`
+          : `${name} resolved an empty publication version`,
+      );
     }
 
     validateRegistry(pkg.manifest, name);

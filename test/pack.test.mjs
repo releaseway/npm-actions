@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   mkdtemp,
   mkdir,
@@ -245,6 +245,55 @@ test("source state includes gitignored build artifacts but excludes node_modules
         assertSourceStateUnchanged(before, ignoredBuildMutation),
       /mutated the source worktree/,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("packAllPackages materializes planned versions and restores exact source bytes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "releaseway-pack-version-materialize-"));
+  try {
+    const run = (args) =>
+      spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    assert.equal(run(["init"]).status, 0);
+
+    const original =
+      '{\n  "name": "fixture",\n  "version": "0.0.0",\n  "repository": "releaseway/example"\n}\n';
+    await writeFile(join(root, "package.json"), original);
+    assert.equal(run(["add", "package.json"]).status, 0);
+
+    const pkg = {
+      ...packageFixture(root, "fixture"),
+      manifest: {
+        name: "fixture",
+        version: "0.0.0",
+        repository: "releaseway/example",
+      },
+      version: "2.3.4",
+    };
+    const outputRoot = join(root, ".artifacts");
+    const outputDir = join(outputRoot, encodeURIComponent(pkg.name));
+    await mkdir(outputDir, { recursive: true });
+    await makeTarball(join(outputDir, "package.tgz"), {
+      name: pkg.name,
+      version: pkg.version,
+    });
+
+    await packAllPackages(
+      root,
+      [pkg],
+      manager("npm"),
+      outputRoot,
+      (_command, _args, cwd) => {
+        const materialized = JSON.parse(
+          readFileSync(join(cwd, "package.json"), "utf8"),
+        );
+        assert.equal(materialized.version, "2.3.4");
+        return { status: 0, stdout: "", stderr: "" };
+      },
+    );
+
+    assert.equal(await readFile(join(root, "package.json"), "utf8"), original);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

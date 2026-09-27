@@ -23,6 +23,7 @@ export interface NativeBinContract {
 export interface ValidatedNativeDistribution {
   bin: NativeBinContract;
   tag: string;
+  cacheEnv?: string;
   targets: GithubReleaseDistribution["targets"];
 }
 
@@ -83,23 +84,31 @@ function normalizeBin(
   };
 }
 
-export function expandReleaseTag(template: string, version: string): string {
+export function expandVersionTemplate(
+  template: string,
+  version: string,
+  label: string,
+): string {
   const placeholders = template.match(/\{[^}]*\}/g) ?? [];
   if (placeholders.some((placeholder) => placeholder !== "{version}")) {
-    throw new Error("distribution.tag contains an unsupported template placeholder");
+    throw new Error(`${label} contains an unsupported template placeholder`);
   }
   if (template.includes("{") || template.includes("}")) {
     const withoutSupported = template.replaceAll("{version}", "");
     if (withoutSupported.includes("{") || withoutSupported.includes("}")) {
-      throw new Error("distribution.tag contains malformed template syntax");
+      throw new Error(`${label} contains malformed template syntax`);
     }
   }
 
-  const tag = template.replaceAll("{version}", version);
-  if (!tag) {
-    throw new Error("distribution.tag expands to an empty tag");
+  const result = template.replaceAll("{version}", version);
+  if (!result) {
+    throw new Error(`${label} expands to an empty value`);
   }
-  return tag;
+  return result;
+}
+
+export function expandReleaseTag(template: string, version: string): string {
+  return expandVersionTemplate(template, version, "distribution.tag");
 }
 
 export function validateNativeDistribution(
@@ -112,37 +121,37 @@ export function validateNativeDistribution(
   }
 
   const bin = normalizeBin(pkg.name, artifact.manifest.bin);
-  const seenAssets = new Set<string>();
+  const targets: GithubReleaseDistribution["targets"] = {};
 
   for (const [target, targetPolicy] of Object.entries(distribution.targets)) {
     if (!SUPPORTED_NATIVE_TARGETS.has(target)) {
       throw new Error(`${pkg.name} has unsupported native target ${target}`);
     }
 
-    if (
-      !targetPolicy.asset.endsWith(".tar.gz") &&
-      !targetPolicy.asset.endsWith(".zip")
-    ) {
+    const asset = expandVersionTemplate(
+      targetPolicy.asset,
+      pkg.version,
+      `${pkg.name} native asset for ${target}`,
+    );
+    if (!asset.endsWith(".tar.gz") && !asset.endsWith(".zip")) {
       throw new Error(
-        `${pkg.name} native asset ${targetPolicy.asset} must be .tar.gz or .zip`,
+        `${pkg.name} native asset ${asset} must be .tar.gz or .zip`,
       );
     }
-    if (seenAssets.has(targetPolicy.asset)) {
-      throw new Error(
-        `${pkg.name} maps multiple native targets to asset ${targetPolicy.asset}`,
-      );
-    }
-    seenAssets.add(targetPolicy.asset);
 
-    safePackagePath(
+    const executable = safePackagePath(
       targetPolicy.executable,
       `${pkg.name} native executable for ${target}`,
     );
+    targets[target] = { asset, executable };
   }
 
   return {
     bin,
     tag: expandReleaseTag(distribution.tag, pkg.version),
-    targets: distribution.targets,
+    ...(distribution.cacheEnv === undefined
+      ? {}
+      : { cacheEnv: distribution.cacheEnv }),
+    targets,
   };
 }

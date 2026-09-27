@@ -266,6 +266,30 @@ test("release asset download URL is public and SHA-256 verification is exact", (
   );
 });
 
+test("cache root overrides prefer package contract then generic Releaseway override", () => {
+  assert.equal(
+    nativeCacheRoot({
+      platform: "linux",
+      env: {
+        TOOL_CACHE_DIR: "/product-cache",
+        RELEASEWAY_NATIVE_CACHE_DIR: "/releaseway-cache",
+      },
+      home: "/home/user",
+      cacheEnv: "TOOL_CACHE_DIR",
+    }),
+    "/product-cache",
+  );
+  assert.equal(
+    nativeCacheRoot({
+      platform: "linux",
+      env: { RELEASEWAY_NATIVE_CACHE_DIR: "/releaseway-cache" },
+      home: "/home/user",
+      cacheEnv: "TOOL_CACHE_DIR",
+    }),
+    "/releaseway-cache",
+  );
+});
+
 test("cache roots follow platform-native locations", () => {
   assert.equal(
     nativeCacheRoot({

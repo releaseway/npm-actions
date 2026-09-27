@@ -107,10 +107,11 @@ async function fixture(
       const artifacts = [];
       for (const p of candidates) {
         const path = join(output, encodeURIComponent(p.name) + ".tgz");
-        await writeFile(path, JSON.stringify(p.manifest));
+        const manifest = { ...structuredClone(p.manifest), version: p.version };
+        await writeFile(path, JSON.stringify(manifest));
         const artifact = {
           tarballPath: path,
-          manifest: structuredClone(p.manifest),
+          manifest,
           entries: [],
         };
         packed.set(p.name, artifact);
@@ -137,6 +138,25 @@ async function fixture(
   }
 }
 const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
+
+test("git-tag version policy overrides template package versions before registry planning", async () => {
+  await fixture(
+    [pkg("app", { version: "0.0.0" })],
+    async (h) => {
+      h.deps.resolveVersion = (_context, policy) => {
+        assert.deepEqual(policy, { source: "git-tag", prefix: "v" });
+        return "2.3.4";
+      };
+      const result = await runRelease(h.context, h.deps);
+      assert.deepEqual(result, [
+        { name: "app", version: "2.3.4", state: "published" },
+      ]);
+      assert.ok(h.events.includes("lookup:app@2.3.4"));
+      assert.equal(h.packed.get("app").manifest.version, "2.3.4");
+    },
+    "schema: 1\nversion:\n  source: git-tag\n  prefix: v\npublish:\n  mode: direct\n",
+  );
+});
 
 test("all-published releases require no pack, native bundle, temporary toolchain or OIDC", async () => {
   await fixture(

@@ -117,6 +117,25 @@ If a candidate becomes public while this run prepares or submits it, npm-actions
 
 Dist-tags and package-level access for already-public versions are not repaired. For new publications, `publishConfig.tag` and `publishConfig.access` are honored. A prerelease, or a version below current `latest`, requires an explicit tag.
 
+### Git-tag version provenance
+
+Repositories that keep template versions in source can derive the publication version from the immutable Git tag that resolves to the checked-out `GITHUB_SHA`:
+
+```yaml
+schema: 1
+
+version:
+  source: git-tag
+  prefix: v
+
+publish:
+  mode: direct
+```
+
+With this policy, npm-actions reads the remote `origin` tag graph, requires exactly one matching SemVer tag on `GITHUB_SHA`, and uses the tag version for registry planning and packing. Package manifests are materialized only while the package manager packs candidates and are restored byte-for-byte afterward. This keeps the checked-out source identity unchanged while making tag provenance the version authority.
+
+The policy applies one lockstep version to every publishable workspace package. Repositories with independently versioned packages should keep `package.json` versions authoritative instead.
+
 ## Direct and staged publishing
 
 Staged publishing is the repository default:
@@ -181,18 +200,23 @@ packages:
     distribution:
       type: github-release
       tag: "v{version}"
+      cache-env: TOOL_CACHE_DIR
 
       targets:
         darwin-arm64:
-          asset: tool_darwin_arm64.tar.gz
+          asset: tool_{version}_darwin_arm64.tar.gz
           executable: tool
 
         linux-x64-gnu:
-          asset: tool_linux_x64.tar.gz
+          asset: tool_{version}_linux_x64.tar.gz
+          executable: tool
+
+        linux-x64-musl:
+          asset: tool_{version}_linux_x64.tar.gz
           executable: tool
 
         win32-x64:
-          asset: tool_windows_x64.zip
+          asset: tool_{version}_windows_x64.zip
           executable: tool.exe
 ```
 
@@ -211,7 +235,7 @@ win32-arm64
 win32-x64
 ```
 
-Supported assets are `.tar.gz` and `.zip`. Each target declares the exact asset name and the exact archive-relative executable path.
+Supported assets are `.tar.gz` and `.zip`. Asset names may contain the same `{version}` template as release tags. Multiple runtime targets may intentionally reuse one asset, for example when one static Linux archive is valid on both glibc and musl. Each target still declares its exact archive-relative executable path.
 
 For each new native publication candidate, npm-actions verifies that:
 
@@ -243,7 +267,8 @@ On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, w
 
 The launcher rejects traversal paths, absolute paths, symbolic links, hard links, device entries, unsupported archive types, digest mismatches, and undeclared runtime targets.
 
-Cache locations follow the platform and use a versioned content-addressed layout:
+Cache locations follow the platform and use a versioned content-addressed layout. Set `RELEASEWAY_NATIVE_CACHE_DIR` to override the cache root globally. A package may also declare `distribution.cache-env`; when that environment variable is non-empty, it takes precedence over the generic override. This lets an existing CLI preserve a product-specific cache-root contract while using the Releaseway runtime.
+
 
 ```text
 Linux   $XDG_CACHE_HOME/releaseway/npm-actions/native/v2/sha256/<archive-digest>/

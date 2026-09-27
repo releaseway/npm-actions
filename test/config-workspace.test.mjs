@@ -55,6 +55,9 @@ test("missing Releaseway config uses staged repository defaults", async () => {
 test("config parsing is strict and preserves package overrides", () => {
   const config = parseConfig(`
 schema: 1
+version:
+  source: git-tag
+  prefix: v
 publish:
   mode: direct
 packages:
@@ -64,16 +67,19 @@ packages:
     distribution:
       type: github-release
       tag: "v{version}"
+      cache-env: CLI_CACHE_DIR
       targets:
         linux-x64-gnu:
-          asset: cli_linux_x64.tar.gz
+          asset: cli_{version}_linux_x64.tar.gz
           executable: cli
 `);
 
+  assert.deepEqual(config.version, { source: "git-tag", prefix: "v" });
   assert.equal(config.packages["@scope/cli"].publish.mode, "stage");
+  assert.equal(config.packages["@scope/cli"].distribution.cacheEnv, "CLI_CACHE_DIR");
   assert.equal(
     config.packages["@scope/cli"].distribution.targets["linux-x64-gnu"].asset,
-    "cli_linux_x64.tar.gz",
+    "cli_{version}_linux_x64.tar.gz",
   );
 
   assert.throws(
