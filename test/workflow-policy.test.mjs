@@ -104,14 +104,16 @@ test("actions-up gates use the current tool and repository-only scan", async () 
   }
 });
 
-test("musl gate uses Node 24 Alpine and never publishes npm state", async () => {
+test("musl gate certifies installed native runtime on Node 22 and 24", async () => {
   const source = await workflowSource(CHECK);
   const workflow = parse(source);
   const job = workflow.jobs["musl-runtime"];
   const serialized = JSON.stringify(job);
 
-  assert.match(serialized, /node:24-alpine/);
+  assert.deepEqual(job.strategy.matrix.node, ["22", "24"]);
+  assert.match(serialized, /node:\$\{\{ matrix\.node \}\}-alpine/);
   assert.match(serialized, /verify:native-runtime/);
+  assert.match(serialized, /verify:native-install/);
   assert.doesNotMatch(serialized, /npm publish|npm stage publish/);
 });
 
@@ -150,7 +152,8 @@ test("release workflow certifies the tagged source before immutable GitHub relea
     "npm run verify:yarn-corepack",
     "npm run verify:native-runtime",
     "npm run verify:native-install",
-    "node:24-alpine",
+    "for node_version in 22 24",
+    "npm run verify:native-install",
     "git diff --exit-code",
   ]) {
     assert.ok(source.includes(command), command);

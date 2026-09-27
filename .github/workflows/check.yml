@@ -109,18 +109,24 @@ jobs:
       - run: npm run verify:native-install
 
   musl-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "22"
+          - "24"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Verify native runtime on current Node 24 Alpine
+      - name: Verify installed native runtime on Node ${{ matrix.node }} Alpine
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm \
             --volume "$PWD:/src:ro" \
-            node:24-alpine \
-            sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && npm ci && npm run verify:native-runtime'
+            node:${{ matrix.node }}-alpine \
+            sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && npm ci && npm run verify:native-runtime && npm run verify:native-install'
 
   fake-registry-e2e:
     runs-on: ubuntu-24.04

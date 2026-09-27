@@ -23,7 +23,6 @@ await mkdir(outdir, { recursive: true });
 const common = {
   bundle: true,
   platform: "node",
-  target: "node24",
   sourcemap: false,
   minify: false,
   legalComments: "none",
@@ -33,6 +32,7 @@ const common = {
 
 await build({
   ...common,
+  target: "node24",
   entryPoints: [resolve("src/main.ts")],
   outfile: resolve(outdir, "main.js"),
   format: "cjs",
@@ -43,6 +43,7 @@ await build({
 
 await build({
   ...common,
+  target: "node22",
   entryPoints: [resolve("src/native/launcher/runtime.ts")],
   outfile: resolve(outdir, "native-runtime.cjs"),
   format: "cjs",

@@ -255,6 +255,8 @@ Private GitHub Release-backed native assets are not supported.
 
 ## Native runtime behavior
 
+The GitHub Action itself runs on Node 24. The generated installed native runtime is bundled for Node 22 and newer so a package may expose an `engines.node >=22` consumer contract independently of the Action runtime.
+
 Installing the npm package does not download a native binary. npm-actions does not add a `postinstall` downloader, so installation remains compatible with `npm install --ignore-scripts`.
 
 On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, which:

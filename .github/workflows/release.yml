@@ -99,14 +99,16 @@ jobs:
       - run: npm run verify:native-runtime
       - run: npm run verify:native-install
 
-      - name: Verify native runtime on current Node 24 Alpine
+      - name: Verify installed native runtime on Node 22 and 24 Alpine
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm \
-            --volume "$PWD:/src:ro" \
-            node:24-alpine \
-            sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && npm ci && npm run verify:native-runtime'
+          for node_version in 22 24; do
+            docker run --rm \
+              --volume "$PWD:/src:ro" \
+              "node:${node_version}-alpine" \
+              sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && npm ci && npm run verify:native-runtime && npm run verify:native-install'
+          done
 
       - name: Verify tagged source remained clean
         run: git diff --exit-code
