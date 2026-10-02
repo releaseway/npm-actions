@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { createReadStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,6 +10,7 @@ import { valid } from "semver";
 import * as tar from "tar";
 
 import toolchainLock from "../../toolchain.lock.json" with { type: "json" };
+import { nativeLimits, readBoundedResponse, withDeadline } from "../native/limits.ts";
 
 export interface ToolSpec {
   version: string;
@@ -42,6 +45,7 @@ type FetchLike = typeof fetch;
 interface BootstrapOptions {
   rootBase?: string;
   fetchImpl?: FetchLike;
+  env?: NodeJS.ProcessEnv;
 }
 
 interface RunResult {
@@ -88,15 +92,19 @@ export async function downloadAndExtract(
   spec: ToolSpec,
   root: string,
   fetchImpl: FetchLike,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  const response = await fetchImpl(spec.tarball);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download pinned ${name} ${spec.version}: HTTP ${response.status}`,
-    );
-  }
+  const limits = nativeLimits(env);
+  const bytes = await withDeadline("Pinned toolchain download", limits.downloadTimeoutMs, async (signal) => {
+    const response = await fetchImpl(spec.tarball, { signal });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download pinned ${name} ${spec.version}: HTTP ${response.status}`,
+      );
+    }
 
-  const bytes = Buffer.from(await response.arrayBuffer());
+    return readBoundedResponse(response, limits.maxArchiveBytes, signal);
+  });
   verifyIntegrity(bytes, spec.integrity);
 
   const archive = join(root, `${name}.tgz`);
@@ -105,11 +113,22 @@ export async function downloadAndExtract(
   await writeFile(archive, bytes);
 
   try {
-    await tar.x({
-      cwd: destination,
-      file: archive,
-      strip: 1,
-      strict: true,
+    let expanded = 0;
+    await withDeadline("Pinned toolchain extraction", limits.extractTimeoutMs, (signal) => {
+      const unpack = tar.x({
+        cwd: destination,
+        strip: 1,
+        strict: true,
+        filter(_path, entry) {
+          expanded += entry.size;
+          if (expanded > limits.maxExpandedBytes) {
+            unpack.abort(new Error("Toolchain archive exceeds expanded byte limit"));
+            return false;
+          }
+          return true;
+        },
+      });
+      return pipeline(createReadStream(archive), unpack, { signal });
     });
   } finally {
     await rm(archive, { force: true });
@@ -130,10 +149,16 @@ export async function bootstrapReleasewayToolchain(
   const root = await mkdtemp(join(base, "releaseway-npm-actions-toolchain-"));
   const fetchImpl = options.fetchImpl ?? fetch;
 
-  const [npmCli, corepackCli] = await Promise.all([
-    downloadAndExtract("npm", toolchainLock.npm, root, fetchImpl),
-    downloadAndExtract("corepack", toolchainLock.corepack, root, fetchImpl),
+  const results = await Promise.allSettled([
+    downloadAndExtract("npm", toolchainLock.npm, root, fetchImpl, options.env),
+    downloadAndExtract("corepack", toolchainLock.corepack, root, fetchImpl, options.env),
   ]);
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed?.status === "rejected") {
+    await rm(root, { recursive: true, force: true });
+    throw failed.reason;
+  }
+  const [npmCli, corepackCli] = results.map((result) => (result as PromiseFulfilledResult<string>).value);
 
   const corepackHome = join(root, "corepack-home");
   await mkdir(corepackHome, { recursive: true });

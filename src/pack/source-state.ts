@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import fg from "fast-glob";
@@ -50,7 +51,13 @@ async function hashRepositoryFiles(root: string, paths: readonly string[]): Prom
       hash.update(await readlink(absolute));
     } else if (stat.isFile()) {
       hash.update("file\0");
-      hash.update(await readFile(absolute));
+      if (stat.size <= 1024 * 1024) {
+        hash.update(await readFile(absolute));
+      } else {
+        for await (const chunk of createReadStream(absolute, { highWaterMark: 1024 * 1024 })) {
+          hash.update(chunk);
+        }
+      }
     } else {
       hash.update("other\0");
     }

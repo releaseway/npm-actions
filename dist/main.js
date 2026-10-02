@@ -10696,12 +10696,12 @@ var require_lib3 = __commonJS({
           return process.emit("input", "end", ...args);
         },
         read: function(...args) {
-          let resolve11, reject;
+          let resolve12, reject;
           const promise = new Promise((_resolve, _reject) => {
-            resolve11 = _resolve;
+            resolve12 = _resolve;
             reject = _reject;
           });
-          process.emit("input", "read", resolve11, reject, ...args);
+          process.emit("input", "read", resolve12, reject, ...args);
           return promise;
         }
       }
@@ -10761,7 +10761,7 @@ var require_npa = __commonJS({
           spec = arg;
         }
       }
-      return resolve11(name, spec, where, arg);
+      return resolve12(name, spec, where, arg);
     }
     function isFileSpec(spec) {
       if (!spec) {
@@ -10781,7 +10781,7 @@ var require_npa = __commonJS({
       }
       return spec.toLowerCase().startsWith("npm:");
     }
-    function resolve11(name, spec, where, arg) {
+    function resolve12(name, spec, where, arg) {
       const res = new Result({
         raw: arg,
         name,
@@ -11098,7 +11098,7 @@ var require_npa = __commonJS({
       return res;
     }
     module2.exports = npa2;
-    module2.exports.resolve = resolve11;
+    module2.exports.resolve = resolve12;
     module2.exports.toPurl = toPurl;
     module2.exports.Result = Result;
   }
@@ -15631,41 +15631,41 @@ var require_queue = __commonJS({
       queue.drained = drained;
       return queue;
       function push(value) {
-        var p2 = new Promise(function(resolve11, reject) {
+        var p2 = new Promise(function(resolve12, reject) {
           pushCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve11(result);
+            resolve12(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function unshift(value) {
-        var p2 = new Promise(function(resolve11, reject) {
+        var p2 = new Promise(function(resolve12, reject) {
           unshiftCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve11(result);
+            resolve12(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function drained() {
-        var p2 = new Promise(function(resolve11) {
+        var p2 = new Promise(function(resolve12) {
           process.nextTick(function() {
             if (queue.idle()) {
-              resolve11();
+              resolve12();
             } else {
               var previousDrain = queue.drain;
               queue.drain = function() {
                 if (typeof previousDrain === "function") previousDrain();
-                resolve11();
+                resolve12();
                 queue.drain = previousDrain;
               };
             }
@@ -16151,9 +16151,9 @@ var require_stream3 = __commonJS({
         });
       }
       _getStat(filepath) {
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve12, reject) => {
           this._stat(filepath, this._fsStatSettings, (error, stats) => {
-            return error === null ? resolve11(stats) : reject(error);
+            return error === null ? resolve12(stats) : reject(error);
           });
         });
       }
@@ -16177,10 +16177,10 @@ var require_async5 = __commonJS({
         this._readerStream = new stream_1.default(this._settings);
       }
       dynamic(root, options) {
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve12, reject) => {
           this._walkAsync(root, options, (error, entries) => {
             if (error === null) {
-              resolve11(entries);
+              resolve12(entries);
             } else {
               reject(error);
             }
@@ -16190,10 +16190,10 @@ var require_async5 = __commonJS({
       async static(patterns, options) {
         const entries = [];
         const stream = this._readerStream.static(patterns, options);
-        return new Promise((resolve11, reject) => {
+        return new Promise((resolve12, reject) => {
           stream.once("error", reject);
           stream.on("data", (entry) => entries.push(entry));
-          stream.once("end", () => resolve11(entries));
+          stream.once("end", () => resolve12(entries));
         });
       }
     };
@@ -16851,11 +16851,11 @@ var require_out4 = __commonJS({
 });
 
 // src/action.ts
-var import_node_fs8 = require("node:fs");
-var import_node_path21 = require("node:path");
+var import_node_fs10 = require("node:fs");
+var import_node_path22 = require("node:path");
 
 // src/orchestrate.ts
-var import_promises10 = require("node:fs/promises");
+var import_promises11 = require("node:fs/promises");
 var import_node_path20 = require("node:path");
 var import_node_os4 = require("node:os");
 var import_semver6 = __toESM(require_semver2());
@@ -20388,25 +20388,112 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
   }
 }
 
+// src/native/limits.ts
+function nativeLimits(env = process.env) {
+  const read = (suffix, fallback) => {
+    const name = `RELEASEWAY_NATIVE_${suffix}`;
+    const raw = env[name];
+    if (raw === void 0 || raw === "") return fallback;
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${name} must be a positive safe integer`);
+    }
+    return value;
+  };
+  return {
+    apiTimeoutMs: read("API_TIMEOUT_MS", 3e4),
+    downloadTimeoutMs: read("DOWNLOAD_TIMEOUT_MS", 24e4),
+    extractTimeoutMs: read("EXTRACT_TIMEOUT_MS", 12e4),
+    maxArchiveBytes: read("MAX_ARCHIVE_BYTES", 1024 ** 3),
+    maxExecutableBytes: read("MAX_EXECUTABLE_BYTES", 1024 ** 3),
+    maxExpandedBytes: read("MAX_EXPANDED_BYTES", 4 * 1024 ** 3)
+  };
+}
+async function withDeadline(label, timeoutMs, operation) {
+  const controller = new AbortController();
+  let timer;
+  const expired = new Promise((_2, reject) => {
+    const deadline = performance.now() + timeoutMs;
+    const expire = () => {
+      const remaining = deadline - performance.now();
+      if (remaining > 0) {
+        timer = setTimeout(expire, Math.min(Math.ceil(remaining), 2 ** 31 - 1));
+        return;
+      }
+      const error = new Error(`${label} exceeded ${timeoutMs}ms preparation budget`);
+      controller.abort(error);
+      reject(error);
+    };
+    expire();
+  });
+  try {
+    return await Promise.race([operation(controller.signal), expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function readBoundedResponse(response, maxBytes, signal) {
+  const chunks = [];
+  await consumeBoundedResponse(response, maxBytes, signal, async (chunk) => {
+    chunks.push(Buffer.from(chunk));
+  });
+  return Buffer.concat(chunks);
+}
+async function consumeBoundedResponse(response, maxBytes, signal, consume) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel();
+    throw new Error(`Download exceeds ${maxBytes} byte limit`);
+  }
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const abort = () => {
+    void reader.cancel(signal.reason).catch(() => {
+    });
+  };
+  signal.addEventListener("abort", abort, { once: true });
+  let total = 0;
+  try {
+    while (true) {
+      signal.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal.throwIfAborted();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) throw new Error(`Download exceeds ${maxBytes} byte limit`);
+      await consume(value);
+    }
+  } finally {
+    signal.removeEventListener("abort", abort);
+    await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+}
+
 // src/native/release.ts
 var API_VERSION = "2026-03-10";
-async function apiJson(repository, path, fetchImpl) {
-  const response = await fetchImpl(
-    `https://api.github.com/repos/${repository}${path}`,
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": API_VERSION,
-        "User-Agent": "releaseway-npm-actions"
+async function apiJson(repository, path, fetchImpl, env) {
+  const limits = nativeLimits(env);
+  return withDeadline("GitHub native release API", limits.apiTimeoutMs, async (signal) => {
+    const response = await fetchImpl(
+      `https://api.github.com/repos/${repository}${path}`,
+      {
+        signal,
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": API_VERSION,
+          "User-Agent": "releaseway-npm-actions"
+        }
       }
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `GitHub public API request failed for ${repository}${path}: HTTP ${response.status}`
     );
-  }
-  return response.json();
+    if (!response.ok) {
+      throw new Error(
+        `GitHub public API request failed for ${repository}${path}: HTTP ${response.status}`
+      );
+    }
+    return JSON.parse((await readBoundedResponse(response, limits.maxArchiveBytes, signal)).toString("utf8"));
+  });
 }
 function refObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -20418,11 +20505,12 @@ function refObject(value, label) {
   }
   return object;
 }
-async function resolveTagCommit(repository, tag, fetchImpl) {
+async function resolveTagCommit(repository, tag, fetchImpl, env) {
   const refRaw = await apiJson(
     repository,
     `/git/ref/tags/${encodeURIComponent(tag)}`,
-    fetchImpl
+    fetchImpl,
+    env
   );
   let current = refObject(refRaw?.object, `Git tag ref ${tag}`);
   const seen = /* @__PURE__ */ new Set();
@@ -20438,7 +20526,8 @@ async function resolveTagCommit(repository, tag, fetchImpl) {
     const tagRaw = await apiJson(
       repository,
       `/git/tags/${sha}`,
-      fetchImpl
+      fetchImpl,
+      env
     );
     current = refObject(tagRaw?.object, `Annotated tag object ${sha}`);
   }
@@ -20472,8 +20561,8 @@ function validateAsset(assets, expected, label) {
     sha256: asset.digest.slice("sha256:".length).toLowerCase()
   };
 }
-async function loadReleaseSnapshot(repository, tag, fetchImpl) {
-  const repoRaw = await apiJson(repository, "", fetchImpl);
+async function loadReleaseSnapshot(repository, tag, fetchImpl, env) {
+  const repoRaw = await apiJson(repository, "", fetchImpl, env);
   if (!repoRaw || typeof repoRaw !== "object" || Array.isArray(repoRaw) || repoRaw.private !== false) {
     throw new Error(
       `Native distribution repository ${repository} must be public`
@@ -20483,7 +20572,8 @@ async function loadReleaseSnapshot(repository, tag, fetchImpl) {
     await apiJson(
       repository,
       `/releases/tags/${encodeURIComponent(tag)}`,
-      fetchImpl
+      fetchImpl,
+      env
     )
   );
   if (release.tag_name !== tag) {
@@ -20503,7 +20593,7 @@ async function loadReleaseSnapshot(repository, tag, fetchImpl) {
   return {
     repository,
     tag,
-    sourceCommit: await resolveTagCommit(repository, tag, fetchImpl),
+    sourceCommit: await resolveTagCommit(repository, tag, fetchImpl, env),
     assets: release.assets
   };
 }
@@ -20538,9 +20628,11 @@ function materializeVerifiedRelease(snapshot, version, sourceCommit, distributio
 }
 var NativeReleaseResolver = class {
   #fetchImpl;
+  #env;
   #snapshotCache = /* @__PURE__ */ new Map();
-  constructor(fetchImpl = fetch) {
+  constructor(fetchImpl = fetch, env = process.env) {
     this.#fetchImpl = fetchImpl;
+    this.#env = env;
   }
   async resolve(repository, version, sourceCommit, distribution) {
     const snapshot = await this.#snapshot(repository, distribution.tag);
@@ -20560,7 +20652,8 @@ var NativeReleaseResolver = class {
     const pending = loadReleaseSnapshot(
       repository,
       tag,
-      this.#fetchImpl
+      this.#fetchImpl,
+      this.#env
     );
     this.#snapshotCache.set(key, pending);
     try {
@@ -20679,14 +20772,16 @@ function validateNativeDistribution(pkg, artifact) {
 
 // src/pack/index.ts
 var import_node_child_process3 = require("node:child_process");
-var import_promises7 = require("node:fs/promises");
+var import_promises8 = require("node:fs/promises");
 var import_node_path16 = require("node:path");
 var import_node_process2 = __toESM(require("node:process"));
 
 // src/toolchain/bootstrap.ts
 var import_node_child_process = require("node:child_process");
+var import_node_fs7 = require("node:fs");
+var import_promises4 = require("node:stream/promises");
 var import_node_crypto2 = require("node:crypto");
-var import_promises4 = require("node:fs/promises");
+var import_promises5 = require("node:fs/promises");
 var import_node_os2 = require("node:os");
 var import_node_path14 = require("node:path");
 var import_node_process = __toESM(require("node:process"));
@@ -20733,46 +20828,66 @@ function verifyIntegrity(bytes, integrity) {
     throw new Error("Toolchain tarball integrity mismatch");
   }
 }
-async function downloadAndExtract(name, spec, root, fetchImpl) {
-  const response = await fetchImpl(spec.tarball);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download pinned ${name} ${spec.version}: HTTP ${response.status}`
-    );
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
+async function downloadAndExtract(name, spec, root, fetchImpl, env = import_node_process.default.env) {
+  const limits = nativeLimits(env);
+  const bytes = await withDeadline("Pinned toolchain download", limits.downloadTimeoutMs, async (signal) => {
+    const response = await fetchImpl(spec.tarball, { signal });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download pinned ${name} ${spec.version}: HTTP ${response.status}`
+      );
+    }
+    return readBoundedResponse(response, limits.maxArchiveBytes, signal);
+  });
   verifyIntegrity(bytes, spec.integrity);
   const archive = (0, import_node_path14.join)(root, `${name}.tgz`);
   const destination = (0, import_node_path14.join)(root, name);
-  await (0, import_promises4.mkdir)(destination, { recursive: true });
-  await (0, import_promises4.writeFile)(archive, bytes);
+  await (0, import_promises5.mkdir)(destination, { recursive: true });
+  await (0, import_promises5.writeFile)(archive, bytes);
   try {
-    await So({
-      cwd: destination,
-      file: archive,
-      strip: 1,
-      strict: true
+    let expanded = 0;
+    await withDeadline("Pinned toolchain extraction", limits.extractTimeoutMs, (signal) => {
+      const unpack = So({
+        cwd: destination,
+        strip: 1,
+        strict: true,
+        filter(_path, entry) {
+          expanded += entry.size;
+          if (expanded > limits.maxExpandedBytes) {
+            unpack.abort(new Error("Toolchain archive exceeds expanded byte limit"));
+            return false;
+          }
+          return true;
+        }
+      });
+      return (0, import_promises4.pipeline)((0, import_node_fs7.createReadStream)(archive), unpack, { signal });
     });
   } finally {
-    await (0, import_promises4.rm)(archive, { force: true });
+    await (0, import_promises5.rm)(archive, { force: true });
   }
   const cli = (0, import_node_path14.resolve)(destination, spec.bin);
-  await (0, import_promises4.access)(cli);
+  await (0, import_promises5.access)(cli);
   return cli;
 }
 async function bootstrapReleasewayToolchain(options = {}) {
   const base = (0, import_node_path14.resolve)(
     options.rootBase ?? import_node_process.default.env.RUNNER_TEMP ?? (0, import_node_os2.tmpdir)()
   );
-  await (0, import_promises4.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises4.mkdtemp)((0, import_node_path14.join)(base, "releaseway-npm-actions-toolchain-"));
+  await (0, import_promises5.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises5.mkdtemp)((0, import_node_path14.join)(base, "releaseway-npm-actions-toolchain-"));
   const fetchImpl = options.fetchImpl ?? fetch;
-  const [npmCli, corepackCli] = await Promise.all([
-    downloadAndExtract("npm", toolchain_lock_default.npm, root, fetchImpl),
-    downloadAndExtract("corepack", toolchain_lock_default.corepack, root, fetchImpl)
+  const results = await Promise.allSettled([
+    downloadAndExtract("npm", toolchain_lock_default.npm, root, fetchImpl, options.env),
+    downloadAndExtract("corepack", toolchain_lock_default.corepack, root, fetchImpl, options.env)
   ]);
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed?.status === "rejected") {
+    await (0, import_promises5.rm)(root, { recursive: true, force: true });
+    throw failed.reason;
+  }
+  const [npmCli, corepackCli] = results.map((result) => result.value);
   const corepackHome = (0, import_node_path14.join)(root, "corepack-home");
-  await (0, import_promises4.mkdir)(corepackHome, { recursive: true });
+  await (0, import_promises5.mkdir)(corepackHome, { recursive: true });
   return { root, npmCli, corepackCli, corepackHome };
 }
 function parsePackageManager(declaration) {
@@ -20857,7 +20972,7 @@ function provisionPackageManager(declaration, toolchain, cwd, env = import_node_
 }
 
 // src/pack/inspect.ts
-var import_promises5 = require("node:fs/promises");
+var import_promises6 = require("node:fs/promises");
 async function inspectPackedTarball(tarballPath) {
   const entries = [];
   let packageJson;
@@ -20875,11 +20990,11 @@ async function inspectPackedTarball(tarballPath) {
       if (entry.path === "package/package.json") {
         const chunks = [];
         pending.push(
-          new Promise((resolve11, reject) => {
+          new Promise((resolve12, reject) => {
             entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
             entry.on("end", () => {
               packageJson = Buffer.concat(chunks).toString("utf8");
-              resolve11();
+              resolve12();
             });
             entry.on("error", reject);
           })
@@ -20902,7 +21017,7 @@ async function inspectPackedTarball(tarballPath) {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error("Packed package.json must contain a JSON object");
   }
-  await (0, import_promises5.readFile)(tarballPath);
+  await (0, import_promises6.readFile)(tarballPath);
   return {
     tarballPath,
     manifest,
@@ -20913,7 +21028,8 @@ async function inspectPackedTarball(tarballPath) {
 // src/pack/source-state.ts
 var import_node_child_process2 = require("node:child_process");
 var import_node_crypto3 = require("node:crypto");
-var import_promises6 = require("node:fs/promises");
+var import_node_fs8 = require("node:fs");
+var import_promises7 = require("node:fs/promises");
 var import_node_path15 = require("node:path");
 var import_fast_glob = __toESM(require_out4());
 var defaultRunGit = (args, cwd) => {
@@ -20940,17 +21056,23 @@ async function hashRepositoryFiles(root, paths) {
   const hash = (0, import_node_crypto3.createHash)("sha256");
   for (const relativePath of paths) {
     const absolute = (0, import_node_path15.resolve)(root, relativePath);
-    const stat = await (0, import_promises6.lstat)(absolute);
+    const stat = await (0, import_promises7.lstat)(absolute);
     hash.update(relativePath);
     hash.update("\0");
     hash.update(String(stat.mode));
     hash.update("\0");
     if (stat.isSymbolicLink()) {
       hash.update("symlink\0");
-      hash.update(await (0, import_promises6.readlink)(absolute));
+      hash.update(await (0, import_promises7.readlink)(absolute));
     } else if (stat.isFile()) {
       hash.update("file\0");
-      hash.update(await (0, import_promises6.readFile)(absolute));
+      if (stat.size <= 1024 * 1024) {
+        hash.update(await (0, import_promises7.readFile)(absolute));
+      } else {
+        for await (const chunk of (0, import_node_fs8.createReadStream)(absolute, { highWaterMark: 1024 * 1024 })) {
+          hash.update(chunk);
+        }
+      }
     } else {
       hash.update("other\0");
     }
@@ -21018,7 +21140,7 @@ var defaultRunManager = (command, args, cwd) => {
 };
 async function pathExists(path) {
   try {
-    await (0, import_promises7.access)(path);
+    await (0, import_promises8.access)(path);
     return true;
   } catch {
     return false;
@@ -21063,7 +21185,7 @@ function packArguments(command, outputDirectory) {
   };
 }
 async function findSingleTarball(outputDirectory) {
-  const files = (await (0, import_promises7.readdir)(outputDirectory)).filter((name) => name.endsWith(".tgz")).sort();
+  const files = (await (0, import_promises8.readdir)(outputDirectory)).filter((name) => name.endsWith(".tgz")).sort();
   if (files.length !== 1) {
     throw new Error(
       `Expected exactly one packed tarball in ${outputDirectory}, found ${files.length}`
@@ -21073,7 +21195,7 @@ async function findSingleTarball(outputDirectory) {
 }
 async function packPackage(pkg, command, outputRoot, runManager = defaultRunManager) {
   const outputDirectory = (0, import_node_path16.resolve)(outputRoot, encodeURIComponent(pkg.name));
-  await (0, import_promises7.mkdir)(outputDirectory, { recursive: true });
+  await (0, import_promises8.mkdir)(outputDirectory, { recursive: true });
   const invocation = packArguments(command, outputDirectory);
   const result = runManager(command, invocation.args, pkg.directory);
   if (result.status !== 0) {
@@ -21097,11 +21219,11 @@ async function materializePackageVersions(packages) {
       if (pkg.manifest.version === pkg.version) {
         continue;
       }
-      const source = await (0, import_promises7.readFile)(pkg.manifestPath);
+      const source = await (0, import_promises8.readFile)(pkg.manifestPath);
       originals.set(pkg.manifestPath, source);
       const manifest = JSON.parse(source.toString("utf8"));
       manifest.version = pkg.version;
-      await (0, import_promises7.writeFile)(
+      await (0, import_promises8.writeFile)(
         pkg.manifestPath,
         JSON.stringify(manifest, null, 2) + "\n",
         { encoding: "utf8" }
@@ -21109,13 +21231,13 @@ async function materializePackageVersions(packages) {
     }
   } catch (error) {
     for (const [path, source] of originals) {
-      await (0, import_promises7.writeFile)(path, source);
+      await (0, import_promises8.writeFile)(path, source);
     }
     throw error;
   }
   return async () => {
     for (const [path, source] of originals) {
-      await (0, import_promises7.writeFile)(path, source);
+      await (0, import_promises8.writeFile)(path, source);
     }
   };
 }
@@ -21181,7 +21303,7 @@ function isolatedPublisherEnvironment(source, home) {
 
 // src/publish/index.ts
 var import_node_child_process4 = require("node:child_process");
-var import_promises8 = require("node:fs/promises");
+var import_promises9 = require("node:fs/promises");
 var import_node_path17 = require("node:path");
 var import_node_os3 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"));
@@ -21191,10 +21313,10 @@ var import_semver3 = __toESM(require_semver2());
 
 // src/registry/integrity.ts
 var import_node_crypto4 = require("node:crypto");
-var import_node_fs7 = require("node:fs");
+var import_node_fs9 = require("node:fs");
 async function sha512Integrity(path) {
   const hash = (0, import_node_crypto4.createHash)("sha512");
-  for await (const chunk of (0, import_node_fs7.createReadStream)(path)) hash.update(chunk);
+  for await (const chunk of (0, import_node_fs9.createReadStream)(path)) hash.update(chunk);
   return "sha512-" + hash.digest("base64");
 }
 function decodeSha512(token) {
@@ -21384,17 +21506,17 @@ async function publishPackage(toolchain, request, options = {}) {
   assertTrustedPublishingEnvironment(sourceEnv);
   await assertPreparedTarball(request);
   const base = (0, import_node_path17.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os3.tmpdir)());
-  await (0, import_promises8.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises8.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-publish-"));
+  await (0, import_promises9.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises9.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-publish-"));
   try {
     const home = (0, import_node_path17.join)(root, "home");
-    await (0, import_promises8.mkdir)(home, { recursive: true });
+    await (0, import_promises9.mkdir)(home, { recursive: true });
     const userConfig = (0, import_node_path17.join)(root, "user.npmrc");
     const globalConfig = (0, import_node_path17.join)(root, "global.npmrc");
     const config = "registry=" + NPM_REGISTRY + "/\n";
     await Promise.all([
-      (0, import_promises8.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
-      (0, import_promises8.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
+      (0, import_promises9.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
+      (0, import_promises9.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
     ]);
     const result = (options.runPublisher ?? defaultRunPublisher)(
       import_node_process3.default.execPath,
@@ -21409,7 +21531,7 @@ async function publishPackage(toolchain, request, options = {}) {
     }
     return request.mode === "direct" ? "direct-accepted" : "staged";
   } finally {
-    await (0, import_promises8.rm)(root, { recursive: true, force: true });
+    await (0, import_promises9.rm)(root, { recursive: true, force: true });
   }
 }
 
@@ -21525,7 +21647,7 @@ function packageOperationEnvironment(source) {
 }
 
 // src/workspace/discover.ts
-var import_promises9 = require("node:fs/promises");
+var import_promises10 = require("node:fs/promises");
 var import_node_path18 = require("node:path");
 var import_fast_glob2 = __toESM(require_out4());
 var import_yaml2 = __toESM(require_dist());
@@ -21575,7 +21697,7 @@ function repositoryFullName(repository) {
 async function readJsonManifest(path) {
   let parsed;
   try {
-    parsed = JSON.parse(await (0, import_promises9.readFile)(path, "utf8"));
+    parsed = JSON.parse(await (0, import_promises10.readFile)(path, "utf8"));
   } catch (error) {
     throw new Error(
       `Failed to read package manifest ${path}: ${error instanceof Error ? error.message : String(error)}`
@@ -21612,7 +21734,7 @@ async function pnpmWorkspacePatterns(workspaceRoot) {
   const path = (0, import_node_path18.resolve)(workspaceRoot, "pnpm-workspace.yaml");
   let source;
   try {
-    source = await (0, import_promises9.readFile)(path, "utf8");
+    source = await (0, import_promises10.readFile)(path, "utf8");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return void 0;
@@ -21657,7 +21779,7 @@ function assertWithinWorkspace(workspace, candidate) {
   }
 }
 async function discoverWorkspace(workspaceRoot) {
-  const root = await (0, import_promises9.realpath)((0, import_node_path18.resolve)(workspaceRoot));
+  const root = await (0, import_promises10.realpath)((0, import_node_path18.resolve)(workspaceRoot));
   const rootManifestPath = (0, import_node_path18.resolve)(root, "package.json");
   const rootManifest2 = await readJsonManifest(rootManifestPath);
   const pnpmPatterns = await pnpmWorkspacePatterns(root);
@@ -21678,7 +21800,7 @@ async function discoverWorkspace(workspaceRoot) {
   }
   const discovered = [];
   for (const manifestPath of [...manifestPaths].sort()) {
-    const directory = await (0, import_promises9.realpath)((0, import_node_path18.dirname)(manifestPath));
+    const directory = await (0, import_promises10.realpath)((0, import_node_path18.dirname)(manifestPath));
     assertWithinWorkspace(root, directory);
     const relativeDirectory = (0, import_node_path18.relative)(root, directory) || ".";
     discovered.push({
@@ -21945,7 +22067,7 @@ async function waitForDirectLive(registry, name, version, expectedIntegrity, opt
   }
 }
 async function nativeRuntimeBundle(actionPath) {
-  const runtime = await (0, import_promises10.readFile)(
+  const runtime = await (0, import_promises11.readFile)(
     (0, import_node_path20.resolve)(actionPath, "dist", "native-runtime.cjs")
   );
   if (runtime.byteLength === 0) {
@@ -21987,7 +22109,7 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
   }
   const runtimeBundle = await nativeRuntimeBundle(context.actionPath);
   const outputRoot = (0, import_node_path20.join)(runRoot, "final-native");
-  await (0, import_promises10.mkdir)(outputRoot, { recursive: true });
+  await (0, import_promises11.mkdir)(outputRoot, { recursive: true });
   for (const pkg of nativePackages) {
     const artifact = artifacts.get(pkg.name);
     if (!artifact) {
@@ -22059,10 +22181,10 @@ async function prepareRelease(context, dependencies = {}) {
   (dependencies.validatePublishEnvironment ?? assertTrustedPublishingEnvironment)(context.env);
   const root = rootManifest(discovered, context.workspace);
   const base = (0, import_node_path20.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
-  await (0, import_promises10.mkdir)(base, { recursive: true });
-  const runRoot = await (0, import_promises10.mkdtemp)((0, import_node_path20.join)(base, "releaseway-npm-actions-run-"));
+  await (0, import_promises11.mkdir)(base, { recursive: true });
+  const runRoot = await (0, import_promises11.mkdtemp)((0, import_node_path20.join)(base, "releaseway-npm-actions-run-"));
   try {
-    const toolchain = await (dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain)({ rootBase: runRoot });
+    const toolchain = await (dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain)({ rootBase: runRoot, env: context.env });
     const command = await resolvePackCommand(
       { packageManager: root.manifest.packageManager },
       toolchain,
@@ -22082,7 +22204,7 @@ async function prepareRelease(context, dependencies = {}) {
       artifacts,
       runRoot,
       dependencies.inspect ?? inspectPackedTarball,
-      dependencies.nativeResolver ?? new NativeReleaseResolver()
+      dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env)
     );
     const requests = /* @__PURE__ */ new Map();
     for (const pkg of candidates) {
@@ -22145,7 +22267,7 @@ async function prepareRelease(context, dependencies = {}) {
       runRoot
     });
   } catch (error) {
-    await (0, import_promises10.rm)(runRoot, { recursive: true, force: true });
+    await (0, import_promises11.rm)(runRoot, { recursive: true, force: true });
     throw error;
   }
 }
@@ -22176,6 +22298,7 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
   const completed = [];
   for (const publication of prepared.publications) {
     const request = publication.request;
+    dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
     try {
       await assertPreparedTarball(request);
       let state;
@@ -22231,6 +22354,7 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
       };
       completed.push(result);
       results.push(result);
+      dependencies.onProgress?.({ kind: "completed", result });
     } catch (error) {
       const summary = completed.map(
         (item) => item.name + "@" + item.version + "(" + item.state + ")"
@@ -22246,11 +22370,51 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
 async function runRelease(context, dependencies = {}) {
   const prepared = await prepareRelease(context, dependencies);
   try {
+    dependencies.onProgress?.({
+      kind: "plan",
+      plan: prepared.kind === "ready" ? prepared.publications.map(({ request }) => ({ name: request.name, version: request.version, mode: request.mode, integrity: request.integrity })) : [],
+      alreadyPublished: prepared.alreadyPublished
+    });
     return await executePreparedRelease(context, prepared, dependencies);
   } finally {
     if (prepared.kind === "ready")
-      await (0, import_promises10.rm)(prepared.runRoot, { recursive: true, force: true });
+      await (0, import_promises11.rm)(prepared.runRoot, { recursive: true, force: true });
   }
+}
+
+// src/report.ts
+var import_promises12 = require("node:fs/promises");
+var import_node_os5 = require("node:os");
+var import_node_path21 = require("node:path");
+function updateReport(report, event) {
+  if (event.kind === "plan") {
+    report.plan = event.plan.map(({ name, version, mode, integrity }) => ({ name, version, mode, integrity }));
+    report.results = event.alreadyPublished.map(({ name, version, state }) => ({ name, version, state }));
+  } else if (event.kind === "publishing") {
+    report.stage = "publish";
+    report.failedPackage = { name: event.name, version: event.version };
+  } else {
+    const { name, version, state } = event.result;
+    report.results.push({ name, version, state });
+    delete report.failedPackage;
+  }
+}
+async function writeReleaseReport(report, env) {
+  const base = (0, import_node_path21.resolve)(env.RUNNER_TEMP ?? (0, import_node_os5.tmpdir)());
+  await (0, import_promises12.mkdir)(base, { recursive: true });
+  const directory = await (0, import_promises12.mkdtemp)((0, import_node_path21.join)(base, "releaseway-npm-report-"));
+  const path = (0, import_node_path21.join)(directory, "report.json");
+  await (0, import_promises12.writeFile)(path, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+  if (env.GITHUB_STEP_SUMMARY) {
+    const safeJson = JSON.stringify(report, null, 2).replace(/`/g, "\\u0060");
+    await (0, import_promises12.appendFile)(env.GITHUB_STEP_SUMMARY, `### Releaseway npm release
+
+\`\`\`json
+${safeJson}
+\`\`\`
+`);
+  }
+  return path;
 }
 
 // src/action.ts
@@ -22263,7 +22427,7 @@ function requiredEnvironment(env, name) {
   }
   return value;
 }
-function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs8.appendFileSync) {
+function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs10.appendFileSync) {
   appendOutput(
     outputPath,
     "packages=" + JSON.stringify(packages) + "\n",
@@ -22272,16 +22436,16 @@ function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs
 }
 function resolveActionPath(explicit, env, argv = process.argv) {
   if (explicit) {
-    return (0, import_node_path21.resolve)(explicit);
+    return (0, import_node_path22.resolve)(explicit);
   }
   if (env.GITHUB_ACTION_PATH) {
-    return (0, import_node_path21.resolve)(env.GITHUB_ACTION_PATH);
+    return (0, import_node_path22.resolve)(env.GITHUB_ACTION_PATH);
   }
   const entrypoint = argv[1];
   if (!entrypoint) {
     throw new Error("Unable to determine JavaScript action entrypoint path");
   }
-  return (0, import_node_path21.resolve)((0, import_node_path21.dirname)(entrypoint), "..");
+  return (0, import_node_path22.resolve)((0, import_node_path22.dirname)(entrypoint), "..");
 }
 async function runAction(options = {}) {
   const env = options.env ?? process.env;
@@ -22292,20 +22456,44 @@ async function runAction(options = {}) {
     options.argv ?? process.argv
   );
   const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
-  const packages = await (options.release ?? runRelease)(
-    {
-      ...github,
-      actionPath,
-      env
-    },
-    options.dependencies
-  );
-  writePackagesOutput(
-    outputPath,
-    packages,
-    options.appendOutput ?? import_node_fs8.appendFileSync
-  );
-  return packages;
+  const report = {
+    schema: 1,
+    source: { repository: github.repository, commit: github.sha },
+    status: "running",
+    stage: "prepare",
+    plan: [],
+    results: []
+  };
+  const append = options.appendOutput ?? import_node_fs10.appendFileSync;
+  try {
+    const packages = await (options.release ?? runRelease)(
+      { ...github, actionPath, env },
+      {
+        ...options.dependencies,
+        onProgress(event) {
+          updateReport(report, event);
+          options.dependencies?.onProgress?.(event);
+        }
+      }
+    );
+    writePackagesOutput(outputPath, packages, append);
+    report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
+    report.status = "success";
+    report.stage = "complete";
+    delete report.failedPackage;
+    return packages;
+  } catch (error) {
+    report.status = "failed";
+    throw error;
+  } finally {
+    try {
+      const path = await (options.writeReport ?? writeReleaseReport)(report, env);
+      append(outputPath, "report-path=" + path + "\n", { encoding: "utf8" });
+    } catch (error) {
+      if (report.status !== "failed") throw error;
+      console.warn("Release report could not be saved; preserving the original release failure");
+    }
+  }
 }
 
 // src/errors.ts

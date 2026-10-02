@@ -13,7 +13,7 @@ The registry is authoritative for public version presence. A local artifact is a
 
 The root JavaScript action runs on GitHub's Node 24 action runtime and has no functional inputs. It reads the checkout at GITHUB_WORKSPACE and the fixed optional configuration .github/npm/packages.yml. npm metadata remains in package.json; schema 1 repository policy defines direct/stage mode, optional Git-tag version provenance, and explicit native distribution overrides.
 
-The sole output, packages, is a JSON array of name, version and state. States are:
+The successful packages output is a JSON array of name, version and state. The report-path output points to a runner-local JSON report on success or failure, also copied to the job summary. Its fixed fields preserve prepared candidate digests, completed results and failure stage without raw errors, command output or environment values. States are:
 
 | State             | Meaning                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------- |

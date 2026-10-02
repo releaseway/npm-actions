@@ -5,13 +5,14 @@ import test from "node:test";
 
 import { resolveActionPath, runAction } from "../src/action.ts";
 
-test("action metadata uses the Node 24 bundle and exposes only packages", async () => {
+test("action metadata uses the Node 24 bundle and exposes packages and diagnostics", async () => {
   const metadata = await readFile(resolve("action.yml"), "utf8");
 
   assert.match(metadata, /using:\s*node24/);
   assert.match(metadata, /main:\s*dist\/main\.js/);
   assert.match(metadata, /^outputs:\n\s+packages:/m);
   assert.doesNotMatch(metadata, /^inputs:/m);
+  assert.match(metadata, /report-path:/);
 });
 
 test("JavaScript action root derives from the bundled main entrypoint", () => {
@@ -48,6 +49,7 @@ test("action writes packages output only after successful orchestration", async 
       GITHUB_SHA: "0123456789abcdef0123456789abcdef01234567",
     },
     release: async () => expected,
+    writeReport: async () => "/report.json",
     appendOutput(path, data, options) {
       writes.push({ path, data, options });
     },
@@ -60,10 +62,11 @@ test("action writes packages output only after successful orchestration", async 
       data: "packages=" + JSON.stringify(expected) + "\n",
       options: { encoding: "utf8" },
     },
+    { path: "/github/output", data: "report-path=/report.json\n", options: { encoding: "utf8" } },
   ]);
 });
 
-test("action does not write output when orchestration fails", async () => {
+test("action writes diagnostics but no packages output when orchestration fails", async () => {
   let writes = 0;
 
   await assert.rejects(
@@ -78,12 +81,14 @@ test("action does not write output when orchestration fails", async () => {
       release: async () => {
         throw new Error("preflight failed");
       },
-      appendOutput() {
+      writeReport: async () => "/report.json",
+      appendOutput(_path, data) {
+        assert.equal(data, "report-path=/report.json\n");
         writes += 1;
       },
     }),
     /preflight failed/,
   );
 
-  assert.equal(writes, 0);
+  assert.equal(writes, 1);
 });

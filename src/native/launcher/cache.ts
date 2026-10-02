@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   chmod,
   mkdir,
@@ -7,11 +8,13 @@ import {
   rename,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, posix, resolve } from "node:path";
 import process from "node:process";
+import { nativeLimits, withDeadline } from "../limits.ts";
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
@@ -19,7 +22,7 @@ import {
   normalizeArchivePath,
 } from "./archive.ts";
 import {
-  downloadReleaseAsset,
+  downloadReleaseAssetToFile,
   verifySha256,
 } from "./download.ts";
 import type {
@@ -60,6 +63,12 @@ interface CacheOptions {
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function fileSha256(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 function archiveFormat(asset: string): ArchiveFormat {
@@ -172,8 +181,7 @@ async function validateArchiveCache(
     }
 
     const archive = join(directory, "archive.bin");
-    const bytes = await readFile(archive);
-    if (sha256(bytes) !== target.sha256) {
+    if (await fileSha256(archive) !== target.sha256) {
       return undefined;
     }
     return archive;
@@ -204,8 +212,7 @@ async function validateExecutableCache(
     }
 
     const path = join(directory, executableFile);
-    const bytes = await readFile(path);
-    if (sha256(bytes) !== metadata.executableSha256) {
+    if (await fileSha256(path) !== metadata.executableSha256) {
       return undefined;
     }
     return path;
@@ -245,9 +252,18 @@ async function acquireCacheLock<T>(
 
     try {
       await mkdir(lockDirectory);
+      // Longer configured preparation budgets must keep their active lock alive.
+      const heartbeat = setInterval(() => {
+        const now = new Date();
+        void utimes(lockDirectory, now, now).catch(() => {});
+      }, Math.max(1, Math.min(1000, Math.floor(staleMs / 3))));
+      heartbeat.unref();
       return {
         kind: "owner",
-        release: () => rm(lockDirectory, { recursive: true, force: true }),
+        release: async () => {
+          clearInterval(heartbeat);
+          await rm(lockDirectory, { recursive: true, force: true });
+        },
       };
     } catch (error) {
       if (
@@ -347,20 +363,18 @@ async function prepareNativeArchive(
       join(root, `.${target.sha256}.archive.tmp-`),
     );
     try {
-      const download =
-        options.download ??
-        ((repository, tag, asset) =>
-          downloadReleaseAsset(repository, tag, asset));
-      const archiveBytes = await download(
-        manifest.repository,
-        manifest.tag,
-        target.asset,
-      );
-      verifySha256(archiveBytes, target.sha256);
-
       const tempArchive = join(temp, "archive.bin");
       const tempMetadata = join(temp, "archive.json");
-      await writeFile(tempArchive, archiveBytes, { mode: 0o600 });
+      if (options.download) {
+        const limits = nativeLimits(options.env);
+        const archiveBytes = await withDeadline("Native asset download", limits.downloadTimeoutMs, () =>
+          options.download!(manifest.repository, manifest.tag, target.asset));
+        if (archiveBytes.length > limits.maxArchiveBytes) throw new Error("Native archive exceeds byte limit");
+        verifySha256(archiveBytes, target.sha256);
+        await writeFile(tempArchive, archiveBytes, { mode: 0o600 });
+      } else {
+        await downloadReleaseAssetToFile(manifest.repository, manifest.tag, target.asset, tempArchive, target.sha256, options.env);
+      }
       const metadata: ArchiveCacheMetadata = {
         schema: 2,
         assetSha256: target.sha256,
@@ -432,6 +446,7 @@ async function prepareExecutableFromArchive(
         archivePath,
         target.asset,
         executable,
+        nativeLimits(options.env),
       );
       const executableFile = cachedExecutableName(executable);
       const executablePath = join(temp, executableFile);

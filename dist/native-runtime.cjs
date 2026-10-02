@@ -531,7 +531,7 @@ var require_yauzl = __commonJS({
     var PassThrough = require("stream").PassThrough;
     var Writable = require("stream").Writable;
     var crc32 = typeof zlib.crc32 === "function" ? zlib.crc32 : require_crc32();
-    exports2.open = open;
+    exports2.open = open2;
     exports2.fromFd = fromFd;
     exports2.fromBuffer = fromBuffer;
     exports2.fromRandomAccessReader = fromRandomAccessReader;
@@ -549,7 +549,7 @@ var require_yauzl = __commonJS({
     exports2.RandomAccessReader = RandomAccessReader;
     function openPromise(path, options2) {
       return new Promise((resolve2, reject) => {
-        open(path, { ...options2, lazyEntries: true }, function(err, zipfile) {
+        open2(path, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
           resolve2(zipfile);
         });
@@ -579,7 +579,7 @@ var require_yauzl = __commonJS({
         });
       });
     }
-    function open(path, options2, callback) {
+    function open2(path, options2, callback) {
       if (typeof options2 === "function") {
         callback = options2;
         options2 = null;
@@ -1391,13 +1391,93 @@ var import_node_process3 = __toESM(require("node:process"));
 
 // src/native/launcher/cache.ts
 var import_node_crypto3 = require("node:crypto");
-var import_promises2 = require("node:fs/promises");
+var import_node_fs8 = require("node:fs");
+var import_promises3 = require("node:fs/promises");
 var import_node_os = require("node:os");
 var import_node_path11 = require("node:path");
 var import_node_process = __toESM(require("node:process"));
-var import_promises3 = require("node:timers/promises");
+
+// src/native/limits.ts
+function nativeLimits(env = process.env) {
+  const read = (suffix, fallback) => {
+    const name = `RELEASEWAY_NATIVE_${suffix}`;
+    const raw = env[name];
+    if (raw === void 0 || raw === "") return fallback;
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value <= 0) {
+      throw new Error(`${name} must be a positive safe integer`);
+    }
+    return value;
+  };
+  return {
+    apiTimeoutMs: read("API_TIMEOUT_MS", 3e4),
+    downloadTimeoutMs: read("DOWNLOAD_TIMEOUT_MS", 24e4),
+    extractTimeoutMs: read("EXTRACT_TIMEOUT_MS", 12e4),
+    maxArchiveBytes: read("MAX_ARCHIVE_BYTES", 1024 ** 3),
+    maxExecutableBytes: read("MAX_EXECUTABLE_BYTES", 1024 ** 3),
+    maxExpandedBytes: read("MAX_EXPANDED_BYTES", 4 * 1024 ** 3)
+  };
+}
+async function withDeadline(label, timeoutMs, operation) {
+  const controller = new AbortController();
+  let timer;
+  const expired = new Promise((_2, reject) => {
+    const deadline = performance.now() + timeoutMs;
+    const expire = () => {
+      const remaining = deadline - performance.now();
+      if (remaining > 0) {
+        timer = setTimeout(expire, Math.min(Math.ceil(remaining), 2 ** 31 - 1));
+        return;
+      }
+      const error = new Error(`${label} exceeded ${timeoutMs}ms preparation budget`);
+      controller.abort(error);
+      reject(error);
+    };
+    expire();
+  });
+  try {
+    return await Promise.race([operation(controller.signal), expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function consumeBoundedResponse(response, maxBytes, signal, consume) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel();
+    throw new Error(`Download exceeds ${maxBytes} byte limit`);
+  }
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const abort = () => {
+    void reader.cancel(signal.reason).catch(() => {
+    });
+  };
+  signal.addEventListener("abort", abort, { once: true });
+  let total = 0;
+  try {
+    while (true) {
+      signal.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal.throwIfAborted();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) throw new Error(`Download exceeds ${maxBytes} byte limit`);
+      await consume(value);
+    }
+  } finally {
+    signal.removeEventListener("abort", abort);
+    await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+}
+
+// src/native/launcher/cache.ts
+var import_promises4 = require("node:timers/promises");
 
 // src/native/launcher/archive.ts
+var import_node_fs7 = require("node:fs");
 var import_node_path10 = require("node:path");
 
 // node_modules/tar/dist/esm/index.min.js
@@ -4385,44 +4465,73 @@ function normalizeArchivePath(value) {
 function isTarRegularFile(type) {
   return type === "File" || type === "OldFile" || type === "ContiguousFile";
 }
-async function extractTarGzExecutable(archivePath, executablePath) {
+async function extractTarGzExecutable(archivePath, executablePath, limits = nativeLimits()) {
   const wanted = normalizeArchivePath(executablePath);
   const seen = /* @__PURE__ */ new Set();
   const chunks = [];
   let matches = 0;
   let scanError;
-  await Ct({
-    file: archivePath,
-    strict: true,
-    onentry(entry) {
-      if (scanError) {
-        entry.resume();
-        return;
-      }
-      try {
-        const normalized = normalizeArchivePath(entry.path.replace(/\/$/, ""));
-        if (seen.has(normalized)) {
-          throw new Error(`Duplicate archive entry path: ${normalized}`);
-        }
-        seen.add(normalized);
-        if (entry.type === "Directory") {
+  let expanded = 0;
+  let executableBytes = 0;
+  await withDeadline("Native tar extraction", limits.extractTimeoutMs, (signal) => new Promise((resolve2, reject) => {
+    const input = (0, import_node_fs7.createReadStream)(archivePath);
+    const parser = Ct({
+      strict: true,
+      onentry(entry) {
+        if (scanError) {
+          entry.resume();
           return;
         }
-        if (!isTarRegularFile(entry.type)) {
-          throw new Error(
-            `Unsupported non-regular tar entry ${entry.type}: ${entry.path}`
-          );
+        try {
+          expanded += entry.size;
+          if (expanded > limits.maxExpandedBytes) throw new Error("Native archive exceeds expanded byte limit");
+          const normalized = normalizeArchivePath(entry.path.replace(/\/$/, ""));
+          if (seen.has(normalized)) {
+            throw new Error(`Duplicate archive entry path: ${normalized}`);
+          }
+          seen.add(normalized);
+          if (entry.type === "Directory") {
+            return;
+          }
+          if (!isTarRegularFile(entry.type)) {
+            throw new Error(
+              `Unsupported non-regular tar entry ${entry.type}: ${entry.path}`
+            );
+          }
+          if (normalized === wanted) {
+            if (entry.size > limits.maxExecutableBytes) throw new Error("Native executable exceeds byte limit");
+            matches += 1;
+            entry.on("data", (chunk) => {
+              executableBytes += chunk.length;
+              if (executableBytes > limits.maxExecutableBytes) {
+                parser.abort(new Error("Native executable exceeds byte limit"));
+                return;
+              }
+              chunks.push(Buffer.from(chunk));
+            });
+          }
+        } catch (error) {
+          scanError = error instanceof Error ? error : new Error(String(error));
+          entry.resume();
+          parser.abort(scanError);
         }
-        if (normalized === wanted) {
-          matches += 1;
-          entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-        }
-      } catch (error) {
-        scanError = error instanceof Error ? error : new Error(String(error));
-        entry.resume();
       }
-    }
-  });
+    });
+    const abort = () => parser.abort(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    const finish = (error) => {
+      signal.removeEventListener("abort", abort);
+      input.destroy();
+      if (error) reject(error);
+      else resolve2();
+    };
+    input.on("error", (error) => {
+      parser.abort(error);
+    });
+    parser.on("error", finish);
+    parser.on("end", () => finish());
+    input.pipe(parser);
+  }));
   if (scanError) {
     throw scanError;
   }
@@ -4464,96 +4573,149 @@ function openZip(path) {
     });
   });
 }
-function readZipEntry(zip, entry) {
+function readZipEntry(zip, entry, maxBytes, signal) {
   return new Promise((resolve2, reject) => {
     zip.openReadStream(entry, (error, stream) => {
       if (error || !stream) {
         reject(error ?? new Error("Failed to read zip entry"));
         return;
       }
+      if (signal.aborted) {
+        stream.destroy();
+        reject(signal.reason);
+        return;
+      }
       const chunks = [];
-      stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      let total = 0;
+      const abort = () => stream.destroy(signal.reason);
+      signal.addEventListener("abort", abort, { once: true });
+      stream.on("close", () => signal.removeEventListener("abort", abort));
+      stream.on("data", (chunk) => {
+        total += chunk.length;
+        if (total > maxBytes) stream.destroy(new Error("Native executable exceeds byte limit"));
+        else chunks.push(Buffer.from(chunk));
+      });
       stream.on("error", reject);
       stream.on("end", () => resolve2(Buffer.concat(chunks)));
     });
   });
 }
-async function extractZipExecutable(archivePath, executablePath) {
-  const wanted = normalizeArchivePath(executablePath);
-  const zip = await openZip(archivePath);
-  const seen = /* @__PURE__ */ new Set();
-  let match;
-  let matches = 0;
-  return new Promise((resolve2, reject) => {
-    let settled = false;
-    const fail = (error) => {
-      if (settled) return;
-      settled = true;
-      try {
-        zip.close();
-      } catch {
-      }
-      reject(error);
-    };
-    zip.on("error", fail);
-    zip.on("entry", async (entry) => {
-      try {
-        const raw = entry.fileName.replace(/\/$/, "");
-        const normalized = normalizeArchivePath(raw);
-        if (seen.has(normalized)) {
-          throw new Error(`Duplicate archive entry path: ${normalized}`);
+async function extractZipExecutable(archivePath, executablePath, limits = nativeLimits()) {
+  return withDeadline("Native zip extraction", limits.extractTimeoutMs, async (signal) => {
+    const wanted = normalizeArchivePath(executablePath);
+    const zip = await openZip(archivePath);
+    const seen = /* @__PURE__ */ new Set();
+    let match;
+    let matches = 0;
+    let expanded = 0;
+    return new Promise((resolve2, reject) => {
+      let settled = false;
+      const fail = (error) => {
+        if (settled) return;
+        settled = true;
+        try {
+          zip.close();
+        } catch {
         }
-        seen.add(normalized);
-        assertZipEntryType(entry, normalized);
-        const directory = entry.fileName.endsWith("/") || ((zipUnixMode(entry) ?? 0) & 61440) === 16384;
-        if (normalized === wanted) {
-          if (directory) {
-            throw new Error(
-              `Configured native executable is not a regular zip file: ${wanted}`
-            );
-          }
-          matches += 1;
-          match = await readZipEntry(zip, entry);
-        }
-        zip.readEntry();
-      } catch (error) {
-        fail(error);
-      }
-    });
-    zip.on("end", () => {
-      if (settled) return;
-      settled = true;
-      if (matches !== 1 || !match) {
-        reject(
-          new Error(
-            `Native executable ${wanted} must occur exactly once in zip; found ${matches}`
-          )
-        );
+        reject(error);
+      };
+      zip.on("error", fail);
+      const abort = () => fail(signal.reason);
+      signal.addEventListener("abort", abort, { once: true });
+      zip.on("close", () => signal.removeEventListener("abort", abort));
+      if (signal.aborted) {
+        fail(signal.reason);
         return;
       }
-      resolve2(match);
+      zip.on("entry", async (entry) => {
+        try {
+          expanded += entry.uncompressedSize;
+          if (expanded > limits.maxExpandedBytes) throw new Error("Native archive exceeds expanded byte limit");
+          const raw = entry.fileName.replace(/\/$/, "");
+          const normalized = normalizeArchivePath(raw);
+          if (seen.has(normalized)) {
+            throw new Error(`Duplicate archive entry path: ${normalized}`);
+          }
+          seen.add(normalized);
+          assertZipEntryType(entry, normalized);
+          const directory = entry.fileName.endsWith("/") || ((zipUnixMode(entry) ?? 0) & 61440) === 16384;
+          if (normalized === wanted) {
+            if (directory) {
+              throw new Error(
+                `Configured native executable is not a regular zip file: ${wanted}`
+              );
+            }
+            matches += 1;
+            if (entry.uncompressedSize > limits.maxExecutableBytes) throw new Error("Native executable exceeds byte limit");
+            match = await readZipEntry(zip, entry, limits.maxExecutableBytes, signal);
+          }
+          zip.readEntry();
+        } catch (error) {
+          fail(error);
+        }
+      });
+      zip.on("end", () => {
+        if (settled) return;
+        settled = true;
+        if (matches !== 1 || !match) {
+          reject(
+            new Error(
+              `Native executable ${wanted} must occur exactly once in zip; found ${matches}`
+            )
+          );
+          return;
+        }
+        resolve2(match);
+      });
+      zip.readEntry();
     });
-    zip.readEntry();
   });
 }
-async function extractExecutable(archivePath, assetName, executablePath) {
+async function extractExecutable(archivePath, assetName, executablePath, limits = nativeLimits()) {
   if (assetName.endsWith(".tar.gz")) {
-    return extractTarGzExecutable(archivePath, executablePath);
+    return extractTarGzExecutable(archivePath, executablePath, limits);
   }
   if (assetName.endsWith(".zip")) {
-    return extractZipExecutable(archivePath, executablePath);
+    return extractZipExecutable(archivePath, executablePath, limits);
   }
   throw new Error(`Unsupported native archive format: ${assetName}`);
 }
 
 // src/native/launcher/download.ts
 var import_node_crypto2 = require("node:crypto");
+var import_promises2 = require("node:fs/promises");
 function encodeRepository(repository) {
   const parts = repository.split("/");
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error(`Invalid GitHub repository identity: ${repository}`);
   }
   return parts.map(encodeURIComponent).join("/");
+}
+async function downloadReleaseAssetToFile(repository, tag, asset, destination, expectedSha256, env = process.env, fetchImpl = fetch) {
+  const limits = nativeLimits(env);
+  const file = await (0, import_promises2.open)(destination, "wx", 384);
+  try {
+    await withDeadline("Native asset download", limits.downloadTimeoutMs, async (signal) => {
+      const response = await fetchImpl(releaseAssetUrl(repository, tag, asset), {
+        signal,
+        redirect: "follow",
+        headers: { "User-Agent": "releaseway-npm-actions-native" }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to download native GitHub Release asset ${asset}: HTTP ${response.status}`);
+      }
+      const hash = (0, import_node_crypto2.createHash)("sha256");
+      await consumeBoundedResponse(response, limits.maxArchiveBytes, signal, async (chunk) => {
+        hash.update(chunk);
+        await file.writeFile(chunk);
+      });
+      if (hash.digest("hex") !== expectedSha256.toLowerCase()) {
+        throw new Error("Native asset SHA-256 digest mismatch");
+      }
+    });
+  } finally {
+    await file.close();
+  }
 }
 function releaseAssetUrl(repository, tag, asset) {
   return `https://github.com/${encodeRepository(repository)}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(asset)}`;
@@ -4568,24 +4730,15 @@ function verifySha256(bytes, expectedHex) {
     throw new Error("Native asset SHA-256 digest mismatch");
   }
 }
-async function downloadReleaseAsset(repository, tag, asset, fetchImpl = fetch) {
-  const response = await fetchImpl(releaseAssetUrl(repository, tag, asset), {
-    redirect: "follow",
-    headers: {
-      "User-Agent": "releaseway-npm-actions-native"
-    }
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download native GitHub Release asset ${asset}: HTTP ${response.status}`
-    );
-  }
-  return Buffer.from(await response.arrayBuffer());
-}
 
 // src/native/launcher/cache.ts
 function sha256(bytes) {
   return (0, import_node_crypto3.createHash)("sha256").update(bytes).digest("hex");
+}
+async function fileSha256(path) {
+  const hash = (0, import_node_crypto3.createHash)("sha256");
+  for await (const chunk of (0, import_node_fs8.createReadStream)(path)) hash.update(chunk);
+  return hash.digest("hex");
 }
 function archiveFormat(asset) {
   if (asset.endsWith(".tar.gz")) {
@@ -4660,14 +4813,13 @@ function executableCacheKey(executable) {
 async function validateArchiveCache(directory, target) {
   try {
     const metadata = JSON.parse(
-      await (0, import_promises2.readFile)((0, import_node_path11.join)(directory, "archive.json"), "utf8")
+      await (0, import_promises3.readFile)((0, import_node_path11.join)(directory, "archive.json"), "utf8")
     );
     if (metadata.schema !== 2 || metadata.assetSha256 !== target.sha256 || metadata.archiveFormat !== archiveFormat(target.asset)) {
       return void 0;
     }
     const archive = (0, import_node_path11.join)(directory, "archive.bin");
-    const bytes = await (0, import_promises2.readFile)(archive);
-    if (sha256(bytes) !== target.sha256) {
+    if (await fileSha256(archive) !== target.sha256) {
       return void 0;
     }
     return archive;
@@ -4678,15 +4830,14 @@ async function validateArchiveCache(directory, target) {
 async function validateExecutableCache(directory, target, executable) {
   try {
     const metadata = JSON.parse(
-      await (0, import_promises2.readFile)((0, import_node_path11.join)(directory, "metadata.json"), "utf8")
+      await (0, import_promises3.readFile)((0, import_node_path11.join)(directory, "metadata.json"), "utf8")
     );
     const executableFile = cachedExecutableName(executable);
     if (metadata.schema !== 2 || metadata.assetSha256 !== target.sha256 || metadata.sourceExecutable !== executable || typeof metadata.executableSha256 !== "string" || !/^[0-9a-f]{64}$/.test(metadata.executableSha256) || metadata.executableFile !== executableFile) {
       return void 0;
     }
     const path = (0, import_node_path11.join)(directory, executableFile);
-    const bytes = await (0, import_promises2.readFile)(path);
-    if (sha256(bytes) !== metadata.executableSha256) {
+    if (await fileSha256(path) !== metadata.executableSha256) {
       return void 0;
     }
     return path;
@@ -4705,10 +4856,19 @@ async function acquireCacheLock(lockDirectory, validate, label, options2) {
       return { kind: "cached", value: cached };
     }
     try {
-      await (0, import_promises2.mkdir)(lockDirectory);
+      await (0, import_promises3.mkdir)(lockDirectory);
+      const heartbeat = setInterval(() => {
+        const now = /* @__PURE__ */ new Date();
+        void (0, import_promises3.utimes)(lockDirectory, now, now).catch(() => {
+        });
+      }, Math.max(1, Math.min(1e3, Math.floor(staleMs / 3))));
+      heartbeat.unref();
       return {
         kind: "owner",
-        release: () => (0, import_promises2.rm)(lockDirectory, { recursive: true, force: true })
+        release: async () => {
+          clearInterval(heartbeat);
+          await (0, import_promises3.rm)(lockDirectory, { recursive: true, force: true });
+        }
       };
     } catch (error) {
       if (!error || typeof error !== "object" || !("code" in error) || String(error.code) !== "EEXIST") {
@@ -4716,9 +4876,9 @@ async function acquireCacheLock(lockDirectory, validate, label, options2) {
       }
     }
     try {
-      const lockStat = await (0, import_promises2.stat)(lockDirectory);
+      const lockStat = await (0, import_promises3.stat)(lockDirectory);
       if (Date.now() - lockStat.mtimeMs > staleMs) {
-        await (0, import_promises2.rm)(lockDirectory, { recursive: true, force: true });
+        await (0, import_promises3.rm)(lockDirectory, { recursive: true, force: true });
         continue;
       }
     } catch (error) {
@@ -4730,25 +4890,25 @@ async function acquireCacheLock(lockDirectory, validate, label, options2) {
     if (Date.now() - started > timeoutMs) {
       throw new Error(`Timed out waiting for native cache lock for ${label}`);
     }
-    await (0, import_promises3.setTimeout)(pollMs);
+    await (0, import_promises4.setTimeout)(pollMs);
   }
 }
 async function promoteDirectory(temp, finalDirectory, validate) {
   try {
-    await (0, import_promises2.rename)(temp, finalDirectory);
+    await (0, import_promises3.rename)(temp, finalDirectory);
     return validate();
   } catch (error) {
     if (!error || typeof error !== "object" || !("code" in error) || !["EEXIST", "ENOTEMPTY", "EPERM"].includes(String(error.code))) {
       throw error;
     }
-    await (0, import_promises2.rm)(temp, { recursive: true, force: true });
+    await (0, import_promises3.rm)(temp, { recursive: true, force: true });
     return validate();
   }
 }
 async function prepareNativeArchive(manifest, target, root, options2) {
   const directory = (0, import_node_path11.join)(root, target.sha256);
   const executables = (0, import_node_path11.join)(directory, "executables");
-  await (0, import_promises2.mkdir)(executables, { recursive: true });
+  await (0, import_promises3.mkdir)(executables, { recursive: true });
   const validate = () => validateArchiveCache(directory, target);
   const existing = await validate();
   if (existing) {
@@ -4768,34 +4928,35 @@ async function prepareNativeArchive(manifest, target, root, options2) {
     if (afterLock) {
       return afterLock;
     }
-    await (0, import_promises2.rm)((0, import_node_path11.join)(directory, "archive.bin"), { force: true });
-    await (0, import_promises2.rm)((0, import_node_path11.join)(directory, "archive.json"), { force: true });
-    const temp = await (0, import_promises2.mkdtemp)(
+    await (0, import_promises3.rm)((0, import_node_path11.join)(directory, "archive.bin"), { force: true });
+    await (0, import_promises3.rm)((0, import_node_path11.join)(directory, "archive.json"), { force: true });
+    const temp = await (0, import_promises3.mkdtemp)(
       (0, import_node_path11.join)(root, `.${target.sha256}.archive.tmp-`)
     );
     try {
-      const download = options2.download ?? ((repository, tag, asset) => downloadReleaseAsset(repository, tag, asset));
-      const archiveBytes = await download(
-        manifest.repository,
-        manifest.tag,
-        target.asset
-      );
-      verifySha256(archiveBytes, target.sha256);
       const tempArchive = (0, import_node_path11.join)(temp, "archive.bin");
       const tempMetadata = (0, import_node_path11.join)(temp, "archive.json");
-      await (0, import_promises2.writeFile)(tempArchive, archiveBytes, { mode: 384 });
+      if (options2.download) {
+        const limits = nativeLimits(options2.env);
+        const archiveBytes = await withDeadline("Native asset download", limits.downloadTimeoutMs, () => options2.download(manifest.repository, manifest.tag, target.asset));
+        if (archiveBytes.length > limits.maxArchiveBytes) throw new Error("Native archive exceeds byte limit");
+        verifySha256(archiveBytes, target.sha256);
+        await (0, import_promises3.writeFile)(tempArchive, archiveBytes, { mode: 384 });
+      } else {
+        await downloadReleaseAssetToFile(manifest.repository, manifest.tag, target.asset, tempArchive, target.sha256, options2.env);
+      }
       const metadata = {
         schema: 2,
         assetSha256: target.sha256,
         archiveFormat: archiveFormat(target.asset)
       };
-      await (0, import_promises2.writeFile)(
+      await (0, import_promises3.writeFile)(
         tempMetadata,
         JSON.stringify(metadata, null, 2) + "\n",
         { encoding: "utf8", mode: 384 }
       );
-      await (0, import_promises2.rename)(tempArchive, (0, import_node_path11.join)(directory, "archive.bin"));
-      await (0, import_promises2.rename)(tempMetadata, (0, import_node_path11.join)(directory, "archive.json"));
+      await (0, import_promises3.rename)(tempArchive, (0, import_node_path11.join)(directory, "archive.bin"));
+      await (0, import_promises3.rename)(tempMetadata, (0, import_node_path11.join)(directory, "archive.json"));
       const promoted = await validate();
       if (!promoted) {
         throw new Error(
@@ -4804,7 +4965,7 @@ async function prepareNativeArchive(manifest, target, root, options2) {
       }
       return promoted;
     } finally {
-      await (0, import_promises2.rm)(temp, { recursive: true, force: true });
+      await (0, import_promises3.rm)(temp, { recursive: true, force: true });
     }
   } finally {
     await lock.release();
@@ -4834,19 +4995,20 @@ async function prepareExecutableFromArchive(archivePath, target, root, options2)
     if (afterLock) {
       return afterLock;
     }
-    await (0, import_promises2.rm)(finalDirectory, { recursive: true, force: true });
-    const temp = await (0, import_promises2.mkdtemp)((0, import_node_path11.join)(executables, `.${key}.tmp-`));
+    await (0, import_promises3.rm)(finalDirectory, { recursive: true, force: true });
+    const temp = await (0, import_promises3.mkdtemp)((0, import_node_path11.join)(executables, `.${key}.tmp-`));
     try {
       const executableBytes = await extractExecutable(
         archivePath,
         target.asset,
-        executable
+        executable,
+        nativeLimits(options2.env)
       );
       const executableFile = cachedExecutableName(executable);
       const executablePath = (0, import_node_path11.join)(temp, executableFile);
-      await (0, import_promises2.writeFile)(executablePath, executableBytes, { mode: 493 });
+      await (0, import_promises3.writeFile)(executablePath, executableBytes, { mode: 493 });
       if ((options2.platform ?? import_node_process.default.platform) !== "win32") {
-        await (0, import_promises2.chmod)(executablePath, 493);
+        await (0, import_promises3.chmod)(executablePath, 493);
       }
       const metadata = {
         schema: 2,
@@ -4855,7 +5017,7 @@ async function prepareExecutableFromArchive(archivePath, target, root, options2)
         executableSha256: sha256(executableBytes),
         executableFile
       };
-      await (0, import_promises2.writeFile)(
+      await (0, import_promises3.writeFile)(
         (0, import_node_path11.join)(temp, "metadata.json"),
         JSON.stringify(metadata, null, 2) + "\n",
         { encoding: "utf8", mode: 384 }
@@ -4872,7 +5034,7 @@ async function prepareExecutableFromArchive(archivePath, target, root, options2)
       }
       return promoted;
     } finally {
-      await (0, import_promises2.rm)(temp, { recursive: true, force: true });
+      await (0, import_promises3.rm)(temp, { recursive: true, force: true });
     }
   } finally {
     await lock.release();
@@ -4884,7 +5046,7 @@ async function prepareNativeExecutable(manifest, target, options2 = {}) {
     platform: options2.platform,
     home: options2.home
   });
-  await (0, import_promises2.mkdir)(root, { recursive: true });
+  await (0, import_promises3.mkdir)(root, { recursive: true });
   const archivePath = await prepareNativeArchive(
     manifest,
     target,
@@ -4900,7 +5062,7 @@ async function prepareNativeExecutable(manifest, target, options2 = {}) {
 }
 
 // src/native/launcher/manifest.ts
-var import_promises4 = require("node:fs/promises");
+var import_promises5 = require("node:fs/promises");
 
 // src/native/validate.ts
 var SUPPORTED_NATIVE_TARGETS = /* @__PURE__ */ new Set([
@@ -4986,7 +5148,7 @@ function parseNativeManifest(value) {
 }
 async function loadNativeManifest(manifestPath) {
   try {
-    const source = await (0, import_promises4.readFile)(manifestPath, "utf8");
+    const source = await (0, import_promises5.readFile)(manifestPath, "utf8");
     return parseNativeManifest(JSON.parse(source));
   } catch (error) {
     throw new Error(

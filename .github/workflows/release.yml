@@ -7,9 +7,14 @@ on:
         description: Existing stable SemVer tag to publish.
         required: true
         type: string
+      acceptance-runs:
+        description: Successful exact-candidate fixture run IDs, comma-separated
+        required: true
+        type: string
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ inputs.tag }}
@@ -61,33 +66,6 @@ jobs:
           node-version: "24"
           cache: npm
 
-      - name: Verify GitHub Action pins are current
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          latest_actions_up=$(npm view actions-up version)
-          test "$latest_actions_up" = "1.21.0" || {
-            echo "actions-up 1.21.0 is stale; latest is $latest_actions_up" >&2
-            exit 1
-          }
-
-          npm exec --yes actions-up@1.21.0 -- \
-            --dir .github \
-            --recursive \
-            --dry-run \
-            --json \
-            --mode major \
-            --style sha \
-            --prefer-tags \
-            --min-age 0 \
-            >"$RUNNER_TEMP/actions-up.raw"
-
-          sed -n '/^{/,$p' "$RUNNER_TEMP/actions-up.raw" >"$RUNNER_TEMP/actions-up.json"
-          jq -e '.summary.totalUpdates == 0 and .summary.totalRunnerUpdates == 0 and .summary.totalBlockedByMode == 0 and .summary.totalBlockedByAge == 0' \
-            "$RUNNER_TEMP/actions-up.json" >/dev/null
-
       - run: npm ci
       - run: npm run verify:versions
       - run: npm run typecheck
@@ -99,11 +77,11 @@ jobs:
       - run: npm run verify:native-runtime
       - run: npm run verify:native-install
 
-      - name: Verify installed native runtime on Node 22 and 24 Alpine
+      - name: Verify installed native runtime on Node 22, 24 and 26 Alpine
         shell: bash
         run: |
           set -euo pipefail
-          for node_version in 22 24; do
+          for node_version in 22 24 26; do
             docker run --rm \
               --volume "$PWD:/src:ro" \
               "node:${node_version}-alpine" \
@@ -112,6 +90,17 @@ jobs:
 
       - name: Verify tagged source remained clean
         run: git diff --exit-code
+
+      - name: Verify exact-candidate CI and acceptance evidence
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+        run: |
+          python3 scripts/verify-release-evidence.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --candidate "$CANDIDATE" \
+            --acceptance-runs "$ACCEPTANCE_RUNS"
 
       - name: Publish immutable action release
         id: publish

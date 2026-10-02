@@ -14,6 +14,7 @@
     "verify:native-runtime": "node scripts/verify-native-runtime.mjs",
     "verify:native-install": "node scripts/verify-native-install.mjs",
     "verify:versions": "node scripts/verify-versions.mjs",
+    "verify:latest": "node scripts/verify-versions.mjs --latest",
     "verify:dist": "node scripts/verify-dist.mjs"
   },
   "engines": {

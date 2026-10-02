@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { prerelease, rcompare, satisfies, valid } from "semver";
+import { verifyFixedVersions } from "./verify-fixed-versions.mjs";
+
+await verifyFixedVersions();
+if (!process.argv.includes("--latest")) {
+  console.log("Fixed dependency, toolchain, validation and workflow pins are consistent");
+  process.exit(0);
+}
 
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 const toolchain = JSON.parse(await readFile("toolchain.lock.json", "utf8"));
@@ -16,6 +23,7 @@ async function registryJson(name, suffix = "") {
   const response = await fetch(
     "https://registry.npmjs.org/" + encodeURIComponent(name) + suffix,
     {
+      signal: AbortSignal.timeout(30_000),
       headers: {
         Accept: "application/json",
         "User-Agent": "releaseway-npm-actions-version-gate",

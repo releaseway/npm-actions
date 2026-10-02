@@ -6,6 +6,7 @@ import { parse } from "yaml";
 
 const CHECK = resolve(".github/workflows/check.yml");
 const RELEASE = resolve(".github/workflows/release.yml");
+const MAINTENANCE = resolve(".github/workflows/maintenance.yml");
 
 async function workflowSource(path) {
   return readFile(path, "utf8");
@@ -16,7 +17,6 @@ test("check workflow contains the required validation gates", async () => {
   const workflow = parse(source);
 
   assert.deepEqual(Object.keys(workflow.jobs), [
-    "action-pins",
     "static",
     "unit",
     "pack-integration",
@@ -38,6 +38,8 @@ test("check workflow contains the required validation gates", async () => {
   );
 
   const runtimeMatrix = JSON.stringify(workflow.jobs["runtime-matrix"]);
+  assert.deepEqual(workflow.jobs["runtime-matrix"].strategy.matrix.node, ["22", "24", "26"]);
+  assert.ok(workflow.jobs["runtime-matrix"].steps.some((step) => step.with?.["node-version"] === "${{ matrix.node }}"));
   assert.match(runtimeMatrix, /verify:native-runtime/);
   assert.match(runtimeMatrix, /verify:native-install/);
 
@@ -85,8 +87,11 @@ test("all repository workflow action dependencies use immutable full SHAs", asyn
   }
 });
 
-test("actions-up gates use the current tool and repository-only scan", async () => {
+test("latest dependency checks run in maintenance separately from release checks", async () => {
   for (const path of [CHECK, RELEASE]) {
+    assert.doesNotMatch(await workflowSource(path), /latest_actions_up|verify:latest|actions-up@/);
+  }
+  for (const path of [MAINTENANCE]) {
     const source = await workflowSource(path);
 
     assert.match(source, /test "\$latest_actions_up" = "1\.21\.0"/);
@@ -101,16 +106,20 @@ test("actions-up gates use the current tool and repository-only scan", async () 
     assert.match(source, /totalRunnerUpdates == 0/);
     assert.match(source, /totalBlockedByMode == 0/);
     assert.match(source, /totalBlockedByAge == 0/);
+    assert.match(source, /npm run verify:latest/);
+    const workflow = parse(source);
+    assert.ok(workflow.on.schedule.length);
+    assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
   }
 });
 
-test("musl gate certifies installed native runtime on Node 22 and 24", async () => {
+test("musl gate certifies installed native runtime on Node 22, 24 and 26", async () => {
   const source = await workflowSource(CHECK);
   const workflow = parse(source);
   const job = workflow.jobs["musl-runtime"];
   const serialized = JSON.stringify(job);
 
-  assert.deepEqual(job.strategy.matrix.node, ["22", "24"]);
+  assert.deepEqual(job.strategy.matrix.node, ["22", "24", "26"]);
   assert.match(serialized, /node:\$\{\{ matrix\.node \}\}-alpine/);
   assert.match(serialized, /verify:native-runtime/);
   assert.match(serialized, /verify:native-install/);
@@ -121,7 +130,7 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   const source = await workflowSource(RELEASE);
   const workflow = parse(source);
 
-  assert.deepEqual(workflow.permissions, { contents: "write" });
+  assert.deepEqual(workflow.permissions, { contents: "write", actions: "read" });
   assert.equal(workflow.jobs.release["runs-on"], "ubuntu-24.04");
   assert.equal(source.includes("id-token: write"), false);
   assert.equal(/\bnpm\s+(?:stage\s+)?publish\b/.test(source), false);
@@ -152,9 +161,10 @@ test("release workflow certifies the tagged source before immutable GitHub relea
     "npm run verify:yarn-corepack",
     "npm run verify:native-runtime",
     "npm run verify:native-install",
-    "for node_version in 22 24",
+    "for node_version in 22 24 26",
     "npm run verify:native-install",
     "git diff --exit-code",
+    "python3 scripts/verify-release-evidence.py",
   ]) {
     assert.ok(source.includes(command), command);
   }
@@ -166,4 +176,5 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   assert.match(source, /tag: \$\{\{ steps\.release\.outputs\.tag \}\}/);
   assert.match(source, /commit: \$\{\{ steps\.release\.outputs\.target \}\}/);
   assert.match(source, /latest: "true"/);
+  assert.ok(source.indexOf("python3 scripts/verify-release-evidence.py") < source.indexOf("name: Publish immutable"));
 });

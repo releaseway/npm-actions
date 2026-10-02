@@ -7,6 +7,7 @@ import {
   type PackageResult,
 } from "./orchestrate.ts";
 import { githubContextFromEnv } from "./workspace/identity.ts";
+import { updateReport, writeReleaseReport, type ReleaseReport } from "./report.ts";
 
 type AppendOutput = (
   path: string,
@@ -68,6 +69,7 @@ export async function runAction(
     appendOutput?: AppendOutput;
     actionPath?: string;
     argv?: readonly string[];
+    writeReport?: typeof writeReleaseReport;
   } = {},
 ): Promise<PackageResult[]> {
   const env = options.env ?? process.env;
@@ -79,19 +81,38 @@ export async function runAction(
   );
   const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
 
-  const packages = await (options.release ?? runRelease)(
-    {
-      ...github,
-      actionPath,
-      env,
-    },
-    options.dependencies,
-  );
-
-  writePackagesOutput(
-    outputPath,
-    packages,
-    options.appendOutput ?? appendFileSync,
-  );
-  return packages;
+  const report: ReleaseReport = {
+    schema: 1, source: { repository: github.repository, commit: github.sha },
+    status: "running", stage: "prepare", plan: [], results: [],
+  };
+  const append = options.appendOutput ?? appendFileSync;
+  try {
+    const packages = await (options.release ?? runRelease)(
+      { ...github, actionPath, env },
+      {
+        ...options.dependencies,
+        onProgress(event) {
+          updateReport(report, event);
+          options.dependencies?.onProgress?.(event);
+        },
+      },
+    );
+    writePackagesOutput(outputPath, packages, append);
+    report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
+    report.status = "success";
+    report.stage = "complete";
+    delete report.failedPackage;
+    return packages;
+  } catch (error) {
+    report.status = "failed";
+    throw error;
+  } finally {
+    try {
+      const path = await (options.writeReport ?? writeReleaseReport)(report, env);
+      append(outputPath, "report-path=" + path + "\n", { encoding: "utf8" });
+    } catch (error) {
+      if (report.status !== "failed") throw error;
+      console.warn("Release report could not be saved; preserving the original release failure");
+    }
+  }
 }

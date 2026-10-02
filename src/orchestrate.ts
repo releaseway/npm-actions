@@ -56,6 +56,7 @@ import {
   repositoryFullName,
 } from "./workspace/repository.ts";
 import { resolveGitTagVersion } from "./version/git-tag.ts";
+import type { ReleaseProgress } from "./report.ts";
 
 export interface PackageResult {
   readonly name: string;
@@ -85,6 +86,7 @@ export interface OrchestrationContext extends GithubContext {
   env: NodeJS.ProcessEnv;
 }
 export interface OrchestrationDependencies {
+  onProgress?: (event: ReleaseProgress) => void;
   verifySource?: typeof verifySourceIdentity;
   loadRepositoryConfig?: typeof loadConfig;
   discover?: typeof discoverWorkspace;
@@ -306,7 +308,7 @@ export async function prepareRelease(
   try {
     const toolchain = await (
       dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain
-    )({ rootBase: runRoot });
+    )({ rootBase: runRoot, env: context.env });
     const command = await resolvePackCommand(
       { packageManager: root.manifest.packageManager },
       toolchain,
@@ -326,7 +328,7 @@ export async function prepareRelease(
       artifacts,
       runRoot,
       dependencies.inspect ?? inspectPackedTarball,
-      dependencies.nativeResolver ?? new NativeReleaseResolver(),
+      dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env),
     );
     const requests = new Map<string, PublishRequest>();
     for (const pkg of candidates) {
@@ -451,6 +453,7 @@ export async function executePreparedRelease(
   const completed: PackageResult[] = [];
   for (const publication of prepared.publications) {
     const request = publication.request;
+    dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
     try {
       await assertPreparedTarball(request);
       let state: PackageResult["state"];
@@ -515,6 +518,7 @@ export async function executePreparedRelease(
       };
       completed.push(result);
       results.push(result);
+      dependencies.onProgress?.({ kind: "completed", result });
     } catch (error) {
       const summary =
         completed
@@ -544,6 +548,11 @@ export async function runRelease(
 ): Promise<PackageResult[]> {
   const prepared = await prepareRelease(context, dependencies);
   try {
+    dependencies.onProgress?.({
+      kind: "plan",
+      plan: prepared.kind === "ready" ? prepared.publications.map(({ request }) => ({ name: request.name, version: request.version, mode: request.mode, integrity: request.integrity })) : [],
+      alreadyPublished: prepared.alreadyPublished,
+    });
     return await executePreparedRelease(context, prepared, dependencies);
   } finally {
     if (prepared.kind === "ready")

@@ -1,0 +1,48 @@
+name: Dependency maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  latest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Verify GitHub Action pins are current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_actions_up=$(npm view actions-up version)
+          test "$latest_actions_up" = "1.21.0" || {
+            echo "actions-up 1.21.0 is stale; latest is $latest_actions_up" >&2
+            exit 1
+          }
+
+          npm exec --yes actions-up@1.21.0 -- \
+            --dir .github \
+            --recursive \
+            --dry-run \
+            --json \
+            --mode major \
+            --style sha \
+            --prefer-tags \
+            --min-age 0 \
+            >"$RUNNER_TEMP/actions-up.raw"
+
+          sed -n '/^{/,$p' "$RUNNER_TEMP/actions-up.raw" >"$RUNNER_TEMP/actions-up.json"
+          jq -e '.summary.totalUpdates == 0 and .summary.totalRunnerUpdates == 0 and .summary.totalBlockedByMode == 0 and .summary.totalBlockedByAge == 0' \
+            "$RUNNER_TEMP/actions-up.json" >/dev/null
+
+      - run: npm ci
+      - run: npm run verify:latest

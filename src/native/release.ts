@@ -1,5 +1,6 @@
 import type { NativeTargetPolicy } from "../config/types.ts";
 import type { ValidatedNativeDistribution } from "./validate.ts";
+import { nativeLimits, readBoundedResponse, withDeadline } from "./limits.ts";
 
 const API_VERSION = "2026-03-10";
 
@@ -56,24 +57,29 @@ async function apiJson(
   repository: string,
   path: string,
   fetchImpl: FetchLike,
+  env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
-  const response = await fetchImpl(
-    `https://api.github.com/repos/${repository}${path}`,
-    {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": API_VERSION,
-        "User-Agent": "releaseway-npm-actions",
+  const limits = nativeLimits(env);
+  return withDeadline("GitHub native release API", limits.apiTimeoutMs, async (signal) => {
+    const response = await fetchImpl(
+      `https://api.github.com/repos/${repository}${path}`,
+      {
+        signal,
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": API_VERSION,
+          "User-Agent": "releaseway-npm-actions",
+        },
       },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub public API request failed for ${repository}${path}: HTTP ${response.status}`,
     );
-  }
-  return response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub public API request failed for ${repository}${path}: HTTP ${response.status}`,
+      );
+    }
+    return JSON.parse((await readBoundedResponse(response, limits.maxArchiveBytes, signal)).toString("utf8"));
+  });
 }
 
 function refObject(value: unknown, label: string): GithubRefObject {
@@ -95,11 +101,13 @@ async function resolveTagCommit(
   repository: string,
   tag: string,
   fetchImpl: FetchLike,
+  env: NodeJS.ProcessEnv,
 ): Promise<string> {
   const refRaw = (await apiJson(
     repository,
     `/git/ref/tags/${encodeURIComponent(tag)}`,
     fetchImpl,
+    env,
   )) as GithubRef;
   let current = refObject(refRaw?.object, `Git tag ref ${tag}`);
 
@@ -119,6 +127,7 @@ async function resolveTagCommit(
       repository,
       `/git/tags/${sha}`,
       fetchImpl,
+      env,
     )) as GithubTag;
     current = refObject(tagRaw?.object, `Annotated tag object ${sha}`);
   }
@@ -174,8 +183,9 @@ async function loadReleaseSnapshot(
   repository: string,
   tag: string,
   fetchImpl: FetchLike,
+  env: NodeJS.ProcessEnv,
 ): Promise<GithubReleaseSnapshot> {
-  const repoRaw = await apiJson(repository, "", fetchImpl);
+  const repoRaw = await apiJson(repository, "", fetchImpl, env);
   if (
     !repoRaw ||
     typeof repoRaw !== "object" ||
@@ -192,6 +202,7 @@ async function loadReleaseSnapshot(
       repository,
       `/releases/tags/${encodeURIComponent(tag)}`,
       fetchImpl,
+      env,
     ),
   );
 
@@ -213,7 +224,7 @@ async function loadReleaseSnapshot(
   return {
     repository,
     tag,
-    sourceCommit: await resolveTagCommit(repository, tag, fetchImpl),
+    sourceCommit: await resolveTagCommit(repository, tag, fetchImpl, env),
     assets: release.assets,
   };
 }
@@ -258,10 +269,12 @@ function materializeVerifiedRelease(
 
 export class NativeReleaseResolver {
   readonly #fetchImpl: FetchLike;
+  readonly #env: NodeJS.ProcessEnv;
   readonly #snapshotCache = new Map<string, Promise<GithubReleaseSnapshot>>();
 
-  constructor(fetchImpl: FetchLike = fetch) {
+  constructor(fetchImpl: FetchLike = fetch, env: NodeJS.ProcessEnv = process.env) {
     this.#fetchImpl = fetchImpl;
+    this.#env = env;
   }
 
   async resolve(
@@ -293,6 +306,7 @@ export class NativeReleaseResolver {
       repository,
       tag,
       this.#fetchImpl,
+      this.#env,
     );
     this.#snapshotCache.set(key, pending);
 

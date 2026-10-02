@@ -272,6 +272,25 @@ On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, w
 
 The launcher rejects traversal paths, absolute paths, symbolic links, hard links, device entries, unsupported archive types, digest mismatches, and undeclared runtime targets.
 
+Native preparation has adjustable time and size budgets. Asset downloads stream into
+a temporary file and verify SHA-256 before cache promotion. Cache validation hashes
+files without loading the whole archive into memory. Defaults are:
+
+| Environment variable | Default |
+| --- | --- |
+| `RELEASEWAY_NATIVE_API_TIMEOUT_MS` | 30,000 (30 seconds) |
+| `RELEASEWAY_NATIVE_DOWNLOAD_TIMEOUT_MS` | 240,000 (4 minutes) |
+| `RELEASEWAY_NATIVE_EXTRACT_TIMEOUT_MS` | 120,000 (2 minutes) |
+| `RELEASEWAY_NATIVE_MAX_ARCHIVE_BYTES` | 1,073,741,824 (1 GiB) |
+| `RELEASEWAY_NATIVE_MAX_EXECUTABLE_BYTES` | 1,073,741,824 (1 GiB) |
+| `RELEASEWAY_NATIVE_MAX_EXPANDED_BYTES` | 4,294,967,296 (4 GiB) |
+
+Set a positive integer to override a budget for larger assets or slower networks.
+The download and extraction budgets also protect pinned toolchain provisioning in
+the Action. These budgets apply to preparation; the launched CLI keeps its normal
+execution lifetime and argument/exit-status behavior. Failed preparation removes
+temporary cache entries and releases their locks so a later invocation can recover.
+
 Cache locations follow the platform and use a versioned content-addressed layout. Set `RELEASEWAY_NATIVE_CACHE_DIR` to override the cache root globally. A package may also declare `distribution.cache-env`; when that environment variable is non-empty, it takes precedence over the generic override. This lets an existing CLI preserve a product-specific cache-root contract while using the Releaseway runtime.
 
 
@@ -303,6 +322,34 @@ npm-actions removes token-bearing environment and npm authentication configurati
 
 ## Retry behavior
 
+### Release diagnostics
+
+The `packages` output remains available after a successful release. The `report-path`
+output points to a runner-local JSON report on success or failure; the same report is
+appended to the job summary. It records the source commit, prepared package versions,
+publish modes, candidate SHA-512 integrities, completed results and failure stage.
+Failures before plan preparation have no completed plan. A partial publication preserves completed
+package results and identifies the failing package. Raw errors, subprocess output,
+environment values and authentication credentials are excluded from the report.
+
+The report is stored separately from cleaned-up publication artifacts and lasts for
+the runner job. To retain it after that job, upload it with an `always()` step:
+
+```yaml
+- id: npm
+  uses: releaseway/npm-actions@<full-commit-sha> # vX.Y.Z
+- uses: actions/upload-artifact@<full-commit-sha> # vX.Y.Z
+  if: always() && steps.npm.outputs.report-path != ''
+  with:
+    name: npm-release-report
+    path: ${{ steps.npm.outputs.report-path }}
+```
+
+The report describes what happened; it does not authorize retrying a publication or
+approving a staged version.
+
+### Rerunning a workflow
+
 The complete workspace is classified before toolchain provisioning or packing. All candidate preflight work finishes before the first npm mutation: final artifact construction, native provenance, dependency availability, publication options, and OIDC checks.
 
 The action uses one frozen release plan per execution. Before direct publication it rechecks the selected required internal versions are still live. A concurrent publication or ambiguous subprocess failure can be resolved by a matching live digest; it never justifies replacing a version or blindly resubmitting a write.
@@ -311,7 +358,34 @@ A network or registry failure can still interrupt a multi-package release. The e
 
 A pending staged-version conflict that cannot be resolved through a matching live artifact fails. Pending-stage inspection, approval and rejection remain maintainer operations. Registry reads have a 30-second request timeout; direct live verification uses a 20-minute overall deadline with 10-second polling.
 
+## Repository validation
+
+`npm run verify:versions` checks exact dependency pins, lockfile consistency,
+SHA-512 integrity format, toolchain identities and full-SHA workflow references
+without querying upstream latest versions. `npm run verify:dist` independently
+rebuilds the checked-in bundles and compares their bytes. Toolchain integration
+verifies downloaded bytes against the pinned SHA-512 digests.
+
+`npm run verify:latest` additionally compares pins with compatible upstream releases.
+It runs in the weekly or manually dispatched `Dependency maintenance` workflow.
+New upstream releases are reported there without blocking an otherwise consistent
+pull request or product release.
+
 ## Scope
+
+Repository releases require exact-SHA push CI and two fresh `acceptance-runs`: staged
+submission and direct native publication. At least one exercises tag-derived
+prereleases. Direct acceptance compares planned SHA-512 with installed bytes and
+executes Node 22/24/26 consumers. See the
+[candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
+for evidence retention, read permissions and retries.
+
+Mutation checks inspect the whole worktree after every package pack, including
+ignored build outputs, symlinks and modes. Files larger than 1MiB are hashed as a
+stream. Compare with a saved baseline on Node 24 using
+`node --experimental-strip-types scripts/benchmark-source-state.mjs /path/to/baseline.ts`.
+The baseline needs the same `fast-glob` dependency. Results include elapsed time,
+peak RSS, identical digest and regular-file payload bytes; all snapshots remain.
 
 npm-actions owns npm publication automation after package bootstrap.
 

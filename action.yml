@@ -4,6 +4,8 @@ description: Publish npm packages through Releaseway's verified npm release engi
 outputs:
   packages:
     description: JSON array of package publication results.
+  report-path:
+    description: Runner-local JSON release report, also written to the job summary, including partial results on failure.
 
 runs:
   using: node24
