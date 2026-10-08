@@ -139,6 +139,26 @@ async function fixture(
 }
 const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
 
+test("declared stable and prerelease channels publish below latest without changing source manifests", async () => {
+  for (const [version, tag] of [["1.2.0", "latest"], ["1.2.1-rc.0", "next"]]) {
+    await fixture([pkg("app", { version: "0.0.0" })], async (h) => {
+      h.docs.get("app")["dist-tags"] = { latest: "11.0.4" };
+      h.put("app", "11.0.4");
+      h.deps.resolveVersion = () => version;
+      const manifest = join(h.root, "packages/0/package.json");
+      const before = await readFile(manifest);
+      const publish = h.deps.publish;
+      h.deps.publish = async (toolchain, request) => {
+        assert.equal(request.publishOptions.tag, tag);
+        assert.equal(request.version, version);
+        return publish(toolchain, request);
+      };
+      assert.equal((await runRelease(h.context, h.deps))[0].state, "published");
+      assert.deepEqual(await readFile(manifest), before);
+    }, "schema: 1\nversion:\n  source: git-tag\npublish:\n  mode: direct\n  channels:\n    stable: latest\n    prerelease: next\n");
+  }
+});
+
 test("git-tag version policy overrides template package versions before registry planning", async () => {
   await fixture(
     [pkg("app", { version: "0.0.0" })],

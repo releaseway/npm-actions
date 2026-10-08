@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseDocument } from "yaml";
+import { validRange } from "semver";
 
 import {
   DEFAULT_CONFIG,
@@ -66,13 +67,25 @@ function readVersion(value: unknown, label: string): VersionPolicy {
   };
 }
 
-function readPublish(value: unknown, label: string): { mode: PublishMode } {
+function readPublish(value: unknown, label: string): ReleasewayConfig["publish"] {
   const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["mode"], label);
+  assertKnownKeys(mapping, ["mode", "channels"], label);
   if (!("mode" in mapping)) {
     throw new Error(`${label}.mode is required`);
   }
-  return { mode: readMode(mapping.mode, `${label}.mode`) };
+  const mode = readMode(mapping.mode, `${label}.mode`);
+  if (mapping.channels === undefined) return { mode };
+  const channels = assertRecord(mapping.channels, `${label}.channels`);
+  assertKnownKeys(channels, ["stable", "prerelease"], `${label}.channels`);
+  for (const [key, tag] of Object.entries(channels)) {
+    if (typeof tag !== "string" || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag) || validRange(tag) !== null) {
+      throw new Error(`${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
+    }
+  }
+  if (channels.prerelease === "latest") {
+    throw new Error(`${label}.channels.prerelease must not be latest`);
+  }
+  return { mode, channels: { ...channels } as NonNullable<ReleasewayConfig["publish"]["channels"]> };
 }
 
 function readTarget(value: unknown, label: string): NativeTargetPolicy {

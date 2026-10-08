@@ -37,7 +37,7 @@ test("README Releaseway config examples are accepted by the real parser", async 
   const configExamples = yamlBlocks.filter((block) =>
     /^schema:\s*1/m.test(block),
   );
-  assert.equal(configExamples.length, 4);
+  assert.equal(configExamples.length, 5);
 
   for (const example of configExamples) {
     assert.doesNotThrow(() => parseConfig(example));

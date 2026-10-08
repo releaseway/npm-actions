@@ -2,6 +2,7 @@ export type PublishMode = "direct" | "stage";
 
 export interface PublishPolicy {
   mode: PublishMode;
+  channels?: { stable?: string; prerelease?: string };
 }
 
 export interface VersionPolicy {

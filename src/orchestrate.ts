@@ -258,6 +258,7 @@ export async function prepareRelease(
     (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
     (dependencies.discover ?? discoverWorkspace)(context.workspace),
   ]);
+  if (context.sourceSha && !config.version) throw new Error("release-commit requires version.source: git-tag");
   const versionOverride = config.version
     ? (dependencies.resolveVersion ?? resolveGitTagVersion)(
         context,
@@ -352,16 +353,21 @@ export async function prepareRelease(
         throw new Error(
           "Final packed repository does not match source for " + pkg.name,
         );
-      const prereleaseTag =
+      const legacyPrereleaseTag =
         config.version?.prereleaseTag !== undefined &&
         prerelease(pkg.version) !== null
           ? config.version.prereleaseTag
           : undefined;
+      const channels = { ...config.publish.channels, ...pkg.policy?.publish?.channels };
+      const channelTag = prerelease(pkg.version) === null ? channels.stable : channels.prerelease;
+      if (channelTag !== undefined && legacyPrereleaseTag !== undefined && channelTag !== legacyPrereleaseTag) {
+        throw new Error("publish.channels.prerelease conflicts with version.prerelease-tag");
+      }
       const publishOptions = derivePublishOptions(
         artifact.manifest,
         pkg.version,
         snapshots.get(pkg.name)!.latestVersion,
-        prereleaseTag,
+        channelTag ?? legacyPrereleaseTag,
       );
       requests.set(
         pkg.name,

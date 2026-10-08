@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,13 @@ import {
   loadConfig,
   parseConfig,
 } from "../src/config/load.ts";
+
+test("publish channel declarations reject invalid tags and prerelease latest", () => {
+  for (const tag of ["latest", "1.2.0", "bad tag", "--registry", "next/evil"]) {
+    assert.throws(() => parseConfig(`schema: 1\npublish:\n  mode: direct\n  channels:\n    prerelease: ${JSON.stringify(tag)}\n`));
+  }
+  assert.deepEqual(parseConfig("schema: 1\npublish:\n  mode: direct\n  channels:\n    stable: latest\n    prerelease: next\n").publish.channels, { stable: "latest", prerelease: "next" });
+});
 import {
   discoverWorkspace,
   selectPublishablePackages,
@@ -377,4 +385,32 @@ test("GitHub source identity requires exact SHA and origin repository", () => {
       ),
     /does not match GITHUB_REPOSITORY/,
   );
+});
+
+test("prepared release identity requires an unchanged-tree marker directly after the workflow source", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rw-marker-identity-"));
+  const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "pipe"] }).trim();
+  try {
+    git("init", "-b", "main");
+    git("config", "user.name", "Fixture"); git("config", "user.email", "fixture@example.invalid");
+    git("config", "commit.gpgsign", "false"); git("config", "core.hooksPath", "/dev/null");
+    git("remote", "add", "origin", "https://github.com/releaseway/example.git");
+    await writeFile(join(root, "package.json"), '{"name":"example"}');
+    git("add", "."); git("commit", "-m", "feat: source");
+    const source = git("rev-parse", "HEAD");
+    const message = "chore(release): v1.2.0\n\nReleaseway-Config: " + "a".repeat(64);
+    git("commit", "--allow-empty", "-m", message);
+    const marker = git("rev-parse", "HEAD");
+    git("reset", "--hard", source);
+    const context = githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, INPUT_RELEASE_COMMIT: marker });
+    assert.equal(context.sha, marker);
+    assert.equal(context.sourceSha, source);
+    verifySourceIdentity(context);
+    await writeFile(join(root, "package.json"), '{"name":"altered"}');
+    git("commit", "-am", message);
+    const altered = git("rev-parse", "HEAD");
+    git("reset", "--hard", source);
+    assert.throws(() => verifySourceIdentity({ ...context, sha: altered }), /unchanged tree/);
+    assert.throws(() => githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, INPUT_RELEASE_COMMIT: "main" }), /full 40-character/);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

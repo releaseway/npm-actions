@@ -1,6 +1,12 @@
 name: Releaseway npm publish
 description: Publish npm packages through Releaseway's verified npm release engine.
 
+inputs:
+  release-commit:
+    description: Optional full release marker SHA returned by releaseway/actions/prepare. Its parent and unchanged tree must match the workflow source; requires git-tag version policy.
+    required: false
+    default: ""
+
 outputs:
   packages:
     description: JSON array of package publication results.

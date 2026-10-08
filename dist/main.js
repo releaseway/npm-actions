@@ -1601,14 +1601,14 @@ var require_valid2 = __commonJS({
   "node_modules/semver/ranges/valid.js"(exports2, module2) {
     "use strict";
     var Range = require_range();
-    var validRange3 = (range, options) => {
+    var validRange4 = (range, options) => {
       try {
         return new Range(range, options).range || "*";
       } catch (er2) {
         return null;
       }
     };
-    module2.exports = validRange3;
+    module2.exports = validRange4;
   }
 });
 
@@ -1966,7 +1966,7 @@ var require_semver2 = __commonJS({
     var maxSatisfying = require_max_satisfying();
     var minSatisfying = require_min_satisfying();
     var minVersion = require_min_version();
-    var validRange3 = require_valid2();
+    var validRange4 = require_valid2();
     var outside = require_outside();
     var gtr = require_gtr();
     var ltr = require_ltr();
@@ -2005,7 +2005,7 @@ var require_semver2 = __commonJS({
       maxSatisfying,
       minSatisfying,
       minVersion,
-      validRange: validRange3,
+      validRange: validRange4,
       outside,
       gtr,
       ltr,
@@ -16858,12 +16858,13 @@ var import_node_path22 = require("node:path");
 var import_promises11 = require("node:fs/promises");
 var import_node_path20 = require("node:path");
 var import_node_os4 = require("node:os");
-var import_semver6 = __toESM(require_semver2(), 1);
+var import_semver7 = __toESM(require_semver2(), 1);
 
 // src/config/load.ts
 var import_promises = require("node:fs/promises");
 var import_node_path = require("node:path");
 var import_yaml = __toESM(require_dist(), 1);
+var import_semver = __toESM(require_semver2(), 1);
 
 // src/config/types.ts
 var DEFAULT_CONFIG = {
@@ -16917,11 +16918,23 @@ function readVersion(value, label) {
 }
 function readPublish(value, label) {
   const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["mode"], label);
+  assertKnownKeys(mapping, ["mode", "channels"], label);
   if (!("mode" in mapping)) {
     throw new Error(`${label}.mode is required`);
   }
-  return { mode: readMode(mapping.mode, `${label}.mode`) };
+  const mode = readMode(mapping.mode, `${label}.mode`);
+  if (mapping.channels === void 0) return { mode };
+  const channels = assertRecord(mapping.channels, `${label}.channels`);
+  assertKnownKeys(channels, ["stable", "prerelease"], `${label}.channels`);
+  for (const [key, tag] of Object.entries(channels)) {
+    if (typeof tag !== "string" || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag) || (0, import_semver.validRange)(tag) !== null) {
+      throw new Error(`${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
+    }
+  }
+  if (channels.prerelease === "latest") {
+    throw new Error(`${label}.channels.prerelease must not be latest`);
+  }
+  return { mode, channels: { ...channels } };
 }
 function readTarget(value, label) {
   const mapping = assertRecord(value, label);
@@ -17040,7 +17053,7 @@ async function loadConfig(workspaceRoot) {
 
 // src/graph/dependencies.ts
 var import_npm_package_arg = __toESM(require_npa(), 1);
-var import_semver = __toESM(require_semver2(), 1);
+var import_semver2 = __toESM(require_semver2(), 1);
 function dependencyMap(manifest, field, packageName) {
   const value = manifest[field];
   if (value === void 0) return {};
@@ -17085,7 +17098,7 @@ function buildWorkspaceDependencyGraph(packages, artifacts, snapshots) {
         const parsed = import_npm_package_arg.default.resolve(installName, spec);
         const target = parsed.type === "alias" ? parsed.subSpec : parsed;
         if (!target.name || !managed.has(target.name)) continue;
-        if (target.type !== "range" && target.type !== "version" || !target.fetchSpec || (0, import_semver.validRange)(target.fetchSpec) === null) {
+        if (target.type !== "range" && target.type !== "version" || !target.fetchSpec || (0, import_semver2.validRange)(target.fetchSpec) === null) {
           throw new Error(
             name + " packed " + field + "." + installName + " must resolve to a registry SemVer range for managed package " + target.name
           );
@@ -17094,13 +17107,13 @@ function buildWorkspaceDependencyGraph(packages, artifacts, snapshots) {
         if (!snapshot)
           throw new Error("Missing registry snapshot for " + target.name);
         const range = target.fetchSpec;
-        const liveVersion = (0, import_semver.rsort)(
+        const liveVersion = (0, import_semver2.rsort)(
           Object.keys(snapshot.versions).filter(
-            (version) => (0, import_semver.satisfies)(version, range)
+            (version) => (0, import_semver2.satisfies)(version, range)
           )
         )[0];
         const candidate = candidates.get(target.name);
-        const candidateMatches = candidate !== void 0 && (0, import_semver.satisfies)(candidate.version, range);
+        const candidateMatches = candidate !== void 0 && (0, import_semver2.satisfies)(candidate.version, range);
         if (!liveVersion && !candidateMatches) {
           throw new Error(
             name + " packed " + field + " " + installName + " (" + target.name + "@" + range + ") has no satisfying live version or planned candidate"
@@ -20785,7 +20798,7 @@ var import_promises5 = require("node:fs/promises");
 var import_node_os2 = require("node:os");
 var import_node_path14 = require("node:path");
 var import_node_process = __toESM(require("node:process"), 1);
-var import_semver2 = __toESM(require_semver2(), 1);
+var import_semver3 = __toESM(require_semver2(), 1);
 
 // toolchain.lock.json
 var toolchain_lock_default = {
@@ -20902,7 +20915,7 @@ function parsePackageManager(declaration) {
   const reference = declaration.slice(at2 + 1);
   const hashIndex = reference.search(/\+sha(?:224|256|384|512)\./);
   const version = hashIndex === -1 ? reference : reference.slice(0, hashIndex);
-  if ((0, import_semver2.valid)(version) !== version) {
+  if ((0, import_semver3.valid)(version) !== version) {
     throw new Error(
       `packageManager must use an exact semantic version: ${declaration}`
     );
@@ -21309,7 +21322,7 @@ var import_node_os3 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"), 1);
 
 // src/registry/client.ts
-var import_semver3 = __toESM(require_semver2(), 1);
+var import_semver4 = __toESM(require_semver2(), 1);
 
 // src/registry/integrity.ts
 var import_node_crypto4 = require("node:crypto");
@@ -21360,7 +21373,7 @@ function parseRegistrySnapshot(name, raw) {
   const rawVersions = record(metadata.versions, name + " registry versions");
   const versions = /* @__PURE__ */ Object.create(null);
   for (const [version, rawManifest] of Object.entries(rawVersions)) {
-    if ((0, import_semver3.valid)(version) !== version)
+    if ((0, import_semver4.valid)(version) !== version)
       throw new Error(
         name + " registry has an invalid version key: " + version
       );
@@ -21378,7 +21391,7 @@ function parseRegistrySnapshot(name, raw) {
   if (metadata["dist-tags"] !== void 0) {
     const tags = record(metadata["dist-tags"], name + " registry dist-tags");
     for (const [tag, version] of Object.entries(tags)) {
-      if (typeof version !== "string" || (0, import_semver3.valid)(version) !== version || !Object.hasOwn(versions, version))
+      if (typeof version !== "string" || (0, import_semver4.valid)(version) !== version || !Object.hasOwn(versions, version))
         throw new Error(
           name + " registry dist-tag " + tag + " does not identify a live version"
         );
@@ -21411,7 +21424,7 @@ var NpmRegistryClient = class {
     this.#requestTimeoutMs = options.requestTimeoutMs ?? 3e4;
   }
   async lookupVersion(name, version, options = {}) {
-    if ((0, import_semver3.valid)(version) !== version)
+    if ((0, import_semver4.valid)(version) !== version)
       throw new Error("Package version must be exact semver: " + version);
     const headers = {
       Accept: "application/json",
@@ -21536,7 +21549,7 @@ async function publishPackage(toolchain, request, options = {}) {
 }
 
 // src/publish/options.ts
-var import_semver4 = __toESM(require_semver2(), 1);
+var import_semver5 = __toESM(require_semver2(), 1);
 function publishConfig(manifest) {
   if (manifest.publishConfig === void 0) {
     return {};
@@ -21556,7 +21569,7 @@ function rejectCredentialConfiguration(config) {
   }
 }
 function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
-  if ((0, import_semver4.valid)(version) !== version) {
+  if ((0, import_semver5.valid)(version) !== version) {
     throw new Error(`Package version must be exact semver: ${version}`);
   }
   const config = publishConfig(manifest);
@@ -21571,7 +21584,7 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     if (typeof config.tag !== "string" || config.tag.length === 0) {
       throw new Error("packed publishConfig.tag must be a non-empty string");
     }
-    if ((0, import_semver4.validRange)(config.tag) !== null) {
+    if ((0, import_semver5.validRange)(config.tag) !== null) {
       throw new Error(
         `packed publishConfig.tag must not be interpretable as a SemVer range: ${config.tag}`
       );
@@ -21579,7 +21592,7 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     tag = config.tag;
   }
   if (tagOverride !== void 0) {
-    if (tagOverride.length === 0 || (0, import_semver4.validRange)(tagOverride) !== null) {
+    if (tagOverride.length === 0 || (0, import_semver5.validRange)(tagOverride) !== null) {
       throw new Error(
         `publication tag override must be a non-empty non-SemVer-range tag: ${tagOverride}`
       );
@@ -21600,18 +21613,18 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     }
     access3 = config.access;
   }
-  if (!tag && (0, import_semver4.prerelease)(version) !== null) {
+  if (!tag && (0, import_semver5.prerelease)(version) !== null) {
     throw new Error(
       `${version} is a prerelease and requires explicit publishConfig.tag`
     );
   }
   if (!tag && latestVersion !== void 0) {
-    if ((0, import_semver4.valid)(latestVersion) !== latestVersion) {
+    if ((0, import_semver5.valid)(latestVersion) !== latestVersion) {
       throw new Error(
         `npm latest dist-tag is not valid semver: ${latestVersion}`
       );
     }
-    if ((0, import_semver4.lt)(version, latestVersion)) {
+    if ((0, import_semver5.lt)(version, latestVersion)) {
       throw new Error(
         `${version} is lower than current latest ${latestVersion} and requires explicit publishConfig.tag`
       );
@@ -21950,18 +21963,30 @@ function githubContextFromEnv(env = process.env) {
   if (!/^[^/]+\/[^/]+$/.test(repository)) {
     throw new Error("GITHUB_REPOSITORY must be owner/repo");
   }
+  const releaseCommit = env.INPUT_RELEASE_COMMIT?.trim().toLowerCase();
+  if (releaseCommit && !/^[0-9a-f]{40}$/.test(releaseCommit)) throw new Error("release-commit must be a full 40-character commit SHA");
   return {
     workspace: (0, import_node_path19.resolve)(workspace),
     repository,
-    sha: sha.toLowerCase()
+    sha: releaseCommit || sha.toLowerCase(),
+    ...releaseCommit && releaseCommit !== sha.toLowerCase() ? { sourceSha: sha.toLowerCase() } : {}
   };
 }
 function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
   const head = runGitRequired(runGit2, context.workspace, ["rev-parse", "HEAD"]);
-  if (head.toLowerCase() !== context.sha) {
+  if (head.toLowerCase() !== (context.sourceSha ?? context.sha)) {
     throw new Error(
       `Checkout HEAD ${head} does not match GITHUB_SHA ${context.sha}`
     );
+  }
+  if (context.sourceSha) {
+    const parents = runGitRequired(runGit2, context.workspace, ["show", "-s", "--format=%P", context.sha]);
+    const tree = runGitRequired(runGit2, context.workspace, ["rev-parse", `${context.sha}^{tree}`]);
+    const sourceTree = runGitRequired(runGit2, context.workspace, ["rev-parse", `${context.sourceSha}^{tree}`]);
+    const message = runGitRequired(runGit2, context.workspace, ["show", "-s", "--format=%B", context.sha]);
+    if (parents !== context.sourceSha || tree !== sourceTree || !/^chore\(release\): \S+\n\nReleaseway-Config: [0-9a-f]{64}$/.test(message)) {
+      throw new Error("release-commit must be a Releaseway marker whose sole parent and unchanged tree match GITHUB_SHA");
+    }
   }
   const origin = runGitRequired(runGit2, context.workspace, [
     "remote",
@@ -21979,7 +22004,7 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 
 // src/version/git-tag.ts
 var import_node_child_process6 = require("node:child_process");
-var import_semver5 = __toESM(require_semver2(), 1);
+var import_semver6 = __toESM(require_semver2(), 1);
 var defaultRunGit3 = (args, cwd) => {
   const result = (0, import_node_child_process6.spawnSync)("git", [...args], {
     cwd,
@@ -22019,7 +22044,7 @@ function resolveGitTagVersion(context, policy, runGit2 = defaultRunGit3) {
   for (const [tag, target] of tags) {
     if (!tag.startsWith(policy.prefix)) continue;
     const version = tag.slice(policy.prefix.length);
-    if ((0, import_semver5.valid)(version) !== version) continue;
+    if ((0, import_semver6.valid)(version) !== version) continue;
     const commit = target.peeled ?? target.direct;
     if (commit === context.sha.toLowerCase()) {
       candidates.push({ tag, version });
@@ -22144,6 +22169,7 @@ async function prepareRelease(context, dependencies = {}) {
     (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
     (dependencies.discover ?? discoverWorkspace)(context.workspace)
   ]);
+  if (context.sourceSha && !config.version) throw new Error("release-commit requires version.source: git-tag");
   const versionOverride = config.version ? (dependencies.resolveVersion ?? resolveGitTagVersion)(
     context,
     config.version
@@ -22219,12 +22245,17 @@ async function prepareRelease(context, dependencies = {}) {
         throw new Error(
           "Final packed repository does not match source for " + pkg.name
         );
-      const prereleaseTag = config.version?.prereleaseTag !== void 0 && (0, import_semver6.prerelease)(pkg.version) !== null ? config.version.prereleaseTag : void 0;
+      const legacyPrereleaseTag = config.version?.prereleaseTag !== void 0 && (0, import_semver7.prerelease)(pkg.version) !== null ? config.version.prereleaseTag : void 0;
+      const channels = { ...config.publish.channels, ...pkg.policy?.publish?.channels };
+      const channelTag = (0, import_semver7.prerelease)(pkg.version) === null ? channels.stable : channels.prerelease;
+      if (channelTag !== void 0 && legacyPrereleaseTag !== void 0 && channelTag !== legacyPrereleaseTag) {
+        throw new Error("publish.channels.prerelease conflicts with version.prerelease-tag");
+      }
       const publishOptions = derivePublishOptions(
         artifact.manifest,
         pkg.version,
         snapshots.get(pkg.name).latestVersion,
-        prereleaseTag
+        channelTag ?? legacyPrereleaseTag
       );
       requests.set(
         pkg.name,

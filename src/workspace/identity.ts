@@ -10,6 +10,7 @@ export interface GithubContext {
   workspace: string;
   repository: string;
   sha: string;
+  sourceSha?: string;
 }
 
 interface RunResult {
@@ -64,11 +65,14 @@ export function githubContextFromEnv(
   if (!/^[^/]+\/[^/]+$/.test(repository)) {
     throw new Error("GITHUB_REPOSITORY must be owner/repo");
   }
+  const releaseCommit = env.INPUT_RELEASE_COMMIT?.trim().toLowerCase();
+  if (releaseCommit && !/^[0-9a-f]{40}$/.test(releaseCommit)) throw new Error("release-commit must be a full 40-character commit SHA");
 
   return {
     workspace: resolve(workspace),
     repository,
-    sha: sha.toLowerCase(),
+    sha: releaseCommit || sha.toLowerCase(),
+    ...(releaseCommit && releaseCommit !== sha.toLowerCase() ? { sourceSha: sha.toLowerCase() } : {}),
   };
 }
 
@@ -77,10 +81,19 @@ export function verifySourceIdentity(
   runGit: RunGit = defaultRunGit,
 ): void {
   const head = runGitRequired(runGit, context.workspace, ["rev-parse", "HEAD"]);
-  if (head.toLowerCase() !== context.sha) {
+  if (head.toLowerCase() !== (context.sourceSha ?? context.sha)) {
     throw new Error(
       `Checkout HEAD ${head} does not match GITHUB_SHA ${context.sha}`,
     );
+  }
+  if (context.sourceSha) {
+    const parents = runGitRequired(runGit, context.workspace, ["show", "-s", "--format=%P", context.sha]);
+    const tree = runGitRequired(runGit, context.workspace, ["rev-parse", `${context.sha}^{tree}`]);
+    const sourceTree = runGitRequired(runGit, context.workspace, ["rev-parse", `${context.sourceSha}^{tree}`]);
+    const message = runGitRequired(runGit, context.workspace, ["show", "-s", "--format=%B", context.sha]);
+    if (parents !== context.sourceSha || tree !== sourceTree || !/^chore\(release\): \S+\n\nReleaseway-Config: [0-9a-f]{64}$/.test(message)) {
+      throw new Error("release-commit must be a Releaseway marker whose sole parent and unchanged tree match GITHUB_SHA");
+    }
   }
 
   const origin = runGitRequired(runGit, context.workspace, [

@@ -11,7 +11,8 @@ test("action metadata uses the Node 24 bundle and exposes packages and diagnosti
   assert.match(metadata, /using:\s*node24/);
   assert.match(metadata, /main:\s*dist\/main\.js/);
   assert.match(metadata, /^outputs:\n\s+packages:/m);
-  assert.doesNotMatch(metadata, /^inputs:/m);
+  assert.match(metadata, /inputs:\n  release-commit:/);
+  assert.doesNotMatch(metadata, /\n  publish-mode:/);
   assert.match(metadata, /report-path:/);
 });
 

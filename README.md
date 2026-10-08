@@ -4,7 +4,7 @@ Publish unpublished npm versions from GitHub Actions with registry-first plannin
 
 `releaseway/npm-actions` discovers publishable package identities and looks up every exact `name@version` in npm before preparing build tools. Already-public versions are reported without packaging. Only unpublished versions are packed, validated, and submitted through `npm publish` or `npm stage publish`.
 
-The action has no functional inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed.
+The action works without inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed. Optional `release-commit` connects publication to a marker commit prepared earlier in the same workflow.
 
 ## Requirements
 
@@ -135,7 +135,23 @@ publish:
 
 With this policy, npm-actions reads the remote `origin` tag graph, requires exactly one matching SemVer tag on `GITHUB_SHA`, and uses the tag version for registry planning and packing. Package manifests are materialized only while the package manager packs candidates and are restored byte-for-byte afterward. This keeps the checked-out source identity unchanged while making tag provenance the version authority.
 
-When the resolved tag is a prerelease, optional `prerelease-tag` supplies the npm dist-tag without mutating package metadata. A packed `publishConfig.tag` may agree with that value but cannot conflict with it. Stable tag-derived versions continue to use ordinary `latest` behavior unless package metadata explicitly selects another tag.
+When the resolved tag is a prerelease, optional `prerelease-tag` supplies the npm dist-tag without mutating package metadata. A packed `publishConfig.tag` may agree with that value but cannot conflict with it.
+
+Declare both channels in the repository publication policy to restart a version series without editing `package.json`:
+
+```yaml
+schema: 1
+version:
+  source: git-tag
+  prefix: v
+publish:
+  mode: direct
+  channels:
+    stable: latest
+    prerelease: next
+```
+
+An explicitly declared stable channel allows `1.2.0` to publish to `latest` even when its previous value is `11.0.4`. Prereleases use `next`; a prerelease channel cannot be `latest`. Omitted channels retain the existing prerelease and version-decrease checks. Per-package `publish.channels` overrides individual repository channels. A conflicting packed `publishConfig.tag` or legacy `version.prerelease-tag` fails before any publication. Tag-derived versions are materialized only for packing and original manifests are restored; callers do not need a version or channel rewrite step. Existing published versions retain registry-first skip behavior and are not retagged by a retry.
 
 The policy applies one lockstep version to every publishable workspace package. Repositories with independently versioned packages should keep `package.json` versions authoritative instead.
 
@@ -173,6 +189,8 @@ The config path is fixed:
 ```
 
 There is no per-run publish-mode input.
+
+For preparation and npm publication in one workflow, pass `with: { release-commit: "${{ steps.release.outputs.commit }}" }` from `releaseway/actions/prepare` and configure `version.source: git-tag`. The checkout must remain at `GITHUB_SHA`. Releaseway verifies that the selected marker's sole parent is this workflow source and that both trees are identical, then resolves the version from a remote tag at the marker SHA. A different tree, unrelated commit, malformed marker, or ambiguous tag fails. Native companion releases must bind to the same marker SHA. Without this input, the existing exact-checkout-SHA policy is unchanged.
 
 `direct` submits the verified tarball through `npm publish`, then waits for npm's publish-time malware scan to expose the exact version in the live registry. A successful subprocess is not enough: npm-actions reports `published` only after the live `dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes with 10-second polling. A direct `Cannot publish over previously staged version` conflict triggers read-only live-integrity observation. The conflict itself is not considered acceptance; a matching live artifact is still required. No publication write is blindly retried.
 
