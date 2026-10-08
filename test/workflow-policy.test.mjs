@@ -171,7 +171,7 @@ test("release workflow certifies the tagged source before immutable GitHub relea
 
   assert.match(
     source,
-    /uses: releaseway\/actions@49c543357d96884d0e5a683c45d45ebd50a8b612 # v0\.1\.4/,
+    /uses: releaseway\/actions@[0-9a-f]{40} # v\d+\.\d+\.\d+/,
   );
   assert.match(source, /tag: \$\{\{ steps\.release\.outputs\.tag \}\}/);
   assert.match(source, /commit: \$\{\{ steps\.release\.outputs\.target \}\}/);

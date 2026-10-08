@@ -16858,12 +16858,12 @@ var import_node_path22 = require("node:path");
 var import_promises11 = require("node:fs/promises");
 var import_node_path20 = require("node:path");
 var import_node_os4 = require("node:os");
-var import_semver6 = __toESM(require_semver2());
+var import_semver6 = __toESM(require_semver2(), 1);
 
 // src/config/load.ts
 var import_promises = require("node:fs/promises");
 var import_node_path = require("node:path");
-var import_yaml = __toESM(require_dist());
+var import_yaml = __toESM(require_dist(), 1);
 
 // src/config/types.ts
 var DEFAULT_CONFIG = {
@@ -17039,8 +17039,8 @@ async function loadConfig(workspaceRoot) {
 }
 
 // src/graph/dependencies.ts
-var import_npm_package_arg = __toESM(require_npa());
-var import_semver = __toESM(require_semver2());
+var import_npm_package_arg = __toESM(require_npa(), 1);
+var import_semver = __toESM(require_semver2(), 1);
 function dependencyMap(manifest, field, packageName) {
   const value = manifest[field];
   if (value === void 0) return {};
@@ -20774,7 +20774,7 @@ function validateNativeDistribution(pkg, artifact) {
 var import_node_child_process3 = require("node:child_process");
 var import_promises8 = require("node:fs/promises");
 var import_node_path16 = require("node:path");
-var import_node_process2 = __toESM(require("node:process"));
+var import_node_process2 = __toESM(require("node:process"), 1);
 
 // src/toolchain/bootstrap.ts
 var import_node_child_process = require("node:child_process");
@@ -20784,16 +20784,16 @@ var import_node_crypto2 = require("node:crypto");
 var import_promises5 = require("node:fs/promises");
 var import_node_os2 = require("node:os");
 var import_node_path14 = require("node:path");
-var import_node_process = __toESM(require("node:process"));
-var import_semver2 = __toESM(require_semver2());
+var import_node_process = __toESM(require("node:process"), 1);
+var import_semver2 = __toESM(require_semver2(), 1);
 
 // toolchain.lock.json
 var toolchain_lock_default = {
   schema: 1,
   npm: {
-    version: "12.1.0",
-    tarball: "https://registry.npmjs.org/npm/-/npm-12.1.0.tgz",
-    integrity: "sha512-Fyhu62pNx70YCs/5+dEmJQTFVmSKwvo5CA0qvBkGDRpob42MJ6G2RQ2tdxeKM4nYnIZDqkYAxEgqtoejn9QGtQ==",
+    version: "12.2.0",
+    tarball: "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
+    integrity: "sha512-ZsJjKpTnlmSXOLLXiU1xDCzC4Wlok4IwZmh/aw2KUuXytU7q6qMv/cUT7MoeSf95Slwuw/lRXYefGzGCspHPNQ==",
     bin: "bin/npm-cli.js"
   },
   corepack: {
@@ -21031,7 +21031,7 @@ var import_node_crypto3 = require("node:crypto");
 var import_node_fs8 = require("node:fs");
 var import_promises7 = require("node:fs/promises");
 var import_node_path15 = require("node:path");
-var import_fast_glob = __toESM(require_out4());
+var import_fast_glob = __toESM(require_out4(), 1);
 var defaultRunGit = (args, cwd) => {
   const result = (0, import_node_child_process2.spawnSync)("git", [...args], {
     cwd,
@@ -21306,10 +21306,10 @@ var import_node_child_process4 = require("node:child_process");
 var import_promises9 = require("node:fs/promises");
 var import_node_path17 = require("node:path");
 var import_node_os3 = require("node:os");
-var import_node_process3 = __toESM(require("node:process"));
+var import_node_process3 = __toESM(require("node:process"), 1);
 
 // src/registry/client.ts
-var import_semver3 = __toESM(require_semver2());
+var import_semver3 = __toESM(require_semver2(), 1);
 
 // src/registry/integrity.ts
 var import_node_crypto4 = require("node:crypto");
@@ -21536,7 +21536,7 @@ async function publishPackage(toolchain, request, options = {}) {
 }
 
 // src/publish/options.ts
-var import_semver4 = __toESM(require_semver2());
+var import_semver4 = __toESM(require_semver2(), 1);
 function publishConfig(manifest) {
   if (manifest.publishConfig === void 0) {
     return {};
@@ -21649,8 +21649,8 @@ function packageOperationEnvironment(source) {
 // src/workspace/discover.ts
 var import_promises10 = require("node:fs/promises");
 var import_node_path18 = require("node:path");
-var import_fast_glob2 = __toESM(require_out4());
-var import_yaml2 = __toESM(require_dist());
+var import_fast_glob2 = __toESM(require_out4(), 1);
+var import_yaml2 = __toESM(require_dist(), 1);
 
 // src/workspace/repository.ts
 function normalizeRepoName(repo) {
@@ -21979,7 +21979,7 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 
 // src/version/git-tag.ts
 var import_node_child_process6 = require("node:child_process");
-var import_semver5 = __toESM(require_semver2());
+var import_semver5 = __toESM(require_semver2(), 1);
 var defaultRunGit3 = (args, cwd) => {
   const result = (0, import_node_child_process6.spawnSync)("git", [...args], {
     cwd,

@@ -1,9 +1,9 @@
 {
   "schema": 1,
   "npm": {
-    "version": "12.1.0",
-    "tarball": "https://registry.npmjs.org/npm/-/npm-12.1.0.tgz",
-    "integrity": "sha512-Fyhu62pNx70YCs/5+dEmJQTFVmSKwvo5CA0qvBkGDRpob42MJ6G2RQ2tdxeKM4nYnIZDqkYAxEgqtoejn9QGtQ==",
+    "version": "12.2.0",
+    "tarball": "https://registry.npmjs.org/npm/-/npm-12.2.0.tgz",
+    "integrity": "sha512-ZsJjKpTnlmSXOLLXiU1xDCzC4Wlok4IwZmh/aw2KUuXytU7q6qMv/cUT7MoeSf95Slwuw/lRXYefGzGCspHPNQ==",
     "bin": "bin/npm-cli.js"
   },
   "corepack": {

@@ -61,7 +61,7 @@ jobs:
             echo "target=$TARGET"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -104,7 +104,7 @@ jobs:
 
       - name: Publish immutable action release
         id: publish
-        uses: releaseway/actions@49c543357d96884d0e5a683c45d45ebd50a8b612 # v0.1.4
+        uses: releaseway/actions@0dad8be512eae926535d0ba723f27be44a1bd623 # v0.3.2
         with:
           tag: ${{ steps.release.outputs.tag }}
           commit: ${{ steps.release.outputs.target }}
