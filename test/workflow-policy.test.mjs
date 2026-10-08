@@ -135,11 +135,9 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   assert.equal(source.includes("id-token: write"), false);
   assert.equal(/\bnpm\s+(?:stage\s+)?publish\b/.test(source), false);
 
-  assert.match(
-    source,
-    /\^v\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\$/,
-  );
-  assert.match(source, /git checkout --detach "\$TARGET"/);
+  assert.match(source, /uses: releaseway\/actions\/prepare@[0-9a-f]{40}/);
+  assert.match(source, /mode: resolve/);
+  assert.match(source, /ref: \$\{\{ steps\.release\.outputs\.commit \}\}/);
   for (const required of [
     "action.yml",
     "dist/main.js",
