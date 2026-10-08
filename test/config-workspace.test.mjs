@@ -402,7 +402,7 @@ test("prepared release identity requires an unchanged-tree marker directly after
     git("commit", "--allow-empty", "-m", message);
     const marker = git("rev-parse", "HEAD");
     git("reset", "--hard", source);
-    const context = githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, INPUT_RELEASE_COMMIT: marker });
+    const context = githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, "INPUT_RELEASE-COMMIT": marker });
     assert.equal(context.sha, marker);
     assert.equal(context.sourceSha, source);
     verifySourceIdentity(context);
@@ -411,6 +411,6 @@ test("prepared release identity requires an unchanged-tree marker directly after
     const altered = git("rev-parse", "HEAD");
     git("reset", "--hard", source);
     assert.throws(() => verifySourceIdentity({ ...context, sha: altered }), /unchanged tree/);
-    assert.throws(() => githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, INPUT_RELEASE_COMMIT: "main" }), /full 40-character/);
+    assert.throws(() => githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, "INPUT_RELEASE-COMMIT": "main" }), /full 40-character/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

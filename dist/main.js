@@ -21963,7 +21963,7 @@ function githubContextFromEnv(env = process.env) {
   if (!/^[^/]+\/[^/]+$/.test(repository)) {
     throw new Error("GITHUB_REPOSITORY must be owner/repo");
   }
-  const releaseCommit = env.INPUT_RELEASE_COMMIT?.trim().toLowerCase();
+  const releaseCommit = env["INPUT_RELEASE-COMMIT"]?.trim().toLowerCase();
   if (releaseCommit && !/^[0-9a-f]{40}$/.test(releaseCommit)) throw new Error("release-commit must be a full 40-character commit SHA");
   return {
     workspace: (0, import_node_path19.resolve)(workspace),
