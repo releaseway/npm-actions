@@ -1387,7 +1387,7 @@ __export(runtime_exports, {
 });
 module.exports = __toCommonJS(runtime_exports);
 var import_node_child_process2 = require("node:child_process");
-var import_node_process3 = __toESM(require("node:process"));
+var import_node_process3 = __toESM(require("node:process"), 1);
 
 // src/native/launcher/cache.ts
 var import_node_crypto3 = require("node:crypto");
@@ -1395,7 +1395,7 @@ var import_node_fs8 = require("node:fs");
 var import_promises3 = require("node:fs/promises");
 var import_node_os = require("node:os");
 var import_node_path11 = require("node:path");
-var import_node_process = __toESM(require("node:process"));
+var import_node_process = __toESM(require("node:process"), 1);
 
 // src/native/limits.ts
 function nativeLimits(env = process.env) {
@@ -4450,7 +4450,7 @@ var To = (s3) => {
 };
 
 // src/native/launcher/archive.ts
-var import_yauzl = __toESM(require_yauzl());
+var import_yauzl = __toESM(require_yauzl(), 1);
 function normalizeArchivePath(value) {
   if (value.length === 0 || value.includes("\0") || value.includes("\\") || value.startsWith("/") || /^[A-Za-z]:/.test(value)) {
     throw new Error(`Unsafe archive entry path: ${value}`);
@@ -5159,7 +5159,7 @@ async function loadNativeManifest(manifestPath) {
 
 // src/native/launcher/target.ts
 var import_node_child_process = require("node:child_process");
-var import_node_process2 = __toESM(require("node:process"));
+var import_node_process2 = __toESM(require("node:process"), 1);
 function linuxLibcFromReport(report) {
   if (!report || typeof report !== "object" || Array.isArray(report)) {
     return void 0;
