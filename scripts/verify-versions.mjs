@@ -93,16 +93,18 @@ async function preferredStable(name) {
   );
 }
 
-function assertExactPreferred(name, actual, metadata, label = name) {
+function reportPreferred(actual, metadata, label) {
   if (actual !== metadata.version) {
-    throw new Error(
-      label +
+    console.warn(
+      "::warning::" + label +
         " is stale: configured " +
         actual +
         ", preferred compatible stable " +
         metadata.version,
     );
+    return false;
   }
+  return true;
 }
 
 const devDependencies = packageJson.devDependencies ?? {};
@@ -113,8 +115,7 @@ for (const [name, configured] of Object.entries(devDependencies)) {
     );
   }
   const metadata = await preferredStable(name);
-  assertExactPreferred(
-    name,
+  reportPreferred(
     configured,
     metadata,
     "devDependency " + name,
@@ -127,12 +128,11 @@ for (const name of ["npm", "corepack"]) {
     throw new Error("toolchain.lock.json is missing " + name);
   }
   const metadata = await preferredStable(name);
-  assertExactPreferred(
-    name,
+  if (!reportPreferred(
     configured.version,
     metadata,
     "toolchain " + name,
-  );
+  )) continue;
 
   if (
     configured.tarball !== metadata?.dist?.tarball ||
@@ -147,16 +147,14 @@ for (const name of ["npm", "corepack"]) {
 }
 
 const pnpmMetadata = await preferredStable("pnpm");
-assertExactPreferred(
-  "pnpm",
+reportPreferred(
   validation.pnpm,
   pnpmMetadata,
   "validation pnpm",
 );
 
 const yarnMetadata = await preferredStable("@yarnpkg/cli-dist");
-assertExactPreferred(
-  "@yarnpkg/cli-dist",
+reportPreferred(
   validation.yarn,
   yarnMetadata,
   "validation Yarn",

@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Verify GitHub Action pins are current
+      - name: Report GitHub Action updates
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -25,8 +25,7 @@ jobs:
           set -euo pipefail
           latest_actions_up=$(npm view actions-up version)
           test "$latest_actions_up" = "1.21.0" || {
-            echo "actions-up 1.21.0 is stale; latest is $latest_actions_up" >&2
-            exit 1
+            echo "::warning::actions-up 1.21.0 is stale; latest is $latest_actions_up"
           }
 
           npm exec --yes actions-up@1.21.0 -- \
@@ -43,11 +42,11 @@ jobs:
           sed -n '/^{/,$p' "$RUNNER_TEMP/actions-up.raw" >"$RUNNER_TEMP/actions-up.json"
           jq '{summary, updates: [.updates[] | select(.hasUpdate) | {action: .action.name, file: .action.file, current: .currentVersion, target: .latestVersion}]}' \
             "$RUNNER_TEMP/actions-up.json"
-          jq -e '.summary.totalUpdates == 0 and .summary.totalRunnerUpdates == 0 and .summary.totalBlockedByMode == 0 and .summary.totalBlockedByAge == 0' \
-            "$RUNNER_TEMP/actions-up.json" >/dev/null || {
-              echo "GitHub Action pins need maintenance; see the update report above." >&2
-              exit 1
-            }
+          current=$(jq '.summary.totalUpdates == 0 and .summary.totalRunnerUpdates == 0 and .summary.totalBlockedByMode == 0 and .summary.totalBlockedByAge == 0' \
+            "$RUNNER_TEMP/actions-up.json")
+          if [ "$current" != true ]; then
+            echo "::warning::GitHub Action updates are available; see the update report above."
+          fi
 
       - run: npm ci
       - run: npm run verify:latest

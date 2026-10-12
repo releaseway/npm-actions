@@ -386,8 +386,9 @@ verifies downloaded bytes against the pinned SHA-512 digests.
 
 `npm run verify:latest` additionally compares pins with compatible upstream releases.
 It runs in the weekly or manually dispatched `Dependency maintenance` workflow.
-New upstream releases are reported there without blocking an otherwise consistent
-pull request or product release.
+New upstream releases produce warnings without failing the maintenance workflow.
+Invalid pins, lockfile mismatches, integrity errors and failed registry requests
+still fail validation.
 
 ## Scope
 

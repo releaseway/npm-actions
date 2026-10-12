@@ -16,8 +16,14 @@ test("fixed pin validation is offline, latest drift is separate, malformed pins 
     const command = (args) => spawnSync(process.execPath, ["--import", injection, resolve("scripts/verify-versions.mjs"), ...args], { cwd: root, encoding: "utf8" });
     assert.equal(command([]).status, 0);
     const latest = command(["--latest"]);
-    assert.notEqual(latest.status, 0);
-    assert.match(latest.stderr, /stale/);
+    assert.equal(latest.status, 0, latest.stderr);
+    assert.match(latest.stderr, /::warning::devDependency @types\/node is stale/);
+    assert.match(latest.stderr, /::warning::toolchain npm is stale/);
+    assert.match(latest.stderr, /::warning::validation pnpm is stale/);
+    await writeFile(injection, `globalThis.fetch = async () => new Response("unavailable", { status: 503 });`);
+    const unavailable = command(["--latest"]);
+    assert.notEqual(unavailable.status, 0);
+    assert.match(unavailable.stderr, /Failed to resolve .*HTTP 503/);
     const toolsPath = join(root, "toolchain.lock.json");
     const tools = JSON.parse(await readFile(toolsPath, "utf8"));
     await writeFile(toolsPath, JSON.stringify({ ...tools, npm: { ...tools.npm, integrity: "sha512-broken" } }));
