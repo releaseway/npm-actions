@@ -16,7 +16,7 @@ export const SUPPORTED_NATIVE_TARGETS = new Set([
 ]);
 
 export interface NativeBinContract {
-  command: string;
+  commands: string[];
   path: string;
 }
 
@@ -55,32 +55,55 @@ function normalizeBin(
 ): NativeBinContract {
   if (typeof value === "string") {
     return {
-      command: packageName.includes("/")
+      commands: [packageName.includes("/")
         ? packageName.slice(packageName.lastIndexOf("/") + 1)
-        : packageName,
+        : packageName],
       path: safePackagePath(value, `${packageName} bin`),
     };
   }
 
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(
-      `${packageName} native distribution requires exactly one npm bin entry`,
+      `${packageName} native distribution requires at least one npm bin entry`,
     );
   }
 
   const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length !== 1 || typeof entries[0][1] !== "string") {
+  if (entries.length === 0 || entries.some(([, path]) => typeof path !== "string")) {
     throw new Error(
-      `${packageName} native distribution requires exactly one npm bin entry`,
+      `${packageName} native distribution requires at least one npm bin entry with string paths`,
     );
   }
 
+  const paths = new Set(entries.map(([command, path]) =>
+    safePackagePath(path as string, `${packageName} bin.${command}`),
+  ));
+  if (paths.size !== 1) {
+    throw new Error(`${packageName} native bin commands must share one launcher path`);
+  }
+  if (entries.length > 1) {
+    const shimOwners = new Map<string, string>();
+    for (const [command] of entries) {
+      if (
+        !/^[A-Za-z0-9]/.test(command) || /[^A-Za-z0-9._+-]/.test(command) ||
+        command.endsWith(".") ||
+        /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(command)
+      ) {
+        throw new Error(`${packageName} bin.${command} must be a portable command basename`);
+      }
+      for (const shim of [command, `${command}.cmd`, `${command}.ps1`]) {
+        const folded = shim.toLowerCase();
+        const owner = shimOwners.get(folded);
+        if (owner !== undefined) {
+          throw new Error(`${packageName} bin.${command} conflicts with command ${owner} at ${shim}`);
+        }
+        shimOwners.set(folded, command);
+      }
+    }
+  }
   return {
-    command: entries[0][0],
-    path: safePackagePath(
-      entries[0][1],
-      `${packageName} bin.${entries[0][0]}`,
-    ),
+    commands: entries.map(([command]) => command).sort(),
+    path: paths.values().next().value!,
   };
 }
 

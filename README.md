@@ -241,7 +241,18 @@ packages:
           executable: tool.exe
 ```
 
-A native package must declare exactly one npm `bin` command. The package-manager-produced tarball must leave that packed bin target available for a generated thin Releaseway wrapper and must not occupy the Releaseway-owned `.releaseway/native.json` or `.releaseway/runtime.cjs` paths. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses an ESM wrapper, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed package's `type` field. Both wrapper forms resolve their installed real path, load the same bundled CommonJS runtime, and pass that runtime the exact generated manifest path rather than searching parent directories.
+A native package declares one launcher path in npm `bin`. Multiple command names may point to that same path:
+
+```json
+{
+  "bin": {
+    "tool": "bin/launcher.js",
+    "t": "bin/launcher.js"
+  }
+}
+```
+
+All names share one generated launcher, runtime and native executable cache. Existing string and single-command `bin` declarations remain supported. Multiple launcher paths are rejected. For multiple commands, names start with a letter or number and contain only letters, numbers, `.`, `_`, `+`, and `-`; trailing dots, Windows device names and case-insensitive command/shim collisions (such as `tool` with `TOOL` or `tool.cmd`) are rejected. This adds command entry points without extra shell arguments or invocation-name-based multicall behavior. The package-manager-produced tarball must leave that packed bin target available for a generated thin Releaseway wrapper and must not occupy the Releaseway-owned `.releaseway/native.json` or `.releaseway/runtime.cjs` paths. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses an ESM wrapper, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed package's `type` field. Both wrapper forms resolve their installed real path, load the same bundled CommonJS runtime, and pass that runtime the exact generated manifest path rather than searching parent directories.
 
 Supported runtime targets are:
 

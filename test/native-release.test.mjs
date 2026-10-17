@@ -139,7 +139,7 @@ test("native distribution validation normalizes one bin and explicit targets", (
   );
 
   assert.deepEqual(validated.bin, {
-    command: "tool",
+    commands: ["tool"],
     path: "bin/launcher.js",
   });
   assert.equal(validated.tag, "v1.2.3");
@@ -155,10 +155,29 @@ test("native distribution validation normalizes one bin and explicit targets", (
   );
 });
 
+test("native aliases share one normalized launcher and preserve legacy bins", () => {
+  const validate = (bin) => validateNativeDistribution(nativePackage(), packedArtifact(bin)).bin;
+  assert.deepEqual(validate({ tool: "bin/tool.cjs", short: "./bin/tool.cjs" }), {
+    commands: ["short", "tool"], path: "bin/tool.cjs",
+  });
+  assert.deepEqual(validate("bin/tool.cjs"), { commands: ["tool"], path: "bin/tool.cjs" });
+  assert.deepEqual(validate({ "legacy@command": "bin/tool.cjs" }).commands, ["legacy@command"]);
+  for (const bin of [{}, null, [], { tool: false }, { tool: "bin/a", ex: "bin/b" }, { tool: "bin/a", ex: 1 }]) {
+    assert.throws(() => validate(bin), /bin entry|launcher path/);
+  }
+  for (const name of ["../ex", "ex/other", "ex\\other", "-ex", ".ex", "ex ", "ex.", "ex\n", "ex\r\n", "CON", "aux.txt", "LPT9", "COM1.exe", "ex;echo"]) {
+    assert.throws(() => validate({ tool: "bin/tool", [name]: "bin/tool" }), /portable command basename/);
+  }
+  for (const [a, b] of [["ex", "EX"], ["ex", "ex.cmd"], ["ex.ps1", "ex"], ["EX.CMD", "ex"]]) {
+    assert.throws(() => validate({ [a]: "bin/tool", [b]: "bin/tool" }), /conflicts with command/);
+  }
+  assert.throws(() => validate({ tool: "../escape", ex: "../escape" }), /safe relative POSIX path/);
+});
+
 test("native validation rejects ambiguous or unsafe distribution contracts", () => {
   assert.throws(
     () => validateNativeDistribution(nativePackage(), packedArtifact({})),
-    /exactly one npm bin entry/,
+    /at least one npm bin entry/,
   );
   assert.throws(
     () =>

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -60,6 +61,7 @@ const toolchain = await bootstrapReleasewayToolchain({ rootBase: temp });
 try {
   const npmRoot = join(temp, "npm");
   const npmManifest = {
+    bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "releaseway-pack-npm-fixture",
     version: "1.0.0",
   };
@@ -69,6 +71,7 @@ try {
     releasewayNpmCommand(toolchain),
     join(temp, "npm-out"),
   );
+  assert.deepEqual(npmArtifact.manifest.bin, npmManifest.bin);
   if (npmArtifact.manifest.name !== npmManifest.name) {
     throw new Error("npm pack integration returned the wrong package");
   }
@@ -95,6 +98,7 @@ try {
     version: "1.0.0",
   });
   const pnpmManifest = {
+    bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "@releaseway-fixture/pnpm-b",
     version: "1.0.0",
     dependencies: {
@@ -113,6 +117,7 @@ try {
     pnpmCommand,
     join(temp, "pnpm-out"),
   );
+  assert.deepEqual(pnpmArtifact.manifest.bin, pnpmManifest.bin);
   if (
     pnpmArtifact.manifest.dependencies?.["@releaseway-fixture/pnpm-a"] !==
     "^1.0.0"
@@ -141,6 +146,7 @@ try {
     version: "1.0.0",
   });
   const yarnManifest = {
+    bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "@releaseway-fixture/yarn-b",
     version: "1.0.0",
     dependencies: {
@@ -168,6 +174,7 @@ try {
     yarnCommand,
     join(temp, "yarn-out"),
   );
+  assert.deepEqual(yarnArtifact.manifest.bin, yarnManifest.bin);
   if (
     yarnArtifact.manifest.dependencies?.["@releaseway-fixture/yarn-a"] !==
     "^1.0.0"

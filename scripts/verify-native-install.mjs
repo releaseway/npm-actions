@@ -1,10 +1,14 @@
 import { spawnSync } from "node:child_process";
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   copyFile,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
+  stat,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -140,7 +144,33 @@ function globalBinPath(prefix, command) {
   return join(prefix, "bin", command);
 }
 
+async function cacheSnapshot(directory) {
+  const result = [];
+  async function visit(current, relative = "") {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const path = join(current, entry.name);
+      const key = relative + "/" + entry.name;
+      if (entry.isDirectory()) await visit(path, key);
+      else result.push([key, createHash("sha256").update(await readFile(path)).digest("hex"), (await stat(path)).mtimeMs]);
+    }
+  }
+  await visit(directory);
+  return result.sort(([a], [b]) => a.localeCompare(b));
+}
+
+async function cachePermissions(directory, writable) {
+  if (process.platform === "win32") return;
+  if (writable) await chmod(directory, 0o755);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) await cachePermissions(path, writable);
+    else await chmod(path, (writable ? 0o644 : 0o444) | ((await stat(path)).mode & 0o111));
+  }
+  if (!writable) await chmod(directory, 0o555);
+}
+
 const root = await mkdtemp(join(tmpdir(), "rw-ni-"));
+let cacheRootToRestore;
 
 try {
   const runtimeBundle = {
@@ -199,6 +229,11 @@ try {
     home,
     download: async () => archiveBytes,
   });
+  const cacheBefore = await cacheSnapshot(expectedCacheRoot);
+  assert.equal(cacheBefore.filter(([path]) => path.endsWith("/archive.bin")).length, 1);
+  assert.equal(cacheBefore.filter(([path]) => path.endsWith("/metadata.json")).length, 1);
+  cacheRootToRestore = expectedCacheRoot;
+  await cachePermissions(expectedCacheRoot, false);
 
   const fixtures = [
     {
@@ -224,6 +259,7 @@ try {
 
   for (const fixture of fixtures) {
     const command = "native-" + fixture.label;
+    const alias = command + "-alias";
     const fixtureRoot = join(root, "fixture-" + fixture.label);
     const manifest = {
       name: "@releaseway/native-install-" + fixture.label,
@@ -231,6 +267,7 @@ try {
       ...(fixture.type ? { type: fixture.type } : {}),
       bin: {
         [command]: fixture.binPath,
+        [alias]: fixture.binPath,
       },
     };
 
@@ -268,6 +305,7 @@ try {
           private: true,
           scripts: {
             probe: command + " --version",
+            "probe-alias": alias + " --version",
           },
         },
         null,
@@ -286,50 +324,34 @@ try {
       { cwd: project, env },
     );
 
-    expectVersion(
-      runInstalledCommand(localBinPath(project, command), ["--version"], {
-        cwd: project,
-        env,
-      }),
-      fixture.label + " local .bin",
-    );
-    expectVersion(
-      runNpm(["exec", "--", command, "--version"], {
-        cwd: project,
-        env,
-      }),
-      fixture.label + " npm exec",
-    );
-    expectVersion(
-      runNpm(["run", "--silent", "probe"], {
-        cwd: project,
-        env,
-      }),
-      fixture.label + " npm run",
-    );
+    for (const installed of [command, alias]) {
+      expectVersion(
+        runInstalledCommand(localBinPath(project, installed), ["--version"], { cwd: project, env }),
+        fixture.label + " local .bin " + installed,
+      );
+      expectVersion(
+        runNpm(["exec", "--", installed, "--version"], { cwd: project, env }),
+        fixture.label + " npm exec " + installed,
+      );
+    }
+    for (const script of ["probe", "probe-alias"]) {
+      expectVersion(runNpm(["run", "--silent", script], { cwd: project, env }), fixture.label + " npm run " + script);
+    }
 
     const prefix = join(root, "global-" + fixture.label);
     runNpm(
-      [
-        "install",
-        "--global",
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund",
-        "--prefix",
-        prefix,
-        finalTarball,
-      ],
+      ["install", "--global", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", prefix, finalTarball],
       { env },
     );
-    expectVersion(
-      runInstalledCommand(globalBinPath(prefix, command), ["--version"], {
-        cwd: root,
-        env,
-      }),
-      fixture.label + " global install",
-    );
+    for (const installed of [command, alias]) {
+      expectVersion(
+        runInstalledCommand(globalBinPath(prefix, installed), ["--version"], { cwd: root, env }),
+        fixture.label + " global install " + installed,
+      );
+    }
   }
+  assert.deepEqual(await cacheSnapshot(expectedCacheRoot), cacheBefore, "all aliases must reuse one unchanged cache entry");
 } finally {
+  if (cacheRootToRestore) await cachePermissions(cacheRootToRestore, true);
   await rm(root, { recursive: true, force: true });
 }

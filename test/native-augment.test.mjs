@@ -140,6 +140,7 @@ test("native augmentation is byte-deterministic and injects canonical manifest",
       version: "1.2.3",
       bin: {
         tool: "bin/launcher.js",
+        alias: "bin/launcher.js",
       },
     };
     const input = await makeInputTarball(root, manifest, {
@@ -172,6 +173,9 @@ test("native augmentation is byte-deterministic and injects canonical manifest",
     assert.deepEqual(await readFile(first.tarballPath), await readFile(second.tarballPath));
     assert.deepEqual(await readFile(input), inputBefore);
     assert.equal(first.launcherKind, "cjs");
+    const packed = await inspectPackedTarball(first.tarballPath);
+    assert.deepEqual(packed.manifest.bin, manifest.bin);
+    assert.equal(packed.entries.filter((entry) => entry.path === "package/bin/launcher.js").length, 1);
     assert.deepEqual(Object.keys(first.manifest.targets), [
       "darwin-arm64",
       "linux-x64-gnu",
