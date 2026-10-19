@@ -47,9 +47,9 @@ test("check workflow contains the required validation gates", async () => {
   assert.equal(source.includes("id-token: write"), false);
   assert.equal(/\bnpm\s+(?:stage\s+)?publish\b/.test(source), false);
 
-  const versionsIndex = source.indexOf("- run: npm run verify:versions");
-  const verifyIndex = source.indexOf("- run: npm run verify:dist");
-  const buildIndex = source.indexOf("- run: npm run build");
+  const versionsIndex = source.indexOf("- run: pnpm run verify:versions");
+  const verifyIndex = source.indexOf("- run: pnpm run verify:dist");
+  const buildIndex = source.indexOf("- run: pnpm run build");
   const diffIndex = source.indexOf("- run: git diff --exit-code -- dist");
   assert.ok(versionsIndex !== -1 && versionsIndex < verifyIndex);
   assert.ok(verifyIndex !== -1 && verifyIndex < buildIndex);
@@ -106,7 +106,7 @@ test("latest dependency checks run in maintenance separately from release checks
     assert.match(source, /totalRunnerUpdates == 0/);
     assert.match(source, /totalBlockedByMode == 0/);
     assert.match(source, /totalBlockedByAge == 0/);
-    assert.match(source, /npm run verify:latest/);
+    assert.match(source, /pnpm run verify:latest/);
     const workflow = parse(source);
     assert.ok(workflow.on.schedule.length);
     assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
@@ -149,18 +149,18 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   }
 
   for (const command of [
-    "npm ci",
-    "npm run verify:versions",
-    "npm run typecheck",
-    "npm run verify:dist",
-    "npm test",
-    "npm run verify:toolchain",
-    "npm run verify:pack",
-    "npm run verify:yarn-corepack",
-    "npm run verify:native-runtime",
-    "npm run verify:native-install",
+    "pnpm install --frozen-lockfile",
+    "pnpm run verify:versions",
+    "pnpm run typecheck",
+    "pnpm run verify:dist",
+    "pnpm test",
+    "pnpm run verify:toolchain",
+    "pnpm run verify:pack",
+    "pnpm run verify:yarn-corepack",
+    "pnpm run verify:native-runtime",
+    "pnpm run verify:native-install",
     "for node_version in 22 24 26",
-    "npm run verify:native-install",
+    "pnpm run verify:native-install",
     "git diff --exit-code",
     "python3 scripts/verify-release-evidence.py",
   ]) {

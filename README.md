@@ -389,13 +389,17 @@ A pending staged-version conflict that cannot be resolved through a matching liv
 
 ## Repository validation
 
-`npm run verify:versions` checks exact dependency pins, lockfile consistency,
+Development and CI use pnpm 12.14.0, pinned in `package.json`, with
+`pnpm install --frozen-lockfile`. npm, pnpm, and Yarn remain supported for caller
+packages; publication uses the isolated npm Trusted Publishing toolchain.
+
+`pnpm run verify:versions` checks exact dependency pins, lockfile consistency,
 SHA-512 integrity format, toolchain identities and full-SHA workflow references
-without querying upstream latest versions. `npm run verify:dist` independently
+without querying upstream latest versions. `pnpm run verify:dist` independently
 rebuilds the checked-in bundles and compares their bytes. Toolchain integration
 verifies downloaded bytes against the pinned SHA-512 digests.
 
-`npm run verify:latest` additionally compares pins with compatible upstream releases.
+`pnpm run verify:latest` additionally compares pins with compatible upstream releases.
 It runs in the weekly or manually dispatched `Dependency maintenance` workflow.
 New upstream releases produce warnings without failing the maintenance workflow.
 Invalid pins, lockfile mismatches, integrity errors and failed registry requests

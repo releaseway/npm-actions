@@ -5,7 +5,7 @@
   "description": "Releaseway GitHub Action for npm publication.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "node scripts/build.mjs && node --test test/*.test.mjs",
     "update:toolchain": "node scripts/update-toolchain.mjs",
     "typecheck": "tsc --noEmit",
     "verify:toolchain": "node scripts/verify-toolchain.mjs",
@@ -37,7 +37,5 @@
     "yauzl": "3.4.0",
     "yazl": "3.3.1"
   },
-  "allowScripts": {
-    "esbuild@0.28.2": true
-  }
+  "packageManager": "pnpm@12.14.0"
 }

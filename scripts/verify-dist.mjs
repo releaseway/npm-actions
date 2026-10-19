@@ -30,7 +30,7 @@ try {
 
     if (!expected.equals(actual)) {
       throw new Error(
-        `dist/${filename} is stale; run npm run build and commit the generated bundle`,
+        `dist/${filename} is stale; run pnpm run build and commit the generated bundle`,
       );
     }
   }

@@ -38,6 +38,6 @@ Package output states are already-published, published and staged. Published mea
 
 The registry, graph, publisher and orchestration tests verify both successful and failing transitions. Version-provenance tests cover remote annotated/lightweight tag resolution and ambiguous tags. Native/runtime/install tests cover asset templates, shared archives, package-specific cache overrides, and the generated installed runtime. Documentation tests guard the current contract and examples. Rebuild dist/main.js after source or dependency changes and verify it matches a fresh build.
 
-Required local checks are npm test, npm run typecheck, npm run verify:dist, npm run verify:toolchain, npm run verify:pack, npm run verify:yarn-corepack, npm run verify:native-runtime and npm run verify:native-install. A passed local suite does not assert real OIDC publication or cross-platform execution in an unavailable environment.
+Required local checks are pnpm test, pnpm run typecheck, pnpm run verify:dist, pnpm run verify:toolchain, pnpm run verify:pack, pnpm run verify:yarn-corepack, pnpm run verify:native-runtime and pnpm run verify:native-install. A passed local suite does not assert real OIDC publication or cross-platform execution in an unavailable environment.
 
 The separate fixture should be pinned to the commit that ships this implementation before running live verification. Its rerun assertions use already-published. Do not publish packages, change remote tags or dispatch the fixture merely to run local implementation tests.
