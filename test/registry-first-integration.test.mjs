@@ -8,17 +8,17 @@ import test from "node:test";
 import { runRelease } from "../src/orchestrate.ts";
 import { inspectPackedTarball } from "../src/pack/inspect.ts";
 import { assertPreparedTarball } from "../src/publish/index.ts";
+import { bootstrapReleasewayToolchain } from "../src/toolchain/bootstrap.ts";
 import { NpmRegistryClient } from "../src/registry/client.ts";
 
 // Real npm pack, worktree mutation checks, augmentation, tarball inspection and
 // orchestration. Only remote metadata and registry writes are substituted.
 test("registry-first flow packs and augments only new versions with real npm artifacts", async () => {
-  const npmCli = process.env.npm_execpath;
-  assert.ok(npmCli, "Run this integration test through npm test");
   const root = await mkdtemp(join(tmpdir(), "rw-first-e2e-"));
   const workspace = join(root, "workspace");
   const sourceSha = "b".repeat(40);
   try {
+    const { npmCli } = await bootstrapReleasewayToolchain({ rootBase: root });
     await mkdir(join(workspace, ".github/npm"), { recursive: true });
     const initialized = spawnSync("git", ["init", "--quiet", workspace], {
       encoding: "utf8",

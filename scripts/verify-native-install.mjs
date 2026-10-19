@@ -26,10 +26,10 @@ import { detectNativeTarget } from "../src/native/launcher/target.ts";
 import { validateNativeDistribution } from "../src/native/validate.ts";
 import { inspectPackedTarball } from "../src/pack/inspect.ts";
 
-const npmExecPath = process.env.npm_execpath;
-if (!npmExecPath) {
-  throw new Error("npm_execpath is required for native install verification");
-}
+import { packPackage } from "../src/pack/index.ts";
+import { bootstrapReleasewayToolchain, releasewayNpmCommand } from "../src/toolchain/bootstrap.ts";
+
+let toolchain;
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -56,7 +56,7 @@ function run(command, args, options = {}) {
 }
 
 function runNpm(args, options = {}) {
-  return run(process.execPath, [npmExecPath, ...args], options);
+  return run(process.execPath, [toolchain.npmCli, ...args], options);
 }
 
 function runInstalledCommand(command, args, options = {}) {
@@ -117,15 +117,20 @@ async function packFixture(directory, manifest) {
     join(directory, "package.json"),
     JSON.stringify(manifest, null, 2) + "\n",
   );
-  const packed = runNpm(
-    ["pack", "--ignore-scripts", "--json"],
-    { cwd: directory },
+  const artifact = await packPackage(
+    {
+      directory,
+      relativeDirectory: ".",
+      manifestPath: join(directory, "package.json"),
+      manifest,
+      name: manifest.name,
+      version: manifest.version,
+      publishMode: "direct",
+    },
+    releasewayNpmCommand(toolchain),
+    join(root, "packed"),
   );
-  const parsed = JSON.parse(packed.stdout);
-  if (!Array.isArray(parsed) || parsed.length !== 1 || !parsed[0]?.filename) {
-    throw new Error("npm pack returned an unexpected result");
-  }
-  return join(directory, parsed[0].filename);
+  return artifact.tarballPath;
 }
 
 function localBinPath(project, command) {
@@ -173,6 +178,7 @@ const root = await mkdtemp(join(tmpdir(), "rw-ni-"));
 let cacheRootToRestore;
 
 try {
+  toolchain = await bootstrapReleasewayToolchain({ rootBase: root });
   const runtimeBundle = {
     runtime: await readFile(resolve("dist", "native-runtime.cjs")),
   };
