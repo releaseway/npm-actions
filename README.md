@@ -8,8 +8,8 @@ The action works without inputs. npm package metadata stays in `package.json`; R
 
 ## Version
 
-[v0.7.0](https://github.com/releaseway/npm-actions/releases/tag/v0.7.0) uses commit
-`614f72ae0c6482f87a1f68f8222e42da0b2b82cb`. Pin the action to this full SHA.
+[v0.7.1](https://github.com/releaseway/npm-actions/releases/tag/v0.7.1) uses commit
+`b9b00e1a5e5d4e055d34e4daa663909e4d65e21c`. Pin the action to this full SHA.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ jobs:
       # Run your install/build steps here when the package needs them.
 
       - id: npm
-        uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
+        uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
 
       - run: echo '${{ steps.npm.outputs.packages }}'
 ```
@@ -347,7 +347,7 @@ When a workflow needs authenticated read access, provide a read-only token only 
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
+  uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_TOKEN }}
 ```
@@ -371,7 +371,7 @@ the runner job. To retain it after that job, upload it with an `always()` step:
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
+  uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
 - uses: actions/upload-artifact@<full-commit-sha> # vX.Y.Z
   if: always() && steps.npm.outputs.report-path != ''
   with:
