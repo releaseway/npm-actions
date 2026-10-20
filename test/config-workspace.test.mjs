@@ -414,3 +414,11 @@ test("prepared release identity requires an unchanged-tree marker directly after
     assert.throws(() => githubContextFromEnv({ GITHUB_WORKSPACE: root, GITHUB_REPOSITORY: "releaseway/example", GITHUB_SHA: source, "INPUT_RELEASE-COMMIT": "main" }), /full 40-character/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test("user config schema omission is permanently equivalent to explicit numeric 1", () => {
+  const body = "publish:\n  mode: direct\nversion:\n  source: git-tag\n";
+  assert.deepEqual(parseConfig(body), parseConfig("schema: 1\n" + body));
+  for (const value of ["null", "true", '"1"', "2", '""']) {
+    assert.throws(() => parseConfig(`schema: ${value}\n` + body), /schema/);
+  }
+});

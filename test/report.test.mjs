@@ -43,7 +43,7 @@ test("reports survive cleanup and preserve partial results without secret or sub
       assert.equal(writes.some((line) => line.startsWith("packages=")), completed === 2);
     }
     let path;
-    await assert.rejects(runAction({ actionPath: "/action", env: { RUNNER_TEMP: root, GITHUB_OUTPUT: "/output", GITHUB_WORKSPACE: "/workspace", GITHUB_REPOSITORY: "owner/repo", GITHUB_SHA: "a".repeat(40) }, appendOutput(_output, data) { path = data.slice("report-path=".length).trim(); }, release: async () => { throw new Error("prepare " + sentinel); } }), /prepare/);
+    await assert.rejects(runAction({ actionPath: "/action", env: { RUNNER_TEMP: root, GITHUB_OUTPUT: "/output", GITHUB_WORKSPACE: "/workspace", GITHUB_REPOSITORY: "owner/repo", GITHUB_SHA: "a".repeat(40) }, appendOutput(_output, data) { if (data.startsWith("report-path=")) path = data.slice("report-path=".length).trim(); }, release: async () => { throw new Error("prepare " + sentinel); } }), /prepare/);
     const report = JSON.parse(await readFile(path, "utf8"));
     assert.equal(report.stage, "prepare");
     assert.deepEqual(report.plan, []);

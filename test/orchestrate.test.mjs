@@ -507,3 +507,20 @@ test("an empty publication workspace is still a preflight error", async () => {
     assert.equal(h.events.includes("bootstrap"), false);
   });
 });
+
+test("release-tag requires git-tag policy before packaging or registry mutation", async () => {
+  await fixture([pkg("app", { version: "1.2.0" })], async (h) => {
+    h.context.releaseTag = "v1.2.0";
+    await assert.rejects(runRelease(h.context, h.deps), { code: "CONFIG_INVALID" });
+    assert.equal(h.events.some((event) => event.startsWith("lookup:")), false);
+  });
+});
+
+test("selected release tag reaches version resolver before packaging", async () => {
+  await fixture([pkg("app", { version: "0.0.0" })], async (h) => {
+    h.context.releaseTag = "v2.3.4-rc.0";
+    h.deps.resolveVersion = (context) => { assert.equal(context.releaseTag, "v2.3.4-rc.0"); return "2.3.4-rc.0"; };
+    const result = await runRelease(h.context, h.deps);
+    assert.equal(result[0].version, "2.3.4-rc.0");
+  }, "version:\n  source: git-tag\npublish:\n  mode: direct\n  channels:\n    prerelease: next\n");
+});

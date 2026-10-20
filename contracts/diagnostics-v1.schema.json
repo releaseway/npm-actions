@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "diagnostics-v1.schema.json",
+  "title": "diagnostics-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "component": {
+      "enum": [
+        "prepare",
+        "release",
+        "npm"
+      ]
+    },
+    "operation": {
+      "enum": [
+        "plan",
+        "prepare",
+        "resume",
+        "resolve",
+        "tag",
+        "publish",
+        "preview"
+      ]
+    },
+    "status": {
+      "enum": [
+        "success",
+        "failed"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "input",
+        "plan",
+        "bind-tag",
+        "resolve",
+        "pack",
+        "publish",
+        "verify",
+        "complete"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commit": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "strategy": {
+          "oneOf": [
+            {
+              "enum": [
+                "release-commit",
+                "source-tag"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "commit",
+        "tag",
+        "version",
+        "strategy"
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "remoteTag": {
+          "enum": [
+            "not-checked",
+            "matched",
+            "mismatched"
+          ]
+        },
+        "artifacts": {
+          "enum": [
+            "not-checked",
+            "matched",
+            "mixed"
+          ]
+        },
+        "publication": {
+          "enum": [
+            "not-checked",
+            "public",
+            "staged",
+            "mixed"
+          ]
+        },
+        "channel": {
+          "const": "not-checked"
+        }
+      },
+      "required": [
+        "remoteTag",
+        "artifacts",
+        "publication",
+        "channel"
+      ]
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+          },
+          "state": {
+            "enum": [
+              "already-published",
+              "published",
+              "staged"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "exists",
+              "sha512",
+              "stage-accepted"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "state",
+          "verification"
+        ]
+      }
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_INPUT",
+                "CONFIG_INVALID",
+                "PLAN_INVALID",
+                "PLAN_CONFIG_MISMATCH",
+                "PLAN_STALE",
+                "TAG_INVALID",
+                "TAG_NOT_FOUND",
+                "TAG_COMMIT_MISMATCH",
+                "TAG_AMBIGUOUS",
+                "TAG_CONFLICT",
+                "IDENTITY_CONFLICT",
+                "NOT_ON_BRANCH",
+                "CHANNEL_CLOSED",
+                "PERMISSION_DENIED",
+                "REMOTE_REJECTED",
+                "REMOTE_UNAVAILABLE",
+                "REMOTE_UNCERTAIN",
+                "ARTIFACT_MISMATCH",
+                "PUBLISH_FAILED",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "recovery": {
+              "enum": [
+                "fix-input",
+                "replan",
+                "inspect-remote",
+                "fix-permission",
+                "same-input"
+              ]
+            },
+            "remoteState": {
+              "enum": [
+                "unchanged",
+                "present",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "recovery",
+            "remoteState"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "component",
+    "operation",
+    "status",
+    "phase",
+    "selection",
+    "verification",
+    "packages",
+    "error"
+  ]
+}

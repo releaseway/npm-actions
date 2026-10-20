@@ -11,6 +11,8 @@ export interface ReleasePlanEntry {
 }
 
 export type ReleaseProgress =
+  | { kind: "selection"; tag: string; version: string }
+  | { kind: "phase"; phase: "resolve" | "pack" | "publish" | "verify" }
   | { kind: "plan"; plan: readonly ReleasePlanEntry[]; alreadyPublished: readonly PackageResult[] }
   | { kind: "publishing"; name: string; version: string }
   | { kind: "completed"; result: PackageResult };
@@ -32,7 +34,7 @@ export function updateReport(report: ReleaseReport, event: ReleaseProgress): voi
   } else if (event.kind === "publishing") {
     report.stage = "publish";
     report.failedPackage = { name: event.name, version: event.version };
-  } else {
+  } else if (event.kind === "completed") {
     const { name, version, state } = event.result;
     report.results.push({ name, version, state });
     delete report.failedPackage;

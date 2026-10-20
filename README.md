@@ -424,3 +424,27 @@ peak RSS, identical digest and regular-file payload bytes; all snapshots remain.
 npm-actions owns npm publication automation after package bootstrap.
 
 It does not choose versions, bump versions, generate changelogs, decide release triggers, perform product builds, create GitHub Release assets, approve npm staged releases, or publish to non-npmjs registries.
+
+### Select one release tag
+
+With `version.source: git-tag`, pass `release-tag` when multiple SemVer tags point
+at the publication commit (for example `v1.2.0-rc.0` and `v1.2.0`). The action checks
+the exact remote tag, configured prefix and final commit before using its version.
+An existing `release-commit` override still requires its normal marker validation.
+Omitting `release-tag` preserves automatic selection and rejects ambiguous tags.
+The optional policy file may omit `schema`; omission always means schema 1, even
+if future formats are introduced. Explicit numeric `schema: 1` remains supported.
+Null, strings, booleans and unsupported schema numbers are errors.
+
+### Separate operation diagnostics
+
+`diagnostics-path` returns a separate schema 1 JSON file alongside the unchanged
+legacy `report-path`. Per-package verification distinguishes `exists` for an
+already-public version, `sha512` for verified published bytes, and `stage-accepted`
+for an accepted stage submission. Stage acceptance is not public availability.
+Channel verification remains `not-checked`; this action does not repair dist-tags.
+Partial results and stable error/recovery metadata survive controlled failures
+when filesystem/output access work. Raw errors, tokens and subprocess output are
+excluded. Upload the file explicitly when passing it between jobs.
+
+For the upcoming source-tag and release-tag flow, see the [same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md). It keeps npm in the registered product workflow and clearly marks unreleased inputs.

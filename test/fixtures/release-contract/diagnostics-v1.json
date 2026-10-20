@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "component": "npm",
+  "operation": "publish",
+  "status": "success",
+  "phase": "complete",
+  "selection": {
+    "source": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tag": "v1.2.0-rc.0",
+    "version": "1.2.0-rc.0",
+    "strategy": null
+  },
+  "verification": {
+    "remoteTag": "matched",
+    "artifacts": "matched",
+    "publication": "public",
+    "channel": "not-checked"
+  },
+  "packages": [
+    {
+      "name": "@example/tool",
+      "version": "1.2.0-rc.0",
+      "state": "published",
+      "verification": "sha512"
+    }
+  ],
+  "error": null
+}

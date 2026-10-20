@@ -7,11 +7,19 @@ inputs:
     required: false
     default: ""
 
+  release-tag:
+    description: Optional exact remote tag to select with version.source git-tag; must resolve to the verified publication commit.
+    required: false
+    default: ""
+
 outputs:
   packages:
     description: JSON array of package publication results.
   report-path:
     description: Runner-local JSON release report, also written to the job summary, including partial results on failure.
+
+  diagnostics-path:
+    description: Runner-local versioned diagnostics JSON, separate from existing reports; available on controlled failures when writable.
 
 runs:
   using: node24

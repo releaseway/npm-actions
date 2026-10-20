@@ -1,3 +1,4 @@
+import { ReleaseError } from "./release-error.ts";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -258,13 +259,16 @@ export async function prepareRelease(
     (dependencies.loadRepositoryConfig ?? loadConfig)(context.workspace),
     (dependencies.discover ?? discoverWorkspace)(context.workspace),
   ]);
+  if (context.releaseTag && !config.version) throw new ReleaseError("CONFIG_INVALID", "release-tag requires version.source: git-tag");
   if (context.sourceSha && !config.version) throw new Error("release-commit requires version.source: git-tag");
+  if (config.version) dependencies.onProgress?.({ kind: "phase", phase: "resolve" });
   const versionOverride = config.version
     ? (dependencies.resolveVersion ?? resolveGitTagVersion)(
         context,
         config.version,
       )
     : undefined;
+  if (config.version && versionOverride) dependencies.onProgress?.({ kind: "selection", tag: config.version.prefix + versionOverride, version: versionOverride });
   const packages = immutableJson(
     (dependencies.selectPackages ?? selectPublishablePackages)(
       discovered,
@@ -281,6 +285,7 @@ export async function prepareRelease(
   const snapshots = new Map<string, RegistryPackageSnapshot>();
   const candidates: PublishablePackage[] = [];
   const alreadyPublished: PackageResult[] = [];
+  dependencies.onProgress?.({ kind: "phase", phase: "verify" });
   // Classification must finish for the complete workspace before any package-manager work.
   for (const pkg of packages) {
     const lookup = await registry.lookupVersion(pkg.name, pkg.version);
@@ -298,6 +303,7 @@ export async function prepareRelease(
   );
   if (candidates.length === 0)
     return Object.freeze({ kind: "noop", alreadyPublished: skipped });
+  dependencies.onProgress?.({ kind: "phase", phase: "pack" });
   (
     dependencies.validatePublishEnvironment ??
     assertTrustedPublishingEnvironment
@@ -462,6 +468,7 @@ export async function executePreparedRelease(
     dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
     try {
       await assertPreparedTarball(request);
+      dependencies.onProgress?.({ kind: "phase", phase: "verify" });
       let state: PackageResult["state"];
       if (
         (await registry.verifyPublishedArtifact(
@@ -475,6 +482,7 @@ export async function executePreparedRelease(
         await assertDirectDependenciesLive(registry, publication);
         let submitted;
         try {
+          dependencies.onProgress?.({ kind: "phase", phase: "publish" });
           submitted = await publisher(prepared.toolchain, request, {
             env: context.env,
             tempRoot: prepared.runRoot,
@@ -505,6 +513,7 @@ export async function executePreparedRelease(
             throw error;
           }
         }
+        dependencies.onProgress?.({ kind: "phase", phase: "verify" });
         if (submitted === "direct-accepted") {
           await waitForLive(
             registry,

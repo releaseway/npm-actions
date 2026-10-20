@@ -1,3 +1,4 @@
+import { newDiagnostics, safeSha, packageDiagnostics, completeDiagnostics, failDiagnostics, writeDiagnostics } from "./diagnostics.ts";
 import { appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
@@ -70,49 +71,66 @@ export async function runAction(
     actionPath?: string;
     argv?: readonly string[];
     writeReport?: typeof writeReleaseReport;
+    writeDiagnostics?: typeof writeDiagnostics;
   } = {},
 ): Promise<PackageResult[]> {
   const env = options.env ?? process.env;
-  const github = githubContextFromEnv(env);
-  const actionPath = resolveActionPath(
-    options.actionPath,
-    env,
-    options.argv ?? process.argv,
-  );
-  const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
-
-  const report: ReleaseReport = {
-    schema: 1, source: { repository: github.repository, commit: github.sha },
-    status: "running", stage: "prepare", plan: [], results: [],
-  };
   const append = options.appendOutput ?? appendFileSync;
+  const diagnostic = newDiagnostics("npm", "publish");
+  diagnostic.selection.source = safeSha(env.GITHUB_SHA);
+  let report: ReleaseReport | undefined;
+  let failed = false;
   try {
+    const github = githubContextFromEnv(env);
+    diagnostic.selection.commit = github.sha;
+    const actionPath = resolveActionPath(options.actionPath, env, options.argv ?? process.argv);
+    const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
+    report = { schema: 1, source: { repository: github.repository, commit: github.sha }, status: "running", stage: "prepare", plan: [], results: [] };
     const packages = await (options.release ?? runRelease)(
       { ...github, actionPath, env },
       {
         ...options.dependencies,
         onProgress(event) {
-          updateReport(report, event);
+          updateReport(report!, event);
+          if (event.kind === "selection") {
+            diagnostic.selection.tag = event.tag;
+            diagnostic.selection.version = event.version;
+            diagnostic.verification.remoteTag = "matched";
+          } else if (event.kind === "phase") diagnostic.phase = event.phase;
+          else if (event.kind === "publishing") diagnostic.phase = "publish";
+          packageDiagnostics(diagnostic, report!.results);
           options.dependencies?.onProgress?.(event);
         },
       },
     );
     writePackagesOutput(outputPath, packages, append);
     report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
-    report.status = "success";
-    report.stage = "complete";
+    report.status = "success"; report.stage = "complete";
     delete report.failedPackage;
+    packageDiagnostics(diagnostic, packages);
+    completeDiagnostics(diagnostic);
     return packages;
   } catch (error) {
-    report.status = "failed";
+    failed = true;
+    if (report) report.status = "failed";
+    failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
     throw error;
   } finally {
-    try {
-      const path = await (options.writeReport ?? writeReleaseReport)(report, env);
-      append(outputPath, "report-path=" + path + "\n", { encoding: "utf8" });
-    } catch (error) {
-      if (report.status !== "failed") throw error;
-      console.warn("Release report could not be saved; preserving the original release failure");
+    let outputFailure: unknown;
+    if (report) {
+      try {
+        const path = await (options.writeReport ?? writeReleaseReport)(report, env);
+        append(env.GITHUB_OUTPUT!, "report-path=" + path + "\n", { encoding: "utf8" });
+      } catch (error) {
+        outputFailure = error;
+        if (failed) console.warn("Release report could not be saved; preserving the original release failure");
+      }
     }
+    try { (options.writeDiagnostics ?? writeDiagnostics)(diagnostic, env, append); }
+    catch (error) {
+      outputFailure ??= error;
+      if (failed) console.warn("Diagnostics could not be saved; preserving the original failure. Inspect the registry before retrying.");
+    }
+    if (!failed && outputFailure) throw outputFailure;
   }
 }

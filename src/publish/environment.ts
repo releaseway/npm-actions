@@ -1,3 +1,4 @@
+import { ReleaseError } from "../release-error.ts";
 const TOKEN_ENV_NAMES = new Set([
   "NODE_AUTH_TOKEN",
   "NPM_TOKEN",
@@ -12,10 +13,10 @@ export function assertTrustedPublishingEnvironment(
   env: NodeJS.ProcessEnv,
 ): void {
   if (env.GITHUB_ACTIONS !== "true") {
-    throw new Error("npm Trusted Publishing requires GitHub Actions");
+    throw new ReleaseError("INVALID_INPUT", "npm Trusted Publishing requires GitHub Actions");
   }
   if (env.RUNNER_ENVIRONMENT !== "github-hosted") {
-    throw new Error(
+    throw new ReleaseError("INVALID_INPUT",
       "npm Trusted Publishing requires a GitHub-hosted runner",
     );
   }
@@ -23,7 +24,7 @@ export function assertTrustedPublishingEnvironment(
     !env.ACTIONS_ID_TOKEN_REQUEST_URL ||
     !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
   ) {
-    throw new Error(
+    throw new ReleaseError("PERMISSION_DENIED",
       "GitHub Actions OIDC is unavailable; grant id-token: write to the publish job",
     );
   }

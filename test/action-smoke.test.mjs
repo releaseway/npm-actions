@@ -57,7 +57,8 @@ test("action writes packages output only after successful orchestration", async 
   });
 
   assert.deepEqual(result, expected);
-  assert.deepEqual(writes, [
+  assert.match(writes[2].data, /^diagnostics-path=\//);
+  assert.deepEqual(writes.slice(0, 2), [
     {
       path: "/github/output",
       data: "packages=" + JSON.stringify(expected) + "\n",
@@ -84,12 +85,12 @@ test("action writes diagnostics but no packages output when orchestration fails"
       },
       writeReport: async () => "/report.json",
       appendOutput(_path, data) {
-        assert.equal(data, "report-path=/report.json\n");
+        assert.match(data, /^(report-path=\/report\.json|diagnostics-path=\/.*)\n$/);
         writes += 1;
       },
     }),
     /preflight failed/,
   );
 
-  assert.equal(writes, 1);
+  assert.equal(writes, 2);
 });

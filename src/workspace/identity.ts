@@ -11,6 +11,7 @@ export interface GithubContext {
   repository: string;
   sha: string;
   sourceSha?: string;
+  releaseTag?: string;
 }
 
 interface RunResult {
@@ -72,6 +73,7 @@ export function githubContextFromEnv(
     workspace: resolve(workspace),
     repository,
     sha: releaseCommit || sha.toLowerCase(),
+    ...(env["INPUT_RELEASE-TAG"]?.trim() ? { releaseTag: env["INPUT_RELEASE-TAG"]!.trim() } : {}),
     ...(releaseCommit && releaseCommit !== sha.toLowerCase() ? { sourceSha: sha.toLowerCase() } : {}),
   };
 }

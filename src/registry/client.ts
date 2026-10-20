@@ -1,3 +1,4 @@
+import { ReleaseError } from "../release-error.ts";
 import { valid } from "semver";
 import { immutableJson } from "../immutable.ts";
 import type { PackageManifest } from "../workspace/discover.ts";
@@ -107,12 +108,12 @@ export function verifyRegistryIntegrity(
     typeof dist.integrity !== "string" ||
     !hasValidSha512Integrity(dist.integrity)
   )
-    throw new Error(
-      identity + " registry dist.integrity has no valid SHA-512 value",
+    throw new ReleaseError("ARTIFACT_MISMATCH",
+      identity + " registry dist.integrity has no valid SHA-512 value", "present",
     );
   if (!integrityContainsExactSha512(dist.integrity, expectedIntegrity))
-    throw new Error(
-      identity + " is live with different package artifact integrity",
+    throw new ReleaseError("ARTIFACT_MISMATCH",
+      identity + " is live with different package artifact integrity", "present",
     );
 }
 export class NpmRegistryClient implements RegistryReader {

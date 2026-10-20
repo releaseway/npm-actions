@@ -1,3 +1,4 @@
+import { ReleaseError } from "../release-error.ts";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseDocument } from "yaml";
@@ -17,7 +18,7 @@ const CONFIG_PATH = ".github/npm/packages.yml";
 
 function assertRecord(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be a mapping`);
+    throw new ReleaseError("CONFIG_INVALID", `${label} must be a mapping`);
   }
   return value as Record<string, unknown>;
 }
@@ -29,13 +30,13 @@ function assertKnownKeys(
 ): void {
   const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
   if (unknown.length > 0) {
-    throw new Error(`${label} has unsupported keys: ${unknown.join(", ")}`);
+    throw new ReleaseError("CONFIG_INVALID", `${label} has unsupported keys: ${unknown.join(", ")}`);
   }
 }
 
 function readMode(value: unknown, label: string): PublishMode {
   if (value !== "direct" && value !== "stage") {
-    throw new Error(`${label} must be direct or stage`);
+    throw new ReleaseError("CONFIG_INVALID", `${label} must be direct or stage`);
   }
   return value;
 }
@@ -44,11 +45,11 @@ function readVersion(value: unknown, label: string): VersionPolicy {
   const mapping = assertRecord(value, label);
   assertKnownKeys(mapping, ["source", "prefix", "prerelease-tag"], label);
   if (mapping.source !== "git-tag") {
-    throw new Error(`${label}.source must be git-tag`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.source must be git-tag`);
   }
   const prefix = mapping.prefix ?? "v";
   if (typeof prefix !== "string" || /\s/.test(prefix)) {
-    throw new Error(`${label}.prefix must be a whitespace-free string`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.prefix must be a whitespace-free string`);
   }
   let prereleaseTag: string | undefined;
   if ("prerelease-tag" in mapping) {
@@ -56,7 +57,7 @@ function readVersion(value: unknown, label: string): VersionPolicy {
       typeof mapping["prerelease-tag"] !== "string" ||
       mapping["prerelease-tag"].length === 0
     ) {
-      throw new Error(`${label}.prerelease-tag must be a non-empty string`);
+      throw new ReleaseError("CONFIG_INVALID", `${label}.prerelease-tag must be a non-empty string`);
     }
     prereleaseTag = mapping["prerelease-tag"];
   }
@@ -71,7 +72,7 @@ function readPublish(value: unknown, label: string): ReleasewayConfig["publish"]
   const mapping = assertRecord(value, label);
   assertKnownKeys(mapping, ["mode", "channels"], label);
   if (!("mode" in mapping)) {
-    throw new Error(`${label}.mode is required`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.mode is required`);
   }
   const mode = readMode(mapping.mode, `${label}.mode`);
   if (mapping.channels === undefined) return { mode };
@@ -79,11 +80,11 @@ function readPublish(value: unknown, label: string): ReleasewayConfig["publish"]
   assertKnownKeys(channels, ["stable", "prerelease"], `${label}.channels`);
   for (const [key, tag] of Object.entries(channels)) {
     if (typeof tag !== "string" || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag) || validRange(tag) !== null) {
-      throw new Error(`${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
+      throw new ReleaseError("CONFIG_INVALID", `${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
     }
   }
   if (channels.prerelease === "latest") {
-    throw new Error(`${label}.channels.prerelease must not be latest`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.channels.prerelease must not be latest`);
   }
   return { mode, channels: { ...channels } as NonNullable<ReleasewayConfig["publish"]["channels"]> };
 }
@@ -93,13 +94,13 @@ function readTarget(value: unknown, label: string): NativeTargetPolicy {
   assertKnownKeys(mapping, ["asset", "executable"], label);
 
   if (typeof mapping.asset !== "string" || mapping.asset.length === 0) {
-    throw new Error(`${label}.asset must be a non-empty string`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.asset must be a non-empty string`);
   }
   if (
     typeof mapping.executable !== "string" ||
     mapping.executable.length === 0
   ) {
-    throw new Error(`${label}.executable must be a non-empty string`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.executable must be a non-empty string`);
   }
 
   return {
@@ -116,10 +117,10 @@ function readDistribution(
   assertKnownKeys(mapping, ["type", "tag", "cache-env", "targets"], label);
 
   if (mapping.type !== "github-release") {
-    throw new Error(`${label}.type must be github-release`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.type must be github-release`);
   }
   if (typeof mapping.tag !== "string" || mapping.tag.length === 0) {
-    throw new Error(`${label}.tag must be a non-empty string`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.tag must be a non-empty string`);
   }
 
   let cacheEnv: string | undefined;
@@ -128,7 +129,7 @@ function readDistribution(
       typeof mapping["cache-env"] !== "string" ||
       !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping["cache-env"])
     ) {
-      throw new Error(`${label}.cache-env must be an environment variable name`);
+      throw new ReleaseError("CONFIG_INVALID", `${label}.cache-env must be an environment variable name`);
     }
     cacheEnv = mapping["cache-env"];
   }
@@ -136,7 +137,7 @@ function readDistribution(
   const targetsMapping = assertRecord(mapping.targets, `${label}.targets`);
   const entries = Object.entries(targetsMapping);
   if (entries.length === 0) {
-    throw new Error(`${label}.targets must not be empty`);
+    throw new ReleaseError("CONFIG_INVALID", `${label}.targets must not be empty`);
   }
 
   const targets: Record<string, NativeTargetPolicy> = {};
@@ -176,7 +177,7 @@ export function parseConfig(source: string): ReleasewayConfig {
   });
 
   if (document.errors.length > 0) {
-    throw new Error(
+    throw new ReleaseError("CONFIG_INVALID",
       `Invalid Releaseway config: ${document.errors.map((error) => error.message).join("; ")}`,
     );
   }
@@ -185,8 +186,8 @@ export function parseConfig(source: string): ReleasewayConfig {
   const root = assertRecord(raw, "config");
   assertKnownKeys(root, ["schema", "version", "publish", "packages"], "config");
 
-  if (root.schema !== 1) {
-    throw new Error("config.schema must be 1");
+  if ("schema" in root && root.schema !== 1) {
+    throw new ReleaseError("CONFIG_INVALID", "config.schema must be 1");
   }
 
   const version =
@@ -202,7 +203,7 @@ export function parseConfig(source: string): ReleasewayConfig {
     const packageMapping = assertRecord(root.packages, "config.packages");
     for (const [name, policy] of Object.entries(packageMapping)) {
       if (!name) {
-        throw new Error("config.packages keys must be npm package names");
+        throw new ReleaseError("CONFIG_INVALID", "config.packages keys must be npm package names");
       }
       packages[name] = readPackagePolicy(
         policy,
