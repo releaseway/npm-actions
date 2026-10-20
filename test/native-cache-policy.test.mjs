@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import * as tar from "tar";
 import { prepareNativeExecutable } from "../src/native/launcher/cache.ts";
@@ -47,5 +48,32 @@ test("built launcher consumes manifest cacheEnv on a warm cache",async()=>{
       if(originalCustom===undefined)delete process.env.TOOL_CACHE_DIR;else process.env.TOOL_CACHE_DIR=originalCustom;
       if(originalGeneric===undefined)delete process.env.RELEASEWAY_NATIVE_CACHE_DIR;else process.env.RELEASEWAY_NATIVE_CACHE_DIR=originalGeneric;
     }
+  });
+});
+
+test("cached executable mode damage is repaired from the verified archive under concurrent calls",{skip:process.platform==="win32"},async()=>{
+  await fixture(async({root,bytes,target,manifest})=>{
+    let downloads=0;const options={root:join(root,"cache"),download:async()=>{downloads++;return bytes;}};
+    const executable=await prepareNativeExecutable(manifest,target,options);
+    assert.equal(spawnSync(executable,[]).status,0);
+    await chmod(executable,0o644);
+    const repaired=await Promise.all([prepareNativeExecutable(manifest,target,options),prepareNativeExecutable(manifest,target,options)]);
+    assert.equal(repaired[0],executable);assert.equal(repaired[1],executable);
+    assert.equal(spawnSync(executable,[]).status,0);assert.equal(downloads,1);
+    await writeFile(executable,"damaged");
+    assert.equal(await prepareNativeExecutable(manifest,target,options),executable);
+    assert.equal(spawnSync(executable,[]).status,0);assert.equal(downloads,1);
+  });
+});
+test("valid readonly cache is reusable and invalid readonly cache fails with recovery guidance",{skip:process.platform==="win32"||process.getuid?.()===0},async()=>{
+  await fixture(async({root,bytes,target,manifest})=>{
+    const options={root:join(root,"cache"),download:async()=>bytes};
+    const executable=await prepareNativeExecutable(manifest,target,options),entry=dirname(executable),parent=dirname(entry);
+    try {
+      await chmod(entry,0o555);await chmod(parent,0o555);await chmod(executable,0o555);
+      assert.equal(await prepareNativeExecutable(manifest,target,options),executable);
+      await chmod(executable,0o644);
+      await assert.rejects(prepareNativeExecutable(manifest,target,options),/check permissions.*invalid entry/);
+    }finally{await chmod(parent,0o755);await chmod(entry,0o755);await chmod(executable,0o755);}
   });
 });

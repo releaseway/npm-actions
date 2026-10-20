@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants, createReadStream } from "node:fs";
 import {
   chmod,
+  access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -194,6 +196,7 @@ async function validateExecutableCache(
   directory: string,
   target: RuntimeNativeTarget,
   executable: string,
+  platform: NodeJS.Platform,
 ): Promise<string | undefined> {
   try {
     const metadata = JSON.parse(
@@ -212,6 +215,8 @@ async function validateExecutableCache(
     }
 
     const path = join(directory, executableFile);
+    if (!(await lstat(path)).isFile()) return undefined;
+    if (platform !== "win32") await access(path, constants.X_OK);
     if (await fileSha256(path) !== metadata.executableSha256) {
       return undefined;
     }
@@ -415,7 +420,7 @@ async function prepareExecutableFromArchive(
   const executables = join(root, target.sha256, "executables");
   const finalDirectory = join(executables, key);
   const validate = () =>
-    validateExecutableCache(finalDirectory, target, executable);
+    validateExecutableCache(finalDirectory, target, executable, options.platform ?? process.platform);
 
   const existing = await validate();
   if (existing) {
@@ -500,20 +505,26 @@ export async function prepareNativeExecutable(
       platform: options.platform,
       home: options.home,
     });
+  try {
   await mkdir(root, { recursive: true });
-
   const archivePath = await prepareNativeArchive(
     manifest,
     target,
     root,
     options,
   );
-  return prepareExecutableFromArchive(
+  return await prepareExecutableFromArchive(
     archivePath,
     target,
     root,
     options,
   );
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && ["EACCES", "EPERM"].includes(String(error.code))) {
+      throw new Error(`Cannot prepare native cache at ${root}; check permissions, remove the invalid entry or choose a writable cache directory`, { cause: error });
+    }
+    throw error;
+  }
 }
 
 export async function temporaryNativeCacheRoot(): Promise<string> {

@@ -4827,7 +4827,7 @@ async function validateArchiveCache(directory, target) {
     return void 0;
   }
 }
-async function validateExecutableCache(directory, target, executable) {
+async function validateExecutableCache(directory, target, executable, platform) {
   try {
     const metadata = JSON.parse(
       await (0, import_promises3.readFile)((0, import_node_path11.join)(directory, "metadata.json"), "utf8")
@@ -4837,6 +4837,8 @@ async function validateExecutableCache(directory, target, executable) {
       return void 0;
     }
     const path = (0, import_node_path11.join)(directory, executableFile);
+    if (!(await (0, import_promises3.lstat)(path)).isFile()) return void 0;
+    if (platform !== "win32") await (0, import_promises3.access)(path, import_node_fs8.constants.X_OK);
     if (await fileSha256(path) !== metadata.executableSha256) {
       return void 0;
     }
@@ -4976,7 +4978,7 @@ async function prepareExecutableFromArchive(archivePath, target, root, options2)
   const key = executableCacheKey(executable);
   const executables = (0, import_node_path11.join)(root, target.sha256, "executables");
   const finalDirectory = (0, import_node_path11.join)(executables, key);
-  const validate = () => validateExecutableCache(finalDirectory, target, executable);
+  const validate = () => validateExecutableCache(finalDirectory, target, executable, options2.platform ?? import_node_process.default.platform);
   const existing = await validate();
   if (existing) {
     return existing;
@@ -5047,19 +5049,26 @@ async function prepareNativeExecutable(manifest, target, options2 = {}) {
     platform: options2.platform,
     home: options2.home
   });
-  await (0, import_promises3.mkdir)(root, { recursive: true });
-  const archivePath = await prepareNativeArchive(
-    manifest,
-    target,
-    root,
-    options2
-  );
-  return prepareExecutableFromArchive(
-    archivePath,
-    target,
-    root,
-    options2
-  );
+  try {
+    await (0, import_promises3.mkdir)(root, { recursive: true });
+    const archivePath = await prepareNativeArchive(
+      manifest,
+      target,
+      root,
+      options2
+    );
+    return await prepareExecutableFromArchive(
+      archivePath,
+      target,
+      root,
+      options2
+    );
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && ["EACCES", "EPERM"].includes(String(error.code))) {
+      throw new Error(`Cannot prepare native cache at ${root}; check permissions, remove the invalid entry or choose a writable cache directory`, { cause: error });
+    }
+    throw error;
+  }
 }
 
 // src/native/launcher/manifest.ts
