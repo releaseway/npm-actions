@@ -444,6 +444,11 @@ test("unresolved stage conflicts fail without approval, inspection or mode conve
 
 test("partial failures report completed candidates and reruns skip public versions", async () => {
   await fixture([pkg("a"), pkg("z")], async (h) => {
+    const pack = h.deps.packAll;
+    h.deps.packAll = async (...args) => {
+      assert.deepEqual(args[5].map(p => p.name).sort(), ["a", "z"]);
+      return pack(...args);
+    };
     const publish = h.deps.publish;
     h.deps.publish = async (tc, request) => {
       if (request.name === "z") throw new Error("outage");

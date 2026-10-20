@@ -327,6 +327,8 @@ export async function prepareRelease(
       candidates,
       command,
       join(runRoot, "packed"),
+      undefined,
+      packages,
     );
     const artifacts = artifactMap(candidates, packed);
     await applyNativeAugmentation(

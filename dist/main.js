@@ -16932,7 +16932,7 @@ var import_node_path23 = require("node:path");
 // src/orchestrate.ts
 var import_promises11 = require("node:fs/promises");
 var import_node_path21 = require("node:path");
-var import_node_os5 = require("node:os");
+var import_node_os6 = require("node:os");
 var import_semver8 = __toESM(require_semver2(), 1);
 
 // src/config/load.ts
@@ -20881,6 +20881,7 @@ function validateNativeDistribution(pkg, artifact) {
 // src/pack/index.ts
 var import_node_child_process3 = require("node:child_process");
 var import_promises8 = require("node:fs/promises");
+var import_node_os4 = require("node:os");
 var import_node_path17 = require("node:path");
 var import_node_process2 = __toESM(require("node:process"), 1);
 
@@ -21322,6 +21323,38 @@ async function packPackage(pkg, command, outputRoot, runManager = defaultRunMana
 }
 async function materializePackageVersions(packages) {
   const originals = /* @__PURE__ */ new Map();
+  const restore = async (originalError) => {
+    const failures = [];
+    for (const [path, source] of originals) {
+      try {
+        await (0, import_promises8.writeFile)(path, source);
+      } catch (error2) {
+        failures.push({ path, source, error: error2 });
+      }
+    }
+    if (!failures.length) return;
+    let recoveryDirectory;
+    const errors = [...originalError === void 0 ? [] : [originalError], ...failures.map((f2) => f2.error)];
+    try {
+      recoveryDirectory = await (0, import_promises8.mkdtemp)((0, import_node_path17.join)((0, import_node_os4.tmpdir)(), "releaseway-npm-recovery-"));
+      const index = failures.map((failure, i) => ({ path: failure.path, backup: `${i}.json` }));
+      await (0, import_promises8.writeFile)((0, import_node_path17.join)(recoveryDirectory, "recovery.json"), JSON.stringify(index, null, 2) + "\n", { mode: 384 });
+      for (const [i, failure] of failures.entries()) {
+        try {
+          await (0, import_promises8.writeFile)((0, import_node_path17.join)(recoveryDirectory, index[i].backup), failure.source, { mode: 384 });
+        } catch (error2) {
+          errors.push(error2);
+        }
+      }
+    } catch (error2) {
+      errors.push(error2);
+    }
+    const error = new AggregateError(
+      errors,
+      `Manifest restoration failed for ${failures.map((f2) => f2.path).join(", ")}; recovery data: ${recoveryDirectory ?? "could not be saved"}${errors.length > failures.length + (originalError === void 0 ? 0 : 1) ? " (backup errors; inspect nested errors)" : ""}`
+    );
+    throw Object.assign(error, { recoveryDirectory });
+  };
   try {
     for (const pkg of packages) {
       if (pkg.manifest.version === pkg.version) {
@@ -21338,20 +21371,15 @@ async function materializePackageVersions(packages) {
       );
     }
   } catch (error) {
-    for (const [path, source] of originals) {
-      await (0, import_promises8.writeFile)(path, source);
-    }
+    await restore(error);
     throw error;
   }
-  return async () => {
-    for (const [path, source] of originals) {
-      await (0, import_promises8.writeFile)(path, source);
-    }
-  };
+  return restore;
 }
-async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager) {
+async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager, versionPackages = packages) {
   const original = await snapshotSourceState(workspaceRoot);
-  const restore = await materializePackageVersions(packages);
+  const restore = await materializePackageVersions(versionPackages);
+  let operationError;
   try {
     const materialized = await snapshotSourceState(workspaceRoot);
     const artifacts = [];
@@ -21363,10 +21391,21 @@ async function packAllPackages(workspaceRoot, packages, command, outputRoot, run
       assertSourceStateUnchanged(materialized, afterPackage);
     }
     return artifacts;
+  } catch (error) {
+    operationError = error;
+    throw error;
   } finally {
-    await restore();
-    const restored = await snapshotSourceState(workspaceRoot);
-    assertSourceStateUnchanged(original, restored);
+    await restore(operationError);
+    try {
+      const restored = await snapshotSourceState(workspaceRoot);
+      assertSourceStateUnchanged(original, restored);
+    } catch (error) {
+      if (operationError !== void 0) throw new AggregateError(
+        [operationError, error],
+        `Packing failed: ${operationError instanceof Error ? operationError.message : String(operationError)}; package manager mutated the source worktree`
+      );
+      throw error;
+    }
   }
 }
 
@@ -21415,7 +21454,7 @@ function isolatedPublisherEnvironment(source, home) {
 var import_node_child_process4 = require("node:child_process");
 var import_promises9 = require("node:fs/promises");
 var import_node_path18 = require("node:path");
-var import_node_os4 = require("node:os");
+var import_node_os5 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"), 1);
 
 // src/registry/client.ts
@@ -21619,7 +21658,7 @@ async function publishPackage(toolchain, request, options = {}) {
   const sourceEnv = options.env ?? import_node_process3.default.env;
   assertTrustedPublishingEnvironment(sourceEnv);
   await assertPreparedTarball(request);
-  const base = (0, import_node_path18.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os4.tmpdir)());
+  const base = (0, import_node_path18.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os5.tmpdir)());
   await (0, import_promises9.mkdir)(base, { recursive: true });
   const root = await (0, import_promises9.mkdtemp)((0, import_node_path18.join)(base, "releaseway-npm-publish-"));
   try {
@@ -22331,7 +22370,7 @@ async function prepareRelease(context, dependencies = {}) {
   dependencies.onProgress?.({ kind: "phase", phase: "pack" });
   (dependencies.validatePublishEnvironment ?? assertTrustedPublishingEnvironment)(context.env);
   const root = rootManifest(discovered, context.workspace);
-  const base = (0, import_node_path21.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os5.tmpdir)());
+  const base = (0, import_node_path21.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os6.tmpdir)());
   await (0, import_promises11.mkdir)(base, { recursive: true });
   const runRoot = await (0, import_promises11.mkdtemp)((0, import_node_path21.join)(base, "releaseway-npm-actions-run-"));
   try {
@@ -22346,7 +22385,9 @@ async function prepareRelease(context, dependencies = {}) {
       context.workspace,
       candidates,
       command,
-      (0, import_node_path21.join)(runRoot, "packed")
+      (0, import_node_path21.join)(runRoot, "packed"),
+      void 0,
+      packages
     );
     const artifacts = artifactMap(candidates, packed);
     await applyNativeAugmentation(
@@ -22543,7 +22584,7 @@ async function runRelease(context, dependencies = {}) {
 
 // src/report.ts
 var import_promises12 = require("node:fs/promises");
-var import_node_os6 = require("node:os");
+var import_node_os7 = require("node:os");
 var import_node_path22 = require("node:path");
 function updateReport(report, event) {
   if (event.kind === "plan") {
@@ -22559,7 +22600,7 @@ function updateReport(report, event) {
   }
 }
 async function writeReleaseReport(report, env) {
-  const base = (0, import_node_path22.resolve)(env.RUNNER_TEMP ?? (0, import_node_os6.tmpdir)());
+  const base = (0, import_node_path22.resolve)(env.RUNNER_TEMP ?? (0, import_node_os7.tmpdir)());
   await (0, import_promises12.mkdir)(base, { recursive: true });
   const directory = await (0, import_promises12.mkdtemp)((0, import_node_path22.join)(base, "releaseway-npm-report-"));
   const path = (0, import_node_path22.join)(directory, "report.json");
