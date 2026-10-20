@@ -6,6 +6,11 @@ Publish unpublished npm versions from GitHub Actions with registry-first plannin
 
 The action works without inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed. Optional `release-commit` connects publication to a marker commit prepared earlier in the same workflow.
 
+## Version
+
+[v0.7.0](https://github.com/releaseway/npm-actions/releases/tag/v0.7.0) uses commit
+`614f72ae0c6482f87a1f68f8222e42da0b2b82cb`. Pin the action to this full SHA.
+
 ## Requirements
 
 Configure the following prerequisites for runs that need to publish new versions:
@@ -46,7 +51,7 @@ jobs:
       # Run your install/build steps here when the package needs them.
 
       - id: npm
-        uses: releaseway/npm-actions@<full-commit-sha> # vX.Y.Z
+        uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
 
       - run: echo '${{ steps.npm.outputs.packages }}'
 ```
@@ -342,7 +347,7 @@ When a workflow needs authenticated read access, provide a read-only token only 
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@<full-commit-sha> # vX.Y.Z
+  uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_TOKEN }}
 ```
@@ -366,7 +371,7 @@ the runner job. To retain it after that job, upload it with an `always()` step:
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@<full-commit-sha> # vX.Y.Z
+  uses: releaseway/npm-actions@614f72ae0c6482f87a1f68f8222e42da0b2b82cb # v0.7.0
 - uses: actions/upload-artifact@<full-commit-sha> # vX.Y.Z
   if: always() && steps.npm.outputs.report-path != ''
   with:
@@ -447,4 +452,4 @@ Partial results and stable error/recovery metadata survive controlled failures
 when filesystem/output access work. Raw errors, tokens and subprocess output are
 excluded. Upload the file explicitly when passing it between jobs.
 
-For the upcoming source-tag and release-tag flow, see the [same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md). It keeps npm in the registered product workflow and clearly marks unreleased inputs.
+For the source-tag and release-tag flow, see the [same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md). It keeps npm in the registered product workflow and pins verified stable releases.
