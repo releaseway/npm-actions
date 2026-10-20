@@ -5042,6 +5042,7 @@ async function prepareExecutableFromArchive(archivePath, target, root, options2)
 }
 async function prepareNativeExecutable(manifest, target, options2 = {}) {
   const root = options2.root ?? nativeCacheRoot({
+    cacheEnv: manifest.cacheEnv,
     env: options2.env,
     platform: options2.platform,
     home: options2.home

@@ -495,6 +495,7 @@ export async function prepareNativeExecutable(
   const root =
     options.root ??
     nativeCacheRoot({
+      cacheEnv: manifest.cacheEnv,
       env: options.env,
       platform: options.platform,
       home: options.home,
