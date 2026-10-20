@@ -14,7 +14,7 @@ test("README quick start matches zero-input OIDC action contract", async () => {
   assert.match(source, /permissions:\n  contents: read\n  id-token: write/);
   assert.match(
     source,
-    /uses: releaseway\/npm-actions@<full-commit-sha> # vX\.Y\.Z/,
+    /uses: releaseway\/npm-actions@[a-f0-9]{40} # v\d+\.\d+\.\d+/,
   );
   assert.match(
     source,
