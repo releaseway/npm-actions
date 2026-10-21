@@ -1,10 +1,17 @@
 # releaseway/npm-actions
 
-Publish unpublished npm versions from GitHub Actions with registry-first planning, verified artifacts, and npm Trusted Publishing.
+Publish unpublished npm versions from GitHub Actions with registry-first planning,
+verified artifacts, and npm Trusted Publishing.
 
-`releaseway/npm-actions` discovers publishable package identities and looks up every exact `name@version` in npm before preparing build tools. Already-public versions are reported without packaging. Only unpublished versions are packed, validated, and submitted through `npm publish` or `npm stage publish`.
+`releaseway/npm-actions` discovers publishable package identities and looks up every
+exact `name@version` in npm before preparing build tools. Already-public versions are
+reported without packaging. Only unpublished versions are packed, validated, and
+submitted through `npm publish` or `npm stage publish`.
 
-The action works without inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed. Optional `release-commit` connects publication to a marker commit prepared earlier in the same workflow.
+The action works without inputs. npm package metadata stays in `package.json`;
+Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is
+needed. Optional `release-commit` connects publication to a marker commit prepared
+earlier in the same workflow.
 
 <a id="version"></a>
 
@@ -14,7 +21,9 @@ Select a release from [Releases](https://github.com/releaseway/npm-actions/relea
 and pin its full commit SHA. Replace `<npm-actions-sha>`, `<checkout-sha>` and
 `<upload-artifact-sha>` before saving workflow examples. See
 [reference selection](https://github.com/releaseway/actions/blob/main/docs/action-references.md)
-for the steps. This README describes its checkout; read the docs at the selected
+for the steps.
+
+This README describes its checkout; read the docs at the selected
 tag or commit to check compatibility with a published release.
 
 ## Requirements
@@ -28,9 +37,12 @@ Configure the following prerequisites for runs that need to publish new versions
 - every publishable package must declare repository metadata that resolves to the current GitHub repository;
 - caller-owned install/build steps must finish before npm-actions runs.
 
-The publication target is always `https://registry.npmjs.org/`. Other npm-compatible registries are outside the scope of npm-actions.
+The publication target is always `https://registry.npmjs.org/`. Other npm-compatible
+registries are outside the scope of npm-actions.
 
-npm-actions does not accept or fall back to a long-lived npm publish token. An optional read-only `NODE_AUTH_TOKEN` may be supplied when registry metadata requires authentication; it is isolated from the publication subprocess.
+npm-actions does not accept or fall back to a long-lived npm publish token. An optional
+read-only `NODE_AUTH_TOKEN` may be supplied when registry metadata requires
+authentication; it is isolated from the publication subprocess.
 
 ## Quick start
 
@@ -51,6 +63,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@<checkout-sha>
 
@@ -62,7 +75,8 @@ jobs:
       - run: echo '${{ steps.npm.outputs.packages }}'
 ```
 
-The action itself runs on GitHub's Node 24 JavaScript-action runtime, so the caller does not need to install Node.js just for npm-actions.
+The action itself runs on GitHub's Node 24 JavaScript-action runtime, so the caller does
+not need to install Node.js just for npm-actions.
 
 A successful `packages` output is a JSON array:
 
@@ -79,11 +93,16 @@ The stable states are:
 - `published`: a candidate's frozen final tarball is confirmed live with matching SHA-512. This also covers an identical concurrent publication.
 - `staged`: npm accepted a stage submission. The version is not yet confirmed public.
 
-Already-public results appear first, ordered by package name; candidate results follow their planned execution order. Output is written only after successful completion. When every version is public, the action completes without packing, provisioning a toolchain, resolving native Releases, or requiring publish OIDC authority.
+Already-public results appear first, ordered by package name; candidate results follow
+their planned execution order. Output is written only after successful completion.
+
+When every version is public, the action completes without packing, provisioning a
+toolchain, resolving native Releases, or requiring publish OIDC authority.
 
 ## What gets published
 
-`package.json` remains authoritative for npm metadata, including `name`, `version`, `bin`, `files`, `exports`, dependencies, and `publishConfig`.
+`package.json` remains authoritative for npm metadata, including `name`, `version`,
+`bin`, `files`, `exports`, dependencies, and `publishConfig`.
 
 npm-actions uses package-manager-native packing:
 
@@ -91,46 +110,90 @@ npm-actions uses package-manager-native packing:
 - pnpm project → the exact pnpm version from the root `packageManager`;
 - Yarn project → the exact Yarn version from the root `packageManager`.
 
-pnpm and Yarn projects must declare an exact `packageManager` version. This preserves package-manager-specific publication behavior such as `workspace:` dependency rewriting.
+pnpm and Yarn projects must declare an exact `packageManager` version. This preserves
+package-manager-specific publication behavior such as `workspace:` dependency rewriting.
 
 Packages with `private: true` are excluded.
 
 ## Monorepos
 
-npm-actions consumes the repository's existing workspace definition instead of adding another package glob system.
+npm-actions consumes the repository's existing workspace definition instead of adding
+another package glob system.
 
 It supports:
 
 - npm/Yarn workspace metadata from the root `package.json`;
 - pnpm workspace metadata from `pnpm-workspace.yaml`.
 
-The repository root is also considered a package. If it is not `private: true`, it must contain valid publishable package metadata.
+The repository root is also considered a package. If it is not `private: true`, it must
+contain valid publishable package metadata.
 
-Publication selection is registry-based rather than Git-diff-based. For every discovered publishable `name@version`, npm-actions asks the registry whether that immutable version already exists.
+Publication selection is registry-based rather than Git-diff-based. For every discovered
+publishable `name@version`, npm-actions asks the registry whether that immutable
+version already exists.
 
-Workspace publication planning uses candidates' final packed manifests and immutable snapshots of published registry manifests. Local source for an already-public package is never used to reconstruct its historical release.
+Workspace publication planning uses candidates' final packed manifests and immutable
+snapshots of published registry manifests. Local source for an already-public package is
+never used to reconstruct its historical release.
 
-The planner resolves npm aliases to their actual registry package names and SemVer ranges. A satisfying live version takes precedence over a planned candidate. When no live version satisfies a managed dependency, the selected candidate must satisfy its range.
+The planner resolves npm aliases to their actual registry package names and SemVer
+ranges. A satisfying live version takes precedence over a planned candidate. When no
+live version satisfies a managed dependency, the selected candidate must satisfy its
+range.
 
-`dependencies` and `optionalDependencies` create ordering edges when they need a candidate. Optional declarations override the same install name in `dependencies`. Peers receive range validation without ordering edges; development dependencies are excluded. Hard cycles without a live resolution fail before publication.
+`dependencies` and `optionalDependencies` create ordering edges when they need a
+candidate. Optional declarations override the same install name in `dependencies`.
+Peers receive range validation without ordering edges; development dependencies are
+excluded. Hard cycles without a live resolution fail before publication.
 
-A direct candidate's required internal dependencies must already be live or be direct candidates that become live first. A staged-only candidate cannot satisfy that requirement. Optional dependencies retain ordering but do not impose the required-dependency live gate. Existing external package availability and application behavior remain outside this managed-workspace check.
+A direct candidate's required internal dependencies must already be live or be direct
+candidates that become live first. A staged-only candidate cannot satisfy that
+requirement.
+
+Optional dependencies retain ordering but do not impose the required-dependency live
+gate. Existing external package availability and application behavior remain outside
+this managed-workspace check.
 
 ## Version selection and artifact verification
 
-Version selection asks whether an exact `name@version` is already public. It is independent of the current `latest` tag and needs no local tarball. Package metadata, version identity, and registry read errors are validated before a version can become a candidate. Public absence can still represent a version reserved by a pending stage.
+Version selection asks whether an exact `name@version` is already public. It is
+independent of the current `latest` tag and needs no local tarball. Package metadata,
+version identity, and registry read errors are validated before a version can become a
+candidate. Public absence can still represent a version reserved by a pending stage.
 
-Already-public registry versions are read-only. They are not repacked, republished, compared with current source, or checked against the current native Release commit. During lockstep tag-derived packing, the local manifest versions of all publishable workspace packages are temporarily materialized, including already-public dependencies, so workspace dependency resolution stays consistent after a partial failure. Original manifests are restored byte-for-byte. If restoration fails, other manifests are still restored and the error reports recovery copies outside the disposable run directory. The caller owns version bumps: changing source without changing an already-public version does not cause this action to detect or publish those changes. Updating the action runtime affects only newly published native package versions.
+Already-public registry versions are read-only. They are not repacked, republished,
+compared with current source, or checked against the current native Release commit.
 
-For every candidate, npm-actions freezes the final tarball's SHA-512, packed manifest, publication mode, tag and access options before the first mutation. It checks every prepared file before publication begins and checks the relevant file again before submitting it. Polling reuses the frozen digest rather than repacking or hashing the file repeatedly.
+During lockstep tag-derived packing, the local manifest versions of all publishable
+workspace packages are temporarily materialized, including already-public dependencies,
+so workspace dependency resolution stays consistent after a partial failure. Original
+manifests are restored byte-for-byte. If restoration fails, other manifests are still
+restored and the error reports recovery copies outside the disposable run directory.
 
-If a candidate becomes public while this run prepares or submits it, npm-actions accepts it only if the live `dist.integrity` contains the same valid SHA-512. Missing, weaker-only, malformed, or different integrity fails. This exact-artifact check applies to prepared candidates; it does not reinterpret initially public versions as historical build-reproduction claims.
+The caller owns version bumps: changing source without changing an already-public
+version does not cause this action to detect or publish those changes. Updating the
+action runtime affects only newly published native package versions.
 
-Dist-tags and package-level access for already-public versions are not repaired. For new publications, `publishConfig.tag` and `publishConfig.access` are honored. A prerelease, or a version below current `latest`, requires an explicit tag.
+For every candidate, npm-actions freezes the final tarball's SHA-512, packed manifest,
+publication mode, tag and access options before the first mutation. It checks every
+prepared file before publication begins and checks the relevant file again before
+submitting it. Polling reuses the frozen digest rather than repacking or hashing the
+file repeatedly.
+
+If a candidate becomes public while this run prepares or submits it, npm-actions accepts
+it only if the live `dist.integrity` contains the same valid SHA-512. Missing,
+weaker-only, malformed, or different integrity fails. This exact-artifact check applies
+to prepared candidates; it does not reinterpret initially public versions as historical
+build-reproduction claims.
+
+Dist-tags and package-level access for already-public versions are not repaired. For new
+publications, `publishConfig.tag` and `publishConfig.access` are honored. A prerelease,
+or a version below current `latest`, requires an explicit tag.
 
 ### Git-tag version provenance
 
-Repositories that keep template versions in source can derive the publication version from the immutable Git tag that resolves to the checked-out `GITHUB_SHA`:
+Repositories that keep template versions in source can derive the publication version
+from the immutable Git tag that resolves to the checked-out `GITHUB_SHA`:
 
 ```yaml
 schema: 1
@@ -144,17 +207,26 @@ publish:
   mode: direct
 ```
 
-With this policy, npm-actions reads the remote `origin` tag graph, requires exactly one matching SemVer tag on `GITHUB_SHA`, and uses the tag version for registry planning and packing. Package manifests are materialized only while the package manager packs candidates and are restored byte-for-byte afterward. This keeps the checked-out source identity unchanged while making tag provenance the version authority.
+With this policy, npm-actions reads the remote `origin` tag graph, requires exactly one
+matching SemVer tag on `GITHUB_SHA`, and uses the tag version for registry planning and
+packing. Package manifests are materialized only while the package manager packs
+candidates and are restored byte-for-byte afterward. This keeps the checked-out source
+identity unchanged while making tag provenance the version authority.
 
-When the resolved tag is a prerelease, optional `prerelease-tag` supplies the npm dist-tag without mutating package metadata. A packed `publishConfig.tag` may agree with that value but cannot conflict with it.
+When the resolved tag is a prerelease, optional `prerelease-tag` supplies the npm
+dist-tag without mutating package metadata. A packed `publishConfig.tag` may agree with
+that value but cannot conflict with it.
 
-Declare both channels in the repository publication policy to restart a version series without editing `package.json`:
+Declare both channels in the repository publication policy to restart a version series
+without editing `package.json`:
 
 ```yaml
 schema: 1
+
 version:
   source: git-tag
   prefix: v
+
 publish:
   mode: direct
   channels:
@@ -162,9 +234,20 @@ publish:
     prerelease: next
 ```
 
-An explicitly declared stable channel allows `1.2.0` to publish to `latest` even when its previous value is `11.0.4`. Prereleases use `next`; a prerelease channel cannot be `latest`. Omitted channels retain the existing prerelease and version-decrease checks. Per-package `publish.channels` overrides individual repository channels. A conflicting packed `publishConfig.tag` or legacy `version.prerelease-tag` fails before any publication. Tag-derived versions are materialized only for packing and original manifests are restored; callers do not need a version or channel rewrite step. Existing published versions retain registry-first skip behavior and are not retagged by a retry.
+An explicitly declared stable channel allows `1.2.0` to publish to `latest` even when
+its previous value is `11.0.4`. Prereleases use `next`; a prerelease channel cannot be
+`latest`. Omitted channels retain the existing prerelease and version-decrease checks.
+Per-package `publish.channels` overrides individual repository channels. A conflicting
+packed `publishConfig.tag` or legacy `version.prerelease-tag` fails before any
+publication.
 
-The policy applies one lockstep version to every publishable workspace package. Repositories with independently versioned packages should keep `package.json` versions authoritative instead.
+Tag-derived versions are materialized only for packing and original manifests are
+restored; callers do not need a version or channel rewrite step. Existing published
+versions retain registry-first skip behavior and are not retagged by a retry.
+
+The policy applies one lockstep version to every publishable workspace package.
+Repositories with independently versioned packages should keep `package.json` versions
+authoritative instead.
 
 ### Select one release tag
 
@@ -173,6 +256,7 @@ at the publication commit (for example `v1.2.0-rc.0` and `v1.2.0`). The action c
 the exact remote tag, configured prefix and final commit before using its version.
 An existing `release-commit` override still requires its normal marker validation.
 Omitting `release-tag` preserves automatic selection and rejects ambiguous tags.
+
 The optional policy file may omit `schema`; omission always means schema 1, even
 if future formats are introduced. Explicit numeric `schema: 1` remains supported.
 Null, strings, booleans and unsupported schema numbers are errors.
@@ -202,7 +286,9 @@ packages:
       mode: direct
 ```
 
-A Trusted Publisher connection always allows `npm stage publish`. A repository that opts into `direct` must also enable `Allow npm publish` for that Trusted Publisher in npm.
+A Trusted Publisher connection always allows `npm stage publish`. A repository that
+opts into `direct` must also enable `Allow npm publish` for that Trusted Publisher in
+npm.
 
 The config path is fixed:
 
@@ -212,23 +298,47 @@ The config path is fixed:
 
 There is no per-run publish-mode input.
 
-For preparation and npm publication in one workflow, pass `with: { release-commit: "${{ steps.release.outputs.commit }}" }` from `releaseway/actions/prepare` and configure `version.source: git-tag`. The checkout must remain at `GITHUB_SHA`. Releaseway verifies that the selected marker's sole parent is this workflow source and that both trees are identical, then resolves the version from a remote tag at the marker SHA. A different tree, unrelated commit, malformed marker, or ambiguous tag fails. Native companion releases must bind to the same marker SHA. Without this input, the existing exact-checkout-SHA policy is unchanged.
+For preparation and npm publication in one workflow, pass
+`with: { release-commit: "${{ steps.release.outputs.commit }}" }` from
+`releaseway/actions/prepare` and configure `version.source: git-tag`. The checkout must
+remain at `GITHUB_SHA`.
 
-`direct` submits the verified tarball through `npm publish`, then waits for npm's publish-time malware scan to expose the exact version in the live registry. A successful subprocess is not enough: npm-actions reports `published` only after the live `dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes with 10-second polling. A direct `Cannot publish over previously staged version` conflict triggers read-only live-integrity observation. The conflict itself is not considered acceptance; a matching live artifact is still required. No publication write is blindly retried.
+Releaseway verifies that the selected marker's sole parent is this workflow source and
+that both trees are identical, then resolves the version from a remote tag at the marker
+SHA. A different tree, unrelated commit, malformed marker, or ambiguous tag fails.
+Native companion releases must bind to the same marker SHA. Without this input, the
+existing exact-checkout-SHA policy is unchanged.
 
-`stage` submits the verified tarball through `npm stage publish`. Inspection, approval, and rejection of a pending staged version remain maintainer operations in npm's staged-publishing flow and require the applicable npm 2FA approval. npm-actions does not inspect, approve, reject, replace, or silently convert a conflicting pending stage.
+`direct` submits the verified tarball through `npm publish`, then waits for npm's
+publish-time malware scan to expose the exact version in the live registry. A successful
+subprocess is not enough: npm-actions reports `published` only after the live
+`dist.integrity` exactly matches the final local tarball. The default wait is 20 minutes
+with 10-second polling.
+
+A direct `Cannot publish over previously staged version` conflict triggers read-only
+live-integrity observation. The conflict itself is not considered acceptance; a matching
+live artifact is still required. No publication write is blindly retried.
+
+`stage` submits the verified tarball through `npm stage publish`. Inspection, approval,
+and rejection of a pending staged version remain maintainer operations in npm's
+staged-publishing flow and require the applicable npm 2FA approval. npm-actions does not
+inspect, approve, reject, replace, or silently convert a conflicting pending stage.
 
 ## Package bootstrap
 
 Brand-new npm packages are outside npm-actions.
 
-A maintainer must first create the package on npm and configure its Trusted Publisher for the GitHub workflow. After that bootstrap, npm-actions manages subsequent automated direct or staged releases.
+A maintainer must first create the package on npm and configure its Trusted Publisher
+for the GitHub workflow. After that bootstrap, npm-actions manages subsequent automated
+direct or staged releases.
 
-If a discovered publishable package does not exist in npm, the action fails before any package is published.
+If a discovered publishable package does not exist in npm, the action fails before any
+package is published.
 
 ## Native CLI distribution
 
-A package may publish a small npm launcher while keeping platform-native executables in the same repository's public immutable GitHub Release.
+A package may publish a small npm launcher while keeping platform-native executables in
+the same repository's public immutable GitHub Release.
 
 Native distribution is explicit configuration:
 
@@ -263,7 +373,8 @@ packages:
           executable: tool.exe
 ```
 
-A native package declares one launcher path in npm `bin`. Multiple command names may point to that same path:
+A native package declares one launcher path in npm `bin`. Multiple command names may
+point to that same path:
 
 ```json
 {
@@ -274,7 +385,25 @@ A native package declares one launcher path in npm `bin`. Multiple command names
 }
 ```
 
-All names share one generated launcher, runtime and native executable cache. Existing string and single-command `bin` declarations remain supported. Multiple launcher paths are rejected. For multiple commands, names start with a letter or number and contain only letters, numbers, `.`, `_`, `+`, and `-`; trailing dots, Windows device names and case-insensitive command/shim collisions (such as `tool` with `TOOL` or `tool.cmd`) are rejected. This adds command entry points without extra shell arguments or invocation-name-based multicall behavior. The package-manager-produced tarball must leave that packed bin target available for a generated thin Releaseway wrapper and must not occupy the Releaseway-owned `.releaseway/native.json` or `.releaseway/runtime.cjs` paths. The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses an ESM wrapper, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed package's `type` field. Both wrapper forms resolve their installed real path, load the same bundled CommonJS runtime, and pass that runtime the exact generated manifest path rather than searching parent directories.
+All names share one generated launcher, runtime and native executable cache. Existing
+string and single-command `bin` declarations remain supported. Multiple launcher paths
+are rejected.
+
+For multiple commands, names start with a letter or number and contain only letters,
+numbers, `.`, `_`, `+`, and `-`; trailing dots, Windows device names and
+case-insensitive command/shim collisions (such as `tool` with `TOOL` or `tool.cmd`) are
+rejected. This adds command entry points without extra shell arguments or
+invocation-name-based multicall behavior.
+
+The package-manager-produced tarball must leave that packed bin target available for a
+generated thin Releaseway wrapper and must not occupy the Releaseway-owned
+`.releaseway/native.json` or `.releaseway/runtime.cjs` paths.
+
+The bin path must be extensionless or end in `.js`, `.mjs`, or `.cjs`. `.mjs` uses an
+ESM wrapper, `.cjs` uses CommonJS, and `.js` or extensionless paths follow the packed
+package's `type` field. Both wrapper forms resolve their installed real path, load the
+same bundled CommonJS runtime, and pass that runtime the exact generated manifest path
+rather than searching parent directories.
 
 Supported runtime targets are:
 
@@ -289,7 +418,10 @@ win32-arm64
 win32-x64
 ```
 
-Supported assets are `.tar.gz` and `.zip`. Asset names may contain the same `{version}` template as release tags. Multiple runtime targets may intentionally reuse one asset, for example when one static Linux archive is valid on both glibc and musl. Each target still declares its exact archive-relative executable path.
+Supported assets are `.tar.gz` and `.zip`. Asset names may contain the same `{version}`
+template as release tags. Multiple runtime targets may intentionally reuse one asset,
+for example when one static Linux archive is valid on both glibc and musl. Each target
+still declares its exact archive-relative executable path.
 
 For each new native publication candidate, npm-actions verifies that:
 
@@ -300,15 +432,20 @@ For each new native publication candidate, npm-actions verifies that:
 - every configured asset exists exactly once and is uploaded;
 - every configured asset exposes a valid GitHub SHA-256 digest.
 
-The digest is embedded into the generated npm runtime metadata. Users do not copy digests into `packages.yml`.
+The digest is embedded into the generated npm runtime metadata. Users do not copy
+digests into `packages.yml`.
 
 Private GitHub Release-backed native assets are not supported.
 
 ## Native runtime behavior
 
-The GitHub Action itself runs on Node 24. The generated installed native runtime is bundled for Node 22 and newer so a package may expose an `engines.node >=22` consumer contract independently of the Action runtime.
+The GitHub Action itself runs on Node 24. The generated installed native runtime is
+bundled for Node 22 and newer so a package may expose an `engines.node >=22` consumer
+contract independently of the Action runtime.
 
-Installing the npm package does not download a native binary. npm-actions does not add a `postinstall` downloader, so installation remains compatible with `npm install --ignore-scripts`.
+Installing the npm package does not download a native binary. npm-actions does not add a
+`postinstall` downloader, so installation remains compatible with
+`npm install --ignore-scripts`.
 
 On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, which:
 
@@ -321,7 +458,8 @@ On first CLI execution, the generated wrapper loads `.releaseway/runtime.cjs`, w
 7. atomically promotes the verified executable into the cache;
 8. executes it with the original arguments and inherited stdio.
 
-The launcher rejects traversal paths, absolute paths, symbolic links, hard links, device entries, unsupported archive types, digest mismatches, and undeclared runtime targets.
+The launcher rejects traversal paths, absolute paths, symbolic links, hard links, device
+entries, unsupported archive types, digest mismatches, and undeclared runtime targets.
 
 Native preparation has adjustable time and size budgets. Asset downloads stream into
 a temporary file and verify SHA-256 before cache promotion. Cache validation hashes
@@ -342,7 +480,11 @@ the Action. These budgets apply to preparation; the launched CLI keeps its norma
 execution lifetime and argument/exit-status behavior. Failed preparation removes
 temporary cache entries and releases their locks so a later invocation can recover.
 
-Cache locations follow the platform and use a versioned content-addressed layout. Set `RELEASEWAY_NATIVE_CACHE_DIR` to override the cache root globally. A package may also declare `distribution.cache-env`; when that environment variable is non-empty, it takes precedence over the generic override. This lets an existing CLI preserve a product-specific cache-root contract while using the Releaseway runtime.
+Cache locations follow the platform and use a versioned content-addressed layout. Set
+`RELEASEWAY_NATIVE_CACHE_DIR` to override the cache root globally. A package may also
+declare `distribution.cache-env`; when that environment variable is non-empty, it takes
+precedence over the generic override. This lets an existing CLI preserve a
+product-specific cache-root contract while using the Releaseway runtime.
 
 
 ```text
@@ -354,7 +496,13 @@ macOS   ~/Library/Caches/releaseway/npm-actions/native/v2/sha256/<archive-digest
 Windows %LOCALAPPDATA%\releaseway\npm-actions\native\v2\sha256\<archive-digest>\
 ```
 
-Each archive digest directory stores one verified `archive.bin` plus independent executable entries under `executables/<sha256(normalized executable path)>/`. Packages that select different executable paths from the same archive therefore share one archive download without overwriting each other's executable cache. Corrupt executable content rebuilds only that executable entry; corrupt archive content refreshes only the archive files and leaves other verified executable entries intact.
+Each archive digest directory stores one verified `archive.bin` plus independent
+executable entries under `executables/<sha256(normalized executable path)>/`. Packages
+that select different executable paths from the same archive therefore share one archive
+download without overwriting each other's executable cache.
+
+Corrupt executable content rebuilds only that executable entry; corrupt archive content
+refreshes only the archive files and leaves other verified executable entries intact.
 
 ## Read-only npm authentication
 
@@ -369,7 +517,9 @@ When a workflow needs authenticated read access, provide a read-only token only 
     NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_TOKEN }}
 ```
 
-npm-actions removes token-bearing environment and npm authentication configuration before invoking the publish CLI. Publication still succeeds only through the GitHub Actions OIDC exchange with npm Trusted Publishing.
+npm-actions removes token-bearing environment and npm authentication configuration
+before invoking the publish CLI. Publication still succeeds only through the GitHub
+Actions OIDC exchange with npm Trusted Publishing.
 
 ## Retry behavior
 
@@ -379,6 +529,7 @@ The `packages` output remains available after a successful release. The `report-
 output points to a runner-local JSON report on success or failure; the same report is
 appended to the job summary. It records the source commit, prepared package versions,
 publish modes, candidate SHA-512 integrities, completed results and failure stage.
+
 Failures before plan preparation have no completed plan. A partial publication preserves completed
 package results and identifies the failing package. Raw errors, subprocess output,
 environment values and authentication credentials are excluded from the report.
@@ -389,6 +540,7 @@ the runner job. To retain it after that job, upload it with an `always()` step:
 ```yaml
 - id: npm
   uses: releaseway/npm-actions@<npm-actions-sha>
+
 - uses: actions/upload-artifact@<upload-artifact-sha>
   if: always() && steps.npm.outputs.report-path != ''
   with:
@@ -406,25 +558,41 @@ legacy `report-path`. Per-package verification distinguishes `exists` for an
 already-public version, `sha512` for verified published bytes, and `stage-accepted`
 for an accepted stage submission. Stage acceptance is not public availability.
 Channel verification remains `not-checked`; this action does not repair dist-tags.
+
 Partial results and stable error/recovery metadata survive controlled failures
 when filesystem/output access work. Raw errors, tokens and subprocess output are
 excluded. Upload the file explicitly when passing it between jobs.
 
 ### Rerunning a workflow
 
-The complete workspace is classified before toolchain provisioning or packing. All candidate preflight work finishes before the first npm mutation: final artifact construction, native provenance, dependency availability, publication options, and OIDC checks.
+The complete workspace is classified before toolchain provisioning or packing. All
+candidate preflight work finishes before the first npm mutation: final artifact
+construction, native provenance, dependency availability, publication options, and OIDC
+checks.
 
-The action uses one frozen release plan per execution. Before direct publication it rechecks the selected required internal versions are still live. A concurrent publication or ambiguous subprocess failure can be resolved by a matching live digest; it never justifies replacing a version or blindly resubmitting a write.
+The action uses one frozen release plan per execution. Before direct publication it
+rechecks the selected required internal versions are still live. A concurrent
+publication or ambiguous subprocess failure can be resolved by a matching live digest;
+it never justifies replacing a version or blindly resubmitting a write.
 
-A network or registry failure can still interrupt a multi-package release. The error identifies completed candidates. A whole-workflow rerun creates a new plan: versions that are now public become `already-published`, while remaining candidates are prepared with the caller's current source and toolchain. This is version-level rerun behavior, not verification of a previous run's local bytes.
+A network or registry failure can still interrupt a multi-package release. The error
+identifies completed candidates. A whole-workflow rerun creates a new plan: versions
+that are now public become `already-published`, while remaining candidates are prepared
+with the caller's current source and toolchain. This is version-level rerun behavior,
+not verification of a previous run's local bytes.
 
-A pending staged-version conflict that cannot be resolved through a matching live artifact fails. Pending-stage inspection, approval and rejection remain maintainer operations. Registry reads have a 30-second request timeout; direct live verification uses a 20-minute overall deadline with 10-second polling.
+A pending staged-version conflict that cannot be resolved through a matching live
+artifact fails. Pending-stage inspection, approval and rejection remain maintainer
+operations. Registry reads have a 30-second request timeout; direct live verification
+uses a 20-minute overall deadline with 10-second polling.
 
 ## Scope
 
 npm-actions owns npm publication automation after package bootstrap.
 
-It does not choose versions, bump versions, generate changelogs, decide release triggers, perform product builds, create GitHub Release assets, approve npm staged releases, or publish to non-npmjs registries.
+It does not choose versions, bump versions, generate changelogs, decide release
+triggers, perform product builds, create GitHub Release assets, approve npm staged
+releases, or publish to non-npmjs registries.
 
 For the source-tag and release-tag flow, see the
 [same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md).

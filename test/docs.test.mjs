@@ -65,7 +65,7 @@ test("README native target list exactly matches runtime support", async () => {
 });
 
 test("README keeps current security and scope boundaries explicit", async () => {
-  const source = await readFile(README, "utf8");
+  const source = (await readFile(README, "utf8")).replace(/\s+/g, " ");
 
   for (const required of [
     "https://registry.npmjs.org/",
@@ -100,7 +100,7 @@ test("documentation describes one registry-first contract without historical rep
     assert.doesNotMatch(text, /state: \"existing\"|\"state\":\"existing\"/);
     assert.doesNotMatch(text, /Exact existing-version reconciliation/);
   }
-  const readme = await readFile(README, "utf8");
+  const readme = (await readFile(README, "utf8")).replace(/\s+/g, " ");
   assert.match(readme, /without packing, provisioning a toolchain/);
   assert.match(readme, /caller owns version bumps/);
   assert.match(readme, /identical concurrent publication/);
