@@ -419,6 +419,13 @@ executes Node 22/24/26 consumers. See the
 [candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
 for evidence retention, read permissions and retries.
 
+The unreleased repository release workflow additionally preserves its approval in
+an immutable `releaseway-evidence.json` asset. This applies to npm-actions automation
+releases, separate from a product's npm publication. See
+[archive authentication, offline replay and recovery](https://github.com/releaseway/actions/blob/main/docs/release-evidence.md).
+The existing v0.7.1 approval is already preserved as an immutable evidence sidecar;
+its original stable tag and consumer pin are unchanged.
+
 Mutation checks inspect the whole worktree after every package pack, including
 ignored build outputs, symlinks and modes. Files larger than 1MiB are hashed as a
 stream. Compare with a saved baseline on Node 24 using
