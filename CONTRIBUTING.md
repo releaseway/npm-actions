@@ -62,6 +62,11 @@ PRs use representative native combinations; full release CI retains all supporte
 Node/platform pairs. See the archive guide for bootstrap, revocation and forced
 full verification. An older archive alone cannot enable the new reuse policy.
 
+Read the publication summary to distinguish the reused approval from this candidate:
+`original SHA` and `original verification` identify the full campaign, while
+`current CI` identifies this candidate's checks. `verification` reports whether the
+release used a fresh full approval or an equivalent approval.
+
 ## Profile source-state checks
 
 Mutation checks inspect the whole worktree after every pack, including ignored
