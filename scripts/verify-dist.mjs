@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
@@ -19,10 +19,11 @@ try {
     process.exit(result.status ?? 1);
   }
 
-  for (const filename of [
-    "main.js",
-    "native-runtime.cjs",
-  ]) {
+  const files = ["main.js", "native-runtime.cjs"];
+  if (JSON.stringify((await readdir(temp)).sort()) !== JSON.stringify([...files].sort())) {
+    throw new Error("Build output inventory changed; include every shipped bundle in verification");
+  }
+  for (const filename of files) {
     const [expected, actual] = await Promise.all([
       readFile(resolve("dist", filename)),
       readFile(join(temp, filename)),

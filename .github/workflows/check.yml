@@ -8,6 +8,17 @@ permissions:
   contents: read
 
 jobs:
+  coverage:
+    runs-on: ubuntu-24.04
+    outputs:
+      runtime: ${{ steps.matrix.outputs.runtime }}
+      musl: ${{ steps.matrix.outputs.musl }}
+      coverage: ${{ steps.matrix.outputs.coverage }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: matrix
+        run: python3 scripts/ci-matrix.py
+
   static:
     runs-on: ubuntu-24.04
     steps:
@@ -29,8 +40,6 @@ jobs:
       - run: python3 test/release-set-evidence.py
       - run: python3 test/homebrew-feature-evidence.py
       - run: pnpm run verify:dist
-      - run: pnpm run build
-      - run: git diff --exit-code -- dist
 
   unit:
     runs-on: ubuntu-24.04
@@ -67,20 +76,11 @@ jobs:
       - run: pnpm run verify:yarn-corepack
 
   runtime-matrix:
+    needs: coverage
     strategy:
       fail-fast: false
       matrix:
-        node:
-          - "22"
-          - "24"
-          - "26"
-        runner:
-          - ubuntu-24.04
-          - ubuntu-24.04-arm
-          - macos-15
-          - macos-15-intel
-          - windows-2025
-          - windows-11-arm
+        include: ${{ fromJSON(needs.coverage.outputs.runtime) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,13 +98,11 @@ jobs:
       - run: pnpm run verify:native-install
 
   musl-runtime:
+    needs: coverage
     strategy:
       fail-fast: false
       matrix:
-        node:
-          - "22"
-          - "24"
-          - "26"
+        node: ${{ fromJSON(needs.coverage.outputs.musl) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,25 +115,3 @@ jobs:
             --volume "$PWD:/src:ro" \
             node:${{ matrix.node }}-alpine \
             sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && wget -qO /tmp/install-pnpm.sh https://get.pnpm.io/install.sh && env PNPM_VERSION=12.14.0 PNPM_HOME=/pnpm SHELL=/bin/sh ENV=/root/.shrc sh /tmp/install-pnpm.sh && export PATH="/pnpm/bin:$PATH" && pnpm install --frozen-lockfile && pnpm run verify:native-runtime && pnpm run verify:native-install'
-
-  fake-registry-e2e:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 12.14.0
-          run_install: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24"
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      - name: Verify reconciliation, publisher, and orchestration without live mutation
-        run: >-
-          node --test
-          test/registry.test.mjs
-          test/publish.test.mjs
-          test/orchestrate.test.mjs

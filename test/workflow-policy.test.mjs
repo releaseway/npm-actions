@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parse } from "yaml";
+import { execFileSync } from "node:child_process";
 
 const CHECK = resolve(".github/workflows/check.yml");
 const RELEASE = resolve(".github/workflows/release.yml");
@@ -20,20 +21,8 @@ test("check workflow contains the required validation gates", async () => {
     assert.ok(workflow.jobs[role], role);
   }
 
-  assert.deepEqual(
-    workflow.jobs["runtime-matrix"].strategy.matrix.runner,
-    [
-      "ubuntu-24.04",
-      "ubuntu-24.04-arm",
-      "macos-15",
-      "macos-15-intel",
-      "windows-2025",
-      "windows-11-arm",
-    ],
-  );
-
   const runtimeMatrix = JSON.stringify(workflow.jobs["runtime-matrix"]);
-  assert.deepEqual(workflow.jobs["runtime-matrix"].strategy.matrix.node, ["22", "24", "26"]);
+  assert.match(workflow.jobs["runtime-matrix"].strategy.matrix.include, /needs\.coverage\.outputs\.runtime/);
   assert.ok(workflow.jobs["runtime-matrix"].steps.some((step) => step.with?.["node-version"] === "${{ matrix.node }}"));
   assert.match(runtimeMatrix, /verify:native-runtime/);
   assert.match(runtimeMatrix, /verify:native-install/);
@@ -92,11 +81,24 @@ test("musl gate certifies installed native runtime on Node 22, 24 and 26", async
   const job = workflow.jobs["musl-runtime"];
   const serialized = JSON.stringify(job);
 
-  assert.deepEqual(job.strategy.matrix.node, ["22", "24", "26"]);
+  assert.match(job.strategy.matrix.node, /needs\.coverage\.outputs\.musl/);
   assert.match(serialized, /node:\$\{\{ matrix\.node \}\}-alpine/);
   assert.match(serialized, /verify:native-runtime/);
   assert.match(serialized, /verify:native-install/);
   assert.doesNotMatch(serialized, /npm publish|npm stage publish/);
+});
+
+test("smoke covers each platform and Node; release preserves every supported pair", () => {
+  const script = "import runpy,json; m=runpy.run_path('scripts/ci-matrix.py'); print(json.dumps([m['matrices'](False),m['matrices'](True)]))";
+  const [smoke, full] = JSON.parse(execFileSync("python3", ["-c", script], { encoding: "utf8" }));
+  assert.equal(smoke[0].length + smoke[1].length, 9);
+  assert.equal(full[0].length + full[1].length, 21);
+  assert.equal(new Set(smoke[0].map((pair) => pair.runner)).size, 6);
+  for (const node of ["22", "24", "26"]) {
+    assert.equal(full[0].filter((pair) => pair.node === node).length, 6);
+    assert.ok(full[1].includes(node));
+    assert.ok(smoke[0].some((pair) => pair.node === node));
+  }
 });
 
 test("release workflow certifies the tagged source before immutable GitHub release", async () => {
