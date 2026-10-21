@@ -25,6 +25,7 @@ jobs:
       - run: pnpm run verify:versions
       - run: pnpm run typecheck
       - run: python3 test/release-evidence.py
+      - run: python3 test/evidence-bundle.py
       - run: pnpm run verify:dist
       - run: pnpm run build
       - run: git diff --exit-code -- dist
