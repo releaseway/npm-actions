@@ -42,16 +42,13 @@ test("check workflow contains the required validation gates", async () => {
 
 test("all repository workflow action dependencies use immutable full SHAs", async () => {
   for (const path of [CHECK, RELEASE]) {
-    const source = await workflowSource(path);
-    const uses = [
-      ...source.matchAll(
-        /^\s*- uses:\s*([^\s#]+)(?:\s+#\s*(.+))?$/gm,
-      ),
-    ];
+    const workflow = parse(await workflowSource(path));
+    const uses = Object.values(workflow.jobs).flatMap((job) =>
+      [job.uses, ...(job.steps ?? []).map((step) => step.uses)]).filter(Boolean);
 
     assert.ok(uses.length > 0, path);
-    for (const match of uses) {
-      const reference = match[1];
+    for (const reference of uses) {
+      if (reference.startsWith("./")) continue;
       assert.match(
         reference,
         /^[^@\s]+@[0-9a-f]{40}$/,

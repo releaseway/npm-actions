@@ -9,8 +9,16 @@ on:
         type: string
       acceptance-runs:
         description: Successful exact-candidate fixture run IDs, comma-separated
-        required: true
+        required: false
         type: string
+      force-full:
+        description: Require fresh exact-candidate public acceptance.
+        type: boolean
+        default: false
+      baseline-tag:
+        description: Optional immutable stable full baseline; defaults to the latest release.
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -44,9 +52,13 @@ jobs:
           CANDIDATE: ${{ steps.release.outputs.target }}
           RELEASE_TAG: ${{ inputs.tag }}
           ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+          FORCE_FULL: ${{ inputs.force-full }}
+          BASELINE_TAG: ${{ inputs.baseline-tag }}
         run: |
           set -euo pipefail
           extra=()
+          if [ "$FORCE_FULL" = true ]; then extra+=(--force-full); fi
+          if [ -n "$BASELINE_TAG" ]; then extra+=(--baseline-tag "$BASELINE_TAG"); fi
           python3 scripts/prepare-release-evidence.py \
             --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
             --candidate "$CANDIDATE" --acceptance-runs "$ACCEPTANCE_RUNS" \
@@ -77,67 +89,6 @@ jobs:
             git cat-file -e "$TARGET:$path"
           done
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        if: steps.evidence.outputs.state == 'prepared'
-        with:
-          version: 12.14.0
-          run_install: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.evidence.outputs.state == 'prepared'
-        with:
-          node-version: "24"
-          cache: pnpm
-          cache-dependency-path: release-source/pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:versions
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run typecheck
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:dist
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm test
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:toolchain
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:pack
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:yarn-corepack
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:native-runtime
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-      - run: pnpm run verify:native-install
-        if: steps.evidence.outputs.state == 'prepared'
-        working-directory: release-source
-
-      - name: Verify installed native runtime on Node 22, 24 and 26 Alpine
-        working-directory: release-source
-        if: steps.evidence.outputs.state == 'prepared'
-        shell: bash
-        run: |
-          set -euo pipefail
-          for node_version in 22 24 26; do
-            docker run --rm \
-              --volume "$PWD:/src:ro" \
-              "node:${node_version}-alpine" \
-              sh -lc 'mkdir /work && cp -a /src/. /work/ && cd /work && wget -qO /tmp/install-pnpm.sh https://get.pnpm.io/install.sh && env PNPM_VERSION=12.14.0 PNPM_HOME=/pnpm SHELL=/bin/sh ENV=/root/.shrc sh /tmp/install-pnpm.sh && export PATH="/pnpm/bin:$PATH" && pnpm install --frozen-lockfile && pnpm run verify:native-runtime && pnpm run verify:native-install'
-          done
-
-      - name: Verify tagged source remained clean
-        working-directory: release-source
-        if: steps.evidence.outputs.state == 'prepared'
-        run: git diff --exit-code
-
       - name: Publish immutable action release
         if: steps.evidence.outputs.state == 'prepared'
         id: publish
@@ -162,6 +113,10 @@ jobs:
           {
             echo "### npm-actions ${{ steps.release.outputs.tag }}"
             echo ""
+            echo "- verification: ${{ steps.evidence.outputs.verification }}"
+            echo "- original SHA: ${{ steps.evidence.outputs.original-sha }}"
+            echo "- original verification: ${{ steps.evidence.outputs.verified-at }}"
+            echo "- current CI: ${{ steps.evidence.outputs.ci-run }}"
             echo "- state: ${{ steps.publish.outputs.state || steps.evidence.outputs.state }}"
             echo "- release: ${{ steps.publish.outputs.release-url || steps.evidence.outputs.release-url }}"
           } >> "$GITHUB_STEP_SUMMARY"

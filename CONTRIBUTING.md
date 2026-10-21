@@ -15,6 +15,10 @@ corepack pnpm run verify:versions
 corepack pnpm run typecheck
 corepack pnpm test
 corepack pnpm run verify:dist
+python3 test/release-inputs.py
+python3 test/release-reuse.py
+python3 test/ci-contract.py
+python3 test/release-preparation.py
 ```
 
 `verify:versions` checks dependency pins, lockfile consistency, SHA-512 integrity
@@ -37,7 +41,7 @@ checks downloaded bytes against the pinned SHA-512 digests.
 
 ## Approve an automation release
 
-Repository releases require exact-SHA push CI and two fresh `acceptance-runs`:
+Full automation releases require exact-SHA branch CI and two fresh `acceptance-runs`:
 staged submission and direct native publication. At least one exercises tag-derived
 prereleases. Direct acceptance compares planned SHA-512 with installed bytes and
 runs the required Node consumer matrix. See the
@@ -49,6 +53,14 @@ The repository release workflow preserves approval in an immutable
 release, separate from a product's npm publication. See
 [archive authentication, offline replay and recovery](https://github.com/releaseway/actions/blob/main/docs/release-evidence.md).
 Historical approvals retain their original identities and policy.
+
+Documentation-only releases can omit acceptance IDs when the verifier proves that
+all execution and verification inputs match an authenticated full approval.
+Current document checks, tag binding and asset authentication still run. Tags reuse
+branch CI, and publication consumes its result without repeating the suite.
+PRs use representative native combinations; full release CI retains all supported
+Node/platform pairs. See the archive guide for bootstrap, revocation and forced
+full verification. An older archive alone cannot enable the new reuse policy.
 
 ## Profile source-state checks
 
