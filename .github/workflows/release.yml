@@ -37,13 +37,32 @@ jobs:
           mode: resolve
           tag: ${{ inputs.tag }}
 
+      - name: Prepare durable release approval
+        id: evidence
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
+        run: |
+          set -euo pipefail
+          extra=()
+          python3 scripts/prepare-release-evidence.py \
+            --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --candidate "$CANDIDATE" --acceptance-runs "$ACCEPTANCE_RUNS" \
+            "${extra[@]}"
+
       - name: Checkout verified release source
+        if: steps.evidence.outputs.state == 'prepared'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.release.outputs.commit }}
+          path: release-source
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Verify required release files
+        if: steps.evidence.outputs.state == 'prepared'
         env:
           TARGET: ${{ steps.release.outputs.commit }}
         run: |
@@ -59,26 +78,51 @@ jobs:
           done
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.evidence.outputs.state == 'prepared'
         with:
           version: 12.14.0
           run_install: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.evidence.outputs.state == 'prepared'
         with:
           node-version: "24"
           cache: pnpm
+          cache-dependency-path: release-source/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:versions
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run typecheck
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:dist
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm test
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:toolchain
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:pack
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:yarn-corepack
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:native-runtime
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
       - run: pnpm run verify:native-install
+        if: steps.evidence.outputs.state == 'prepared'
+        working-directory: release-source
 
       - name: Verify installed native runtime on Node 22, 24 and 26 Alpine
+        working-directory: release-source
+        if: steps.evidence.outputs.state == 'prepared'
         shell: bash
         run: |
           set -euo pipefail
@@ -90,20 +134,12 @@ jobs:
           done
 
       - name: Verify tagged source remained clean
+        working-directory: release-source
+        if: steps.evidence.outputs.state == 'prepared'
         run: git diff --exit-code
 
-      - name: Verify exact-candidate CI and acceptance evidence
-        env:
-          GH_TOKEN: ${{ secrets.RELEASEWAY_EVIDENCE_TOKEN || github.token }}
-          CANDIDATE: ${{ steps.release.outputs.target }}
-          ACCEPTANCE_RUNS: ${{ inputs.acceptance-runs }}
-        run: |
-          python3 scripts/verify-release-evidence.py \
-            --repository "$GITHUB_REPOSITORY" \
-            --candidate "$CANDIDATE" \
-            --acceptance-runs "$ACCEPTANCE_RUNS"
-
       - name: Publish immutable action release
+        if: steps.evidence.outputs.state == 'prepared'
         id: publish
         uses: releaseway/actions@2abdf26c6f01c1e49da4ba5d85253847fe721fd9 # v0.6.3
         with:
@@ -111,6 +147,14 @@ jobs:
           commit: ${{ steps.release.outputs.target }}
           title: ${{ steps.release.outputs.tag }}
           latest: "true"
+          assets: releaseway-evidence.json
+
+      - name: Authenticate published approval asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          CANDIDATE: ${{ steps.release.outputs.target }}
+        run: python3 scripts/verify-archived-release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --candidate "$CANDIDATE"
 
       - name: Summary
         shell: bash
@@ -118,6 +162,6 @@ jobs:
           {
             echo "### npm-actions ${{ steps.release.outputs.tag }}"
             echo ""
-            echo "- state: ${{ steps.publish.outputs.state }}"
-            echo "- release: ${{ steps.publish.outputs.release-url }}"
+            echo "- state: ${{ steps.publish.outputs.state || steps.evidence.outputs.state }}"
+            echo "- release: ${{ steps.publish.outputs.release-url || steps.evidence.outputs.release-url }}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -162,7 +162,8 @@ test("release workflow certifies the tagged source before immutable GitHub relea
     "for node_version in 22 24 26",
     "pnpm run verify:native-install",
     "git diff --exit-code",
-    "python3 scripts/verify-release-evidence.py",
+    "python3 scripts/prepare-release-evidence.py",
+    "python3 scripts/verify-archived-release.py",
   ]) {
     assert.ok(source.includes(command), command);
   }
@@ -174,5 +175,8 @@ test("release workflow certifies the tagged source before immutable GitHub relea
   assert.match(source, /tag: \$\{\{ steps\.release\.outputs\.tag \}\}/);
   assert.match(source, /commit: \$\{\{ steps\.release\.outputs\.target \}\}/);
   assert.match(source, /latest: "true"/);
-  assert.ok(source.indexOf("python3 scripts/verify-release-evidence.py") < source.indexOf("name: Publish immutable"));
+  assert.ok(source.indexOf("python3 scripts/prepare-release-evidence.py") < source.indexOf("name: Publish immutable"));
+  assert.equal(workflow.jobs.release.steps.find((step) => step.id === "publish").with.assets, "releaseway-evidence.json");
+  assert.match(workflow.jobs.release.steps.find((step) => step.id === "publish").if, /steps.evidence.outputs.state == 'prepared'/);
+  assert.equal(workflow.jobs.release.steps.find((step) => step.name === "Checkout verified release source").with.path, "release-source");
 });
