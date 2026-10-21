@@ -28,6 +28,7 @@ jobs:
       - name: Shadow input classification (not an approval)
         run: python3 scripts/release-inputs.py --baseline "$(git rev-parse HEAD^ 2>/dev/null || true)"
       - run: python3 test/release-inputs.py
+      - run: python3 test/release-reuse.py
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12.14.0
