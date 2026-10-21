@@ -6,10 +6,16 @@ Publish unpublished npm versions from GitHub Actions with registry-first plannin
 
 The action works without inputs. npm package metadata stays in `package.json`; Releaseway-only policy lives in `.github/npm/packages.yml` when additional policy is needed. Optional `release-commit` connects publication to a marker commit prepared earlier in the same workflow.
 
-## Version
+<a id="version"></a>
 
-[v0.7.1](https://github.com/releaseway/npm-actions/releases/tag/v0.7.1) uses commit
-`b9b00e1a5e5d4e055d34e4daa663909e4d65e21c`. Pin the action to this full SHA.
+## Choose a release
+
+Select a release from [Releases](https://github.com/releaseway/npm-actions/releases)
+and pin its full commit SHA. Replace `<npm-actions-sha>`, `<checkout-sha>` and
+`<upload-artifact-sha>` before saving workflow examples. See
+[reference selection](https://github.com/releaseway/actions/blob/main/docs/action-references.md)
+for the steps. This README describes its checkout; read the docs at the selected
+tag or commit to check compatibility with a published release.
 
 ## Requirements
 
@@ -46,12 +52,12 @@ jobs:
   publish:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@<checkout-full-commit-sha> # vX.Y.Z
+      - uses: actions/checkout@<checkout-sha>
 
       # Run your install/build steps here when the package needs them.
 
       - id: npm
-        uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
+        uses: releaseway/npm-actions@<npm-actions-sha>
 
       - run: echo '${{ steps.npm.outputs.packages }}'
 ```
@@ -159,6 +165,17 @@ publish:
 An explicitly declared stable channel allows `1.2.0` to publish to `latest` even when its previous value is `11.0.4`. Prereleases use `next`; a prerelease channel cannot be `latest`. Omitted channels retain the existing prerelease and version-decrease checks. Per-package `publish.channels` overrides individual repository channels. A conflicting packed `publishConfig.tag` or legacy `version.prerelease-tag` fails before any publication. Tag-derived versions are materialized only for packing and original manifests are restored; callers do not need a version or channel rewrite step. Existing published versions retain registry-first skip behavior and are not retagged by a retry.
 
 The policy applies one lockstep version to every publishable workspace package. Repositories with independently versioned packages should keep `package.json` versions authoritative instead.
+
+### Select one release tag
+
+With `version.source: git-tag`, pass `release-tag` when multiple SemVer tags point
+at the publication commit (for example `v1.2.0-rc.0` and `v1.2.0`). The action checks
+the exact remote tag, configured prefix and final commit before using its version.
+An existing `release-commit` override still requires its normal marker validation.
+Omitting `release-tag` preserves automatic selection and rejects ambiguous tags.
+The optional policy file may omit `schema`; omission always means schema 1, even
+if future formats are introduced. Explicit numeric `schema: 1` remains supported.
+Null, strings, booleans and unsupported schema numbers are errors.
 
 ## Direct and staged publishing
 
@@ -347,7 +364,7 @@ When a workflow needs authenticated read access, provide a read-only token only 
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
+  uses: releaseway/npm-actions@<npm-actions-sha>
   env:
     NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_TOKEN }}
 ```
@@ -371,8 +388,8 @@ the runner job. To retain it after that job, upload it with an `always()` step:
 
 ```yaml
 - id: npm
-  uses: releaseway/npm-actions@b9b00e1a5e5d4e055d34e4daa663909e4d65e21c # v0.7.1
-- uses: actions/upload-artifact@<full-commit-sha> # vX.Y.Z
+  uses: releaseway/npm-actions@<npm-actions-sha>
+- uses: actions/upload-artifact@<upload-artifact-sha>
   if: always() && steps.npm.outputs.report-path != ''
   with:
     name: npm-release-report
@@ -381,72 +398,6 @@ the runner job. To retain it after that job, upload it with an `always()` step:
 
 The report describes what happened; it does not authorize retrying a publication or
 approving a staged version.
-
-### Rerunning a workflow
-
-The complete workspace is classified before toolchain provisioning or packing. All candidate preflight work finishes before the first npm mutation: final artifact construction, native provenance, dependency availability, publication options, and OIDC checks.
-
-The action uses one frozen release plan per execution. Before direct publication it rechecks the selected required internal versions are still live. A concurrent publication or ambiguous subprocess failure can be resolved by a matching live digest; it never justifies replacing a version or blindly resubmitting a write.
-
-A network or registry failure can still interrupt a multi-package release. The error identifies completed candidates. A whole-workflow rerun creates a new plan: versions that are now public become `already-published`, while remaining candidates are prepared with the caller's current source and toolchain. This is version-level rerun behavior, not verification of a previous run's local bytes.
-
-A pending staged-version conflict that cannot be resolved through a matching live artifact fails. Pending-stage inspection, approval and rejection remain maintainer operations. Registry reads have a 30-second request timeout; direct live verification uses a 20-minute overall deadline with 10-second polling.
-
-## Repository validation
-
-Development and CI use pnpm 12.14.0, pinned in `package.json`, with
-`pnpm install --frozen-lockfile`. npm, pnpm, and Yarn remain supported for caller
-packages; publication uses the isolated npm Trusted Publishing toolchain.
-
-`pnpm run verify:versions` checks exact dependency pins, lockfile consistency,
-SHA-512 integrity format, toolchain identities and full-SHA workflow references
-without querying upstream latest versions. `pnpm run verify:dist` independently
-rebuilds the checked-in bundles and compares their bytes. Toolchain integration
-verifies downloaded bytes against the pinned SHA-512 digests.
-
-`pnpm run verify:latest` additionally compares pins with compatible upstream releases.
-It runs in the weekly or manually dispatched `Dependency maintenance` workflow.
-New upstream releases produce warnings without failing the maintenance workflow.
-Invalid pins, lockfile mismatches, integrity errors and failed registry requests
-still fail validation.
-
-## Scope
-
-Repository releases require exact-SHA push CI and two fresh `acceptance-runs`: staged
-submission and direct native publication. At least one exercises tag-derived
-prereleases. Direct acceptance compares planned SHA-512 with installed bytes and
-executes Node 22/24/26 consumers. See the
-[candidate guide](https://github.com/releaseway/release-fixture#candidate-release-readiness)
-for evidence retention, read permissions and retries.
-
-The unreleased repository release workflow additionally preserves its approval in
-an immutable `releaseway-evidence.json` asset. This applies to npm-actions automation
-releases, separate from a product's npm publication. See
-[archive authentication, offline replay and recovery](https://github.com/releaseway/actions/blob/main/docs/release-evidence.md).
-The existing v0.7.1 approval is already preserved as an immutable evidence sidecar;
-its original stable tag and consumer pin are unchanged.
-
-Mutation checks inspect the whole worktree after every package pack, including
-ignored build outputs, symlinks and modes. Files larger than 1MiB are hashed as a
-stream. Compare with a saved baseline on Node 24 using
-`node --experimental-strip-types scripts/benchmark-source-state.mjs /path/to/baseline.ts`.
-The baseline needs the same `fast-glob` dependency. Results include elapsed time,
-peak RSS, identical digest and regular-file payload bytes; all snapshots remain.
-
-npm-actions owns npm publication automation after package bootstrap.
-
-It does not choose versions, bump versions, generate changelogs, decide release triggers, perform product builds, create GitHub Release assets, approve npm staged releases, or publish to non-npmjs registries.
-
-### Select one release tag
-
-With `version.source: git-tag`, pass `release-tag` when multiple SemVer tags point
-at the publication commit (for example `v1.2.0-rc.0` and `v1.2.0`). The action checks
-the exact remote tag, configured prefix and final commit before using its version.
-An existing `release-commit` override still requires its normal marker validation.
-Omitting `release-tag` preserves automatic selection and rejects ambiguous tags.
-The optional policy file may omit `schema`; omission always means schema 1, even
-if future formats are introduced. Explicit numeric `schema: 1` remains supported.
-Null, strings, booleans and unsupported schema numbers are errors.
 
 ### Separate operation diagnostics
 
@@ -459,4 +410,31 @@ Partial results and stable error/recovery metadata survive controlled failures
 when filesystem/output access work. Raw errors, tokens and subprocess output are
 excluded. Upload the file explicitly when passing it between jobs.
 
-For the source-tag and release-tag flow, see the [same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md). It keeps npm in the registered product workflow and pins verified stable releases.
+### Rerunning a workflow
+
+The complete workspace is classified before toolchain provisioning or packing. All candidate preflight work finishes before the first npm mutation: final artifact construction, native provenance, dependency availability, publication options, and OIDC checks.
+
+The action uses one frozen release plan per execution. Before direct publication it rechecks the selected required internal versions are still live. A concurrent publication or ambiguous subprocess failure can be resolved by a matching live digest; it never justifies replacing a version or blindly resubmitting a write.
+
+A network or registry failure can still interrupt a multi-package release. The error identifies completed candidates. A whole-workflow rerun creates a new plan: versions that are now public become `already-published`, while remaining candidates are prepared with the caller's current source and toolchain. This is version-level rerun behavior, not verification of a previous run's local bytes.
+
+A pending staged-version conflict that cannot be resolved through a matching live artifact fails. Pending-stage inspection, approval and rejection remain maintainer operations. Registry reads have a 30-second request timeout; direct live verification uses a 20-minute overall deadline with 10-second polling.
+
+## Scope
+
+npm-actions owns npm publication automation after package bootstrap.
+
+It does not choose versions, bump versions, generate changelogs, decide release triggers, perform product builds, create GitHub Release assets, approve npm staged releases, or publish to non-npmjs registries.
+
+For the source-tag and release-tag flow, see the
+[same-run release guide](https://github.com/releaseway/actions/blob/main/docs/app-free-release.md).
+It keeps npm in the registered product workflow and connects the selected
+automation refs through full SHA pins.
+
+<a id="repository-validation"></a>
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the repository toolchain, local checks,
+dependency maintenance, candidate acceptance and source-state profiling. Those
+maintainer tools are separate from the npm, pnpm or Yarn setup in your product.

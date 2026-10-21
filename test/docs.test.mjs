@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { parse } from "yaml";
 
 import { parseConfig } from "../src/config/load.ts";
 import { SUPPORTED_NATIVE_TARGETS } from "../src/native/validate.ts";
@@ -11,21 +12,23 @@ const README = resolve("README.md");
 test("README quick start matches zero-input OIDC action contract", async () => {
   const source = await readFile(README, "utf8");
 
-  assert.match(source, /permissions:\n  contents: read\n  id-token: write/);
-  assert.match(
-    source,
-    /uses: releaseway\/npm-actions@[a-f0-9]{40} # v\d+\.\d+\.\d+/,
-  );
-  assert.match(
-    source,
-    /uses: actions\/checkout@<checkout-full-commit-sha> # vX\.Y\.Z/,
-  );
-
   const quickStart = source.match(
     /## Quick start[\s\S]*?## What gets published/,
   )?.[0];
   assert.ok(quickStart);
-  assert.doesNotMatch(quickStart, /\n\s+with:\n/);
+  const snippet = quickStart.match(/```yaml\n([\s\S]*?)```/)?.[1];
+  assert.ok(snippet);
+  const workflow = parse(snippet.replace(/<[a-z-]+-sha>/g, "a".repeat(40)));
+  assert.deepEqual(workflow.permissions, {
+    contents: "read",
+    "id-token": "write",
+  });
+  const steps = workflow.jobs.publish.steps;
+  assert.ok(steps.some((step) => /^actions\/checkout@[a-f0-9]{40}$/.test(step.uses)));
+  const action = steps.find((step) => /^releaseway\/npm-actions@/.test(step.uses));
+  assert.ok(action);
+  assert.match(action.uses, /^releaseway\/npm-actions@[a-f0-9]{40}$/);
+  assert.equal(action.with, undefined);
 });
 
 test("README Releaseway config examples are accepted by the real parser", async () => {
