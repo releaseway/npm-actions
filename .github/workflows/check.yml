@@ -26,6 +26,7 @@ jobs:
       - run: pnpm run typecheck
       - run: python3 test/release-evidence.py
       - run: python3 test/evidence-bundle.py
+      - run: python3 test/release-set-evidence.py
       - run: python3 test/homebrew-feature-evidence.py
       - run: pnpm run verify:dist
       - run: pnpm run build
