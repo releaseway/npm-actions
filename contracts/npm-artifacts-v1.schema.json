@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npm-artifacts-v1.schema.json",
+  "title": "Releaseway npm prepacked artifacts v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source", "packages"],
+  "properties": {
+    "schema": { "const": 1 },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "commit"],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-fA-F]{40}$" }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "version", "tarball", "integrity"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "tarball": { "type": "string", "minLength": 1 },
+          "integrity": { "$ref": "#/$defs/integrity" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "integrity": {
+      "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]{86}==$",
+      "description": "Runtime also requires 64 decoded bytes and canonical base64 round trip."
+    }
+  },
+  "$comment": "Runtime checks canonical SRI, exact selected name/version, canonical SemVer, unique names/paths, source binding, portable path and containment, complete candidate coverage and archive admission. File and registry checks cannot be expressed by JSON Schema."
+}
