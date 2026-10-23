@@ -9,6 +9,7 @@ import {
 } from "./orchestrate.ts";
 import { githubContextFromEnv } from "./workspace/identity.ts";
 import { updateReport, writeReleaseReport, type ReleaseReport } from "./report.ts";
+import { ArtifactReporter, writeArtifactReport } from "./artifacts/report.ts";
 
 type AppendOutput = (
   path: string,
@@ -72,6 +73,7 @@ export async function runAction(
     argv?: readonly string[];
     writeReport?: typeof writeReleaseReport;
     writeDiagnostics?: typeof writeDiagnostics;
+    writeArtifactReport?: typeof writeArtifactReport;
   } = {},
 ): Promise<PackageResult[]> {
   const env = options.env ?? process.env;
@@ -80,9 +82,11 @@ export async function runAction(
   diagnostic.selection.source = safeSha(env.GITHUB_SHA);
   let report: ReleaseReport | undefined;
   let failed = false;
+  const artifacts = env["INPUT_ARTIFACTS-MANIFEST"]?.trim() ? new ArtifactReporter() : undefined;
   try {
     const github = githubContextFromEnv(env);
     diagnostic.selection.commit = github.sha;
+    if (artifacts) artifacts.report.publicationCommit = github.sha;
     const actionPath = resolveActionPath(options.actionPath, env, options.argv ?? process.argv);
     const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
     report = { schema: 1, source: { repository: github.repository, commit: github.sha }, status: "running", stage: "prepare", plan: [], results: [] };
@@ -92,6 +96,7 @@ export async function runAction(
         ...options.dependencies,
         onProgress(event) {
           updateReport(report!, event);
+          artifacts?.progress(event);
           if (event.kind === "selection") {
             diagnostic.selection.tag = event.tag;
             diagnostic.selection.version = event.version;
@@ -103,6 +108,7 @@ export async function runAction(
         },
       },
     );
+    artifacts?.complete();
     writePackagesOutput(outputPath, packages, append);
     report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
     report.status = "success"; report.stage = "complete";
@@ -113,6 +119,7 @@ export async function runAction(
   } catch (error) {
     failed = true;
     if (report) report.status = "failed";
+    artifacts?.fail(error);
     failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
     throw error;
   } finally {
@@ -130,6 +137,16 @@ export async function runAction(
     catch (error) {
       outputFailure ??= error;
       if (failed) console.warn("Diagnostics could not be saved; preserving the original failure. Inspect the registry before retrying.");
+    }
+    if (artifacts) {
+      if (!failed && outputFailure) artifacts.fail(outputFailure);
+      try {
+        const path = await (options.writeArtifactReport ?? writeArtifactReport)(artifacts.report, env);
+        if (env.GITHUB_OUTPUT) append(env.GITHUB_OUTPUT, "artifact-report-path=" + path + "\n", { encoding: "utf8" });
+      } catch (error) {
+        outputFailure ??= error;
+        if (failed) console.warn("Artifact verification report could not be saved; preserving the original failure");
+      }
     }
     if (!failed && outputFailure) throw outputFailure;
   }

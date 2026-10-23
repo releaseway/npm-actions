@@ -6,6 +6,7 @@ export type ArtifactProgress =
   | { phase: "manifest"; packages: readonly ArtifactEntry[] }
   | { phase: "source"; source: ArtifactManifest["source"] }
   | { phase: "selection"; packages: readonly ArtifactIdentity[] }
-  | { phase: "local"; identity: ArtifactIdentity; integrity: string; matched: boolean }
+  | { phase: "existing"; identity: ArtifactIdentity }
+  | { phase: "local"; identity: ArtifactIdentity; integrity: string | null; matched: boolean }
   | { phase: "public"; identity: ArtifactIdentity; integrity: string | null; matched: boolean }
   | { phase: "preflight" };

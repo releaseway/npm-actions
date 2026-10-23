@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npm-artifact-report-v1.schema.json",
+  "title": "Releaseway npm artifact verification report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "mode", "source", "publicationCommit", "manifestIntegrity", "status", "preflight", "packages", "error"],
+  "properties": {
+    "schema": { "const": 1 },
+    "mode": { "const": "prepacked" },
+    "source": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["repository", "commit"],
+          "properties": {
+            "repository": { "type": "string", "pattern": "^[a-z0-9_.-]+/[a-z0-9_.-]+$" },
+            "commit": { "$ref": "#/$defs/commit" }
+          }
+        }
+      ]
+    },
+    "publicationCommit": { "oneOf": [{ "$ref": "#/$defs/commit" }, { "type": "null" }] },
+    "manifestIntegrity": { "$ref": "#/$defs/nullableIntegrity" },
+    "status": { "enum": ["success", "failed"] },
+    "preflight": { "enum": ["not-complete", "passed"] },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "version", "coverage", "expectedIntegrity", "localIntegrity", "publicIntegrity", "localVerification", "publicVerification", "publication"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "coverage": { "enum": ["supplied", "not-supplied"] },
+          "expectedIntegrity": { "$ref": "#/$defs/nullableIntegrity" },
+          "localIntegrity": { "$ref": "#/$defs/nullableIntegrity" },
+          "publicIntegrity": { "$ref": "#/$defs/nullableIntegrity" },
+          "localVerification": { "enum": ["not-checked", "not-required", "matched", "mismatched"] },
+          "publicVerification": { "enum": ["not-checked", "matched", "mismatched"] },
+          "publication": { "enum": ["not-attempted", "already-published", "published", "staged", "unknown"] }
+        }
+      }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["code", "entryIndex", "package", "remoteState", "recovery"],
+          "properties": {
+            "code": { "enum": ["MANIFEST_INVALID", "SOURCE_MISMATCH", "PACKAGE_SET_MISMATCH", "ARTIFACT_MISSING", "ARTIFACT_INVALID", "ARTIFACT_IDENTITY_MISMATCH", "ARTIFACT_INTEGRITY_MISMATCH", "ARTIFACT_CHANGED", "PUBLIC_INTEGRITY_MISMATCH", "REGISTRY_STATE_CHANGED", "UNSUPPORTED_DISTRIBUTION", "REGISTRY_UNAVAILABLE", "PLAN_INVALID", "PUBLISH_FAILED", "INTERNAL_ERROR"] },
+            "entryIndex": { "type": ["integer", "null"], "minimum": 0 },
+            "package": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["name", "version"],
+                  "properties": { "name": { "type": "string", "minLength": 1 }, "version": { "type": "string", "minLength": 1 } }
+                }
+              ]
+            },
+            "remoteState": { "enum": ["unchanged", "present", "unknown"] },
+            "recovery": { "enum": ["fix-input", "same-input", "inspect-remote"] }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "status": { "const": "success" } } }, "then": { "properties": { "error": { "type": "null" }, "preflight": { "const": "passed" } } } },
+    { "if": { "properties": { "status": { "const": "failed" } } }, "then": { "properties": { "error": { "type": "object" } } } }
+  ],
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "integrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]{86}==$" },
+    "nullableIntegrity": { "oneOf": [{ "$ref": "#/$defs/integrity" }, { "type": "null" }] }
+  },
+  "$comment": "Runtime checks ordering, uniqueness, canonical SRI and state consistency. No absolute paths, raw error text, environment or credentials are included."
+}

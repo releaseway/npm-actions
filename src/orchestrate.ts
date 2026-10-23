@@ -307,13 +307,14 @@ export async function prepareRelease(
   for (const pkg of packages) {
     const lookup = supplied ? await readArtifactVersion(registry, pkg) : await registry.lookupVersion(pkg.name, pkg.version);
     snapshots.set(pkg.name, lookup.snapshot);
-    if (lookup.state === "already-published")
+    if (lookup.state === "already-published") {
       alreadyPublished.push({
         name: pkg.name,
         version: pkg.version,
         state: "already-published",
       });
-    else candidates.push(pkg);
+      if (supplied) artifactProgress({ phase: "existing", identity: pkg });
+    } else candidates.push(pkg);
   }
   const skipped = immutableJson(
     alreadyPublished.sort((a, b) => a.name.localeCompare(b.name)),
@@ -508,10 +509,13 @@ export async function executePreparedRelease(
   const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
   const artifactProgress = (event: ArtifactProgress) => dependencies.onProgress?.({ kind: "artifact-verification", event });
   const checkTarball = async (request: PublishRequest) => {
-    try { await assertPreparedTarball(request); }
-    catch (error) {
-      if (prepared.artifactChecks) throw new ArtifactError("ARTIFACT_CHANGED", "Prepared artifact changed before publication", request);
-      throw error;
+    if (prepared.artifactChecks) {
+      let actual: string | null = null;
+      try { actual = await sha512Integrity(request.tarballPath); } catch { /* Missing files are also changed snapshots. */ }
+      artifactProgress({ phase: "local", identity: request, integrity: actual, matched: actual === request.integrity });
+      if (actual !== request.integrity) throw new ArtifactError("ARTIFACT_CHANGED", "Prepared artifact changed before publication", request);
+    } else {
+      await assertPreparedTarball(request);
     }
   };
   // Detect alteration of any prepared artifact before the first registry mutation.
