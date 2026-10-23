@@ -7,6 +7,7 @@ import {
   rm,
   writeFile,
   chmod,
+  symlink,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -140,6 +141,21 @@ async function fixture(
   }
 }
 const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
+
+test("automatic packing resolves the root manifest through a workspace directory alias", async () => {
+  await fixture([pkg("a")], async h => {
+    const alias = h.root + "-alias";
+    await symlink(h.root, alias, "junction");
+    try {
+      h.context.workspace = alias;
+      const result = await runRelease(h.context, h.deps);
+      assert.equal(result[0].state, "published");
+      assert.deepEqual(mutations(h.events), ["publish:direct:a"]);
+    } finally {
+      await rm(alias, { recursive: true, force: true });
+    }
+  });
+});
 
 async function supplyArtifacts(h, packages) {
   const entries = [];

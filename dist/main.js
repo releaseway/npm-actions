@@ -22692,7 +22692,7 @@ async function prepareRelease(context, dependencies = {}) {
     }
     const toolchain = await (dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain)({ rootBase: runRoot, env: context.env });
     if (!artifacts) {
-      const root = rootManifest(discovered, context.workspace);
+      const root = rootManifest(discovered, await (0, import_promises14.realpath)(context.workspace));
       const command = await resolvePackCommand(
         { packageManager: root.manifest.packageManager },
         toolchain,

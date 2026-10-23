@@ -4,7 +4,7 @@ import { bindArtifacts, loadArtifactManifest, type ArtifactEntry } from "./artif
 import { importArtifact } from "./artifacts/import.ts";
 import { readArtifactVersion, verifySuppliedPublic } from "./artifacts/registry.ts";
 import type { ArtifactProgress } from "./artifacts/progress.ts";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
@@ -357,7 +357,7 @@ export async function prepareRelease(
       dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain
     )({ rootBase: runRoot, env: context.env });
     if (!artifacts) {
-      const root = rootManifest(discovered, context.workspace);
+      const root = rootManifest(discovered, await realpath(context.workspace));
       const command = await resolvePackCommand(
         { packageManager: root.manifest.packageManager },
         toolchain,
