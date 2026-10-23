@@ -523,11 +523,11 @@ var require_valid = __commonJS({
   "node_modules/.pnpm/semver@7.8.5/node_modules/semver/functions/valid.js"(exports2, module2) {
     "use strict";
     var parse = require_parse();
-    var valid6 = (version, options) => {
+    var valid7 = (version, options) => {
       const v2 = parse(version, options);
       return v2 ? v2.version : null;
     };
-    module2.exports = valid6;
+    module2.exports = valid7;
   }
 });
 
@@ -1936,7 +1936,7 @@ var require_semver2 = __commonJS({
     var SemVer = require_semver();
     var identifiers = require_identifiers();
     var parse = require_parse();
-    var valid6 = require_valid();
+    var valid7 = require_valid();
     var clean = require_clean();
     var inc = require_inc();
     var diff = require_diff();
@@ -1975,7 +1975,7 @@ var require_semver2 = __commonJS({
     var subset = require_subset();
     module2.exports = {
       parse,
-      valid: valid6,
+      valid: valid7,
       clean,
       inc,
       diff,
@@ -2085,13 +2085,13 @@ var require_identity = __commonJS({
 var require_visit = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove node");
     function visit(node, visitor) {
       const visitor_ = initVisitor(visitor);
-      if (identity.isDocument(node)) {
+      if (identity2.isDocument(node)) {
         const cd = visit_(null, node.contents, visitor_, Object.freeze([node]));
         if (cd === REMOVE)
           node.contents = null;
@@ -2103,12 +2103,12 @@ var require_visit = __commonJS({
     visit.REMOVE = REMOVE;
     function visit_(key, node, visitor, path) {
       const ctrl = callVisitor(key, node, visitor, path);
-      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+      if (identity2.isNode(ctrl) || identity2.isPair(ctrl)) {
         replaceNode(key, path, ctrl);
         return visit_(key, ctrl, visitor, path);
       }
       if (typeof ctrl !== "symbol") {
-        if (identity.isCollection(node)) {
+        if (identity2.isCollection(node)) {
           path = Object.freeze(path.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
             const ci2 = visit_(i, node.items[i], visitor, path);
@@ -2121,7 +2121,7 @@ var require_visit = __commonJS({
               i -= 1;
             }
           }
-        } else if (identity.isPair(node)) {
+        } else if (identity2.isPair(node)) {
           path = Object.freeze(path.concat(node));
           const ck = visit_("key", node.key, visitor, path);
           if (ck === BREAK)
@@ -2139,7 +2139,7 @@ var require_visit = __commonJS({
     }
     async function visitAsync(node, visitor) {
       const visitor_ = initVisitor(visitor);
-      if (identity.isDocument(node)) {
+      if (identity2.isDocument(node)) {
         const cd = await visitAsync_(null, node.contents, visitor_, Object.freeze([node]));
         if (cd === REMOVE)
           node.contents = null;
@@ -2151,12 +2151,12 @@ var require_visit = __commonJS({
     visitAsync.REMOVE = REMOVE;
     async function visitAsync_(key, node, visitor, path) {
       const ctrl = await callVisitor(key, node, visitor, path);
-      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+      if (identity2.isNode(ctrl) || identity2.isPair(ctrl)) {
         replaceNode(key, path, ctrl);
         return visitAsync_(key, ctrl, visitor, path);
       }
       if (typeof ctrl !== "symbol") {
-        if (identity.isCollection(node)) {
+        if (identity2.isCollection(node)) {
           path = Object.freeze(path.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
             const ci2 = await visitAsync_(i, node.items[i], visitor, path);
@@ -2169,7 +2169,7 @@ var require_visit = __commonJS({
               i -= 1;
             }
           }
-        } else if (identity.isPair(node)) {
+        } else if (identity2.isPair(node)) {
           path = Object.freeze(path.concat(node));
           const ck = await visitAsync_("key", node.key, visitor, path);
           if (ck === BREAK)
@@ -2206,31 +2206,31 @@ var require_visit = __commonJS({
     function callVisitor(key, node, visitor, path) {
       if (typeof visitor === "function")
         return visitor(key, node, path);
-      if (identity.isMap(node))
+      if (identity2.isMap(node))
         return visitor.Map?.(key, node, path);
-      if (identity.isSeq(node))
+      if (identity2.isSeq(node))
         return visitor.Seq?.(key, node, path);
-      if (identity.isPair(node))
+      if (identity2.isPair(node))
         return visitor.Pair?.(key, node, path);
-      if (identity.isScalar(node))
+      if (identity2.isScalar(node))
         return visitor.Scalar?.(key, node, path);
-      if (identity.isAlias(node))
+      if (identity2.isAlias(node))
         return visitor.Alias?.(key, node, path);
       return void 0;
     }
     function replaceNode(key, path, node) {
       const parent = path[path.length - 1];
-      if (identity.isCollection(parent)) {
+      if (identity2.isCollection(parent)) {
         parent.items[key] = node;
-      } else if (identity.isPair(parent)) {
+      } else if (identity2.isPair(parent)) {
         if (key === "key")
           parent.key = node;
         else
           parent.value = node;
-      } else if (identity.isDocument(parent)) {
+      } else if (identity2.isDocument(parent)) {
         parent.contents = node;
       } else {
-        const pt2 = identity.isAlias(parent) ? "alias" : "scalar";
+        const pt2 = identity2.isAlias(parent) ? "alias" : "scalar";
         throw new Error(`Cannot replace node with ${pt2} parent`);
       }
     }
@@ -2243,7 +2243,7 @@ var require_visit = __commonJS({
 var require_directives = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var visit = require_visit();
     var escapeChars = {
       "!": "%21",
@@ -2386,10 +2386,10 @@ var require_directives = __commonJS({
         const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
         const tagEntries = Object.entries(this.tags);
         let tagNames;
-        if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
+        if (doc && tagEntries.length > 0 && identity2.isNode(doc.contents)) {
           const tags = {};
           visit.visit(doc.contents, (_key, node) => {
-            if (identity.isNode(node) && node.tag)
+            if (identity2.isNode(node) && node.tag)
               tags[node.tag] = true;
           });
           tagNames = Object.keys(tags);
@@ -2414,7 +2414,7 @@ var require_directives = __commonJS({
 var require_anchors = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var visit = require_visit();
     function anchorIsValid(anchor) {
       if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
@@ -2461,7 +2461,7 @@ var require_anchors = __commonJS({
         setAnchors: () => {
           for (const source of aliasObjects) {
             const ref = sourceObjects.get(source);
-            if (typeof ref === "object" && ref.anchor && (identity.isScalar(ref.node) || identity.isCollection(ref.node))) {
+            if (typeof ref === "object" && ref.anchor && (identity2.isScalar(ref.node) || identity2.isCollection(ref.node))) {
               ref.node.anchor = ref.anchor;
             } else {
               const error = new Error("Failed to resolve repeated object (this should not happen)");
@@ -2534,12 +2534,12 @@ var require_applyReviver = __commonJS({
 var require_toJS = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     function toJS(value, arg, ctx) {
       if (Array.isArray(value))
         return value.map((v2, i) => toJS(v2, String(i), ctx));
       if (value && typeof value.toJSON === "function") {
-        if (!ctx || !identity.hasAnchor(value))
+        if (!ctx || !identity2.hasAnchor(value))
           return value.toJSON(arg, ctx);
         const data = { aliasCount: 0, count: 1, res: void 0 };
         ctx.anchors.set(value, data);
@@ -2565,11 +2565,11 @@ var require_Node = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js"(exports2) {
     "use strict";
     var applyReviver = require_applyReviver();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var toJS = require_toJS();
     var NodeBase = class {
       constructor(type) {
-        Object.defineProperty(this, identity.NODE_TYPE, { value: type });
+        Object.defineProperty(this, identity2.NODE_TYPE, { value: type });
       }
       /** Create a copy of this node.  */
       clone() {
@@ -2580,7 +2580,7 @@ var require_Node = __commonJS({
       }
       /** A plain JavaScript representation of this node. */
       toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
-        if (!identity.isDocument(doc))
+        if (!identity2.isDocument(doc))
           throw new TypeError("A document argument is required");
         const ctx = {
           anchors: /* @__PURE__ */ new Map(),
@@ -2607,12 +2607,12 @@ var require_Alias = __commonJS({
     "use strict";
     var anchors = require_anchors();
     var visit = require_visit();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Node = require_Node();
     var toJS = require_toJS();
     var Alias = class extends Node.NodeBase {
       constructor(source) {
-        super(identity.ALIAS);
+        super(identity2.ALIAS);
         this.source = source;
         Object.defineProperty(this, "tag", {
           set() {
@@ -2634,7 +2634,7 @@ var require_Alias = __commonJS({
           nodes = [];
           visit.visit(doc, {
             Node: (_key, node) => {
-              if (identity.isAlias(node) || identity.hasAnchor(node))
+              if (identity2.isAlias(node) || identity2.hasAnchor(node))
                 nodes.push(node);
             }
           });
@@ -2696,11 +2696,11 @@ var require_Alias = __commonJS({
       }
     };
     function getAliasCount(doc, node, anchors2) {
-      if (identity.isAlias(node)) {
+      if (identity2.isAlias(node)) {
         const source = node.resolve(doc);
         const anchor = anchors2 && source && anchors2.get(source);
         return anchor ? anchor.count * anchor.aliasCount : 0;
-      } else if (identity.isCollection(node)) {
+      } else if (identity2.isCollection(node)) {
         let count = 0;
         for (const item of node.items) {
           const c = getAliasCount(doc, item, anchors2);
@@ -2708,7 +2708,7 @@ var require_Alias = __commonJS({
             count = c;
         }
         return count;
-      } else if (identity.isPair(node)) {
+      } else if (identity2.isPair(node)) {
         const kc = getAliasCount(doc, node.key, anchors2);
         const vc = getAliasCount(doc, node.value, anchors2);
         return Math.max(kc, vc);
@@ -2723,13 +2723,13 @@ var require_Alias = __commonJS({
 var require_Scalar = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Node = require_Node();
     var toJS = require_toJS();
     var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
     var Scalar = class extends Node.NodeBase {
       constructor(value) {
-        super(identity.SCALAR);
+        super(identity2.SCALAR);
         this.value = value;
       }
       toJSON(arg, ctx) {
@@ -2754,7 +2754,7 @@ var require_createNode = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js"(exports2) {
     "use strict";
     var Alias = require_Alias();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var defaultTagPrefix = "tag:yaml.org,2002:";
     function findTagObject(value, tagName, tags) {
@@ -2768,12 +2768,12 @@ var require_createNode = __commonJS({
       return tags.find((t) => t.identify?.(value) && !t.format);
     }
     function createNode(value, tagName, ctx) {
-      if (identity.isDocument(value))
+      if (identity2.isDocument(value))
         value = value.contents;
-      if (identity.isNode(value))
+      if (identity2.isNode(value))
         return value;
-      if (identity.isPair(value)) {
-        const map = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
+      if (identity2.isPair(value)) {
+        const map = ctx.schema[identity2.MAP].createNode?.(ctx.schema, null, ctx);
         map.items.push(value);
         return map;
       }
@@ -2805,7 +2805,7 @@ var require_createNode = __commonJS({
             ref.node = node2;
           return node2;
         }
-        tagObj = value instanceof Map ? schema[identity.MAP] : Symbol.iterator in Object(value) ? schema[identity.SEQ] : schema[identity.MAP];
+        tagObj = value instanceof Map ? schema[identity2.MAP] : Symbol.iterator in Object(value) ? schema[identity2.SEQ] : schema[identity2.MAP];
       }
       if (onTagObj) {
         onTagObj(tagObj);
@@ -2829,7 +2829,7 @@ var require_Collection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js"(exports2) {
     "use strict";
     var createNode = require_createNode();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Node = require_Node();
     function collectionFromPath(schema, path, value) {
       let v2 = value;
@@ -2873,7 +2873,7 @@ var require_Collection = __commonJS({
         const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
         if (schema)
           copy.schema = schema;
-        copy.items = copy.items.map((it2) => identity.isNode(it2) || identity.isPair(it2) ? it2.clone(schema) : it2);
+        copy.items = copy.items.map((it2) => identity2.isNode(it2) || identity2.isPair(it2) ? it2.clone(schema) : it2);
         if (this.range)
           copy.range = this.range.slice();
         return copy;
@@ -2889,7 +2889,7 @@ var require_Collection = __commonJS({
         else {
           const [key, ...rest] = path;
           const node = this.get(key, true);
-          if (identity.isCollection(node))
+          if (identity2.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
             this.set(key, collectionFromPath(this.schema, rest, value));
@@ -2906,7 +2906,7 @@ var require_Collection = __commonJS({
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
-        if (identity.isCollection(node))
+        if (identity2.isCollection(node))
           return node.deleteIn(rest);
         else
           throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
@@ -2920,16 +2920,16 @@ var require_Collection = __commonJS({
         const [key, ...rest] = path;
         const node = this.get(key, true);
         if (rest.length === 0)
-          return !keepScalar && identity.isScalar(node) ? node.value : node;
+          return !keepScalar && identity2.isScalar(node) ? node.value : node;
         else
-          return identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
+          return identity2.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
       hasAllNullValues(allowScalar) {
         return this.items.every((node) => {
-          if (!identity.isPair(node))
+          if (!identity2.isPair(node))
             return false;
           const n = node.value;
-          return n == null || allowScalar && identity.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+          return n == null || allowScalar && identity2.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
         });
       }
       /**
@@ -2940,7 +2940,7 @@ var require_Collection = __commonJS({
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
-        return identity.isCollection(node) ? node.hasIn(rest) : false;
+        return identity2.isCollection(node) ? node.hasIn(rest) : false;
       }
       /**
        * Sets a value in this collection. For `!!set`, `value` needs to be a
@@ -2952,7 +2952,7 @@ var require_Collection = __commonJS({
           this.set(key, value);
         } else {
           const node = this.get(key, true);
-          if (identity.isCollection(node))
+          if (identity2.isCollection(node))
             node.setIn(rest, value);
           else if (node === void 0 && this.schema)
             this.set(key, collectionFromPath(this.schema, rest, value));
@@ -3408,7 +3408,7 @@ var require_stringify = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js"(exports2) {
     "use strict";
     var anchors = require_anchors();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var stringifyComment = require_stringifyComment();
     var stringifyString = require_stringifyString();
     function createStringifyContext(doc, options) {
@@ -3461,7 +3461,7 @@ var require_stringify = __commonJS({
       }
       let tagObj = void 0;
       let obj;
-      if (identity.isScalar(item)) {
+      if (identity2.isScalar(item)) {
         obj = item.value;
         let match = tags.filter((t) => t.identify?.(obj));
         if (match.length > 1) {
@@ -3484,7 +3484,7 @@ var require_stringify = __commonJS({
       if (!doc.directives)
         return "";
       const props = [];
-      const anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      const anchor = (identity2.isScalar(node) || identity2.isCollection(node)) && node.anchor;
       if (anchor && anchors.anchorIsValid(anchor)) {
         anchors$1.add(anchor);
         props.push(`&${anchor}`);
@@ -3495,9 +3495,9 @@ var require_stringify = __commonJS({
       return props.join(" ");
     }
     function stringify(item, ctx, onComment, onChompKeep) {
-      if (identity.isPair(item))
+      if (identity2.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
-      if (identity.isAlias(item)) {
+      if (identity2.isAlias(item)) {
         if (ctx.doc.directives)
           return item.toString(ctx);
         if (ctx.resolvedAliases?.has(item)) {
@@ -3511,15 +3511,15 @@ var require_stringify = __commonJS({
         }
       }
       let tagObj = void 0;
-      const node = identity.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+      const node = identity2.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
       tagObj ?? (tagObj = getTagObject(ctx.doc.schema.tags, node));
       const props = stringifyProps(node, tagObj, ctx);
       if (props.length > 0)
         ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
-      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity2.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
       if (!props)
         return str;
-      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+      return identity2.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
 ${ctx.indent}${str}`;
     }
     exports2.createStringifyContext = createStringifyContext;
@@ -3531,23 +3531,23 @@ ${ctx.indent}${str}`;
 var require_stringifyPair = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
-      let keyComment = identity.isNode(key) && key.comment || null;
+      let keyComment = identity2.isNode(key) && key.comment || null;
       if (simpleKeys) {
         if (keyComment) {
           throw new Error("With simple keys, key nodes cannot have comments");
         }
-        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+        if (identity2.isCollection(key) || !identity2.isNode(key) && typeof key === "object") {
           const msg = "With simple keys, collection cannot be used as a key value";
           throw new Error(msg);
         }
       }
-      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity2.isCollection(key) || (identity2.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
       ctx = Object.assign({}, ctx, {
         allNullValues: false,
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
@@ -3588,7 +3588,7 @@ ${indent}:`;
           str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
       }
       let vsb, vcb, valueComment;
-      if (identity.isNode(value)) {
+      if (identity2.isNode(value)) {
         vsb = !!value.spaceBefore;
         vcb = value.commentBefore;
         valueComment = value.comment;
@@ -3600,10 +3600,10 @@ ${indent}:`;
           value = doc.createNode(value);
       }
       ctx.implicitKey = false;
-      if (!explicitKey && !keyComment && identity.isScalar(value))
+      if (!explicitKey && !keyComment && identity2.isScalar(value))
         ctx.indentAtStart = str.length + 1;
       chompKeep = false;
-      if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
+      if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity2.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
@@ -3623,7 +3623,7 @@ ${stringifyComment.indentComment(cs2, ctx.indent)}`;
           ws2 += `
 ${ctx.indent}`;
         }
-      } else if (!explicitKey && identity.isCollection(value)) {
+      } else if (!explicitKey && identity2.isCollection(value)) {
         const vs0 = valueStr[0];
         const nl0 = valueStr.indexOf("\n");
         const hasNewline = nl0 !== -1;
@@ -3686,7 +3686,7 @@ var require_log = __commonJS({
 var require_merge = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var MERGE_KEY = "<<";
     var merge = {
@@ -3699,10 +3699,10 @@ var require_merge = __commonJS({
       }),
       stringify: () => MERGE_KEY
     };
-    var isMergeKey = (ctx, key) => (merge.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
+    var isMergeKey = (ctx, key) => (merge.identify(key) || identity2.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
     function addMergeToJSMap(ctx, map, value) {
       const source = resolveAliasValue(ctx, value);
-      if (identity.isSeq(source))
+      if (identity2.isSeq(source))
         for (const it2 of source.items)
           mergeValue(ctx, map, it2);
       else if (Array.isArray(source))
@@ -3713,7 +3713,7 @@ var require_merge = __commonJS({
     }
     function mergeValue(ctx, map, value) {
       const source = resolveAliasValue(ctx, value);
-      if (!identity.isMap(source))
+      if (!identity2.isMap(source))
         throw new Error("Merge sources must be maps or map aliases");
       const srcMap = source.toJSON(null, ctx, Map);
       for (const [key, value2] of srcMap) {
@@ -3734,7 +3734,7 @@ var require_merge = __commonJS({
       return map;
     }
     function resolveAliasValue(ctx, value) {
-      return ctx && identity.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
+      return ctx && identity2.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
     }
     exports2.addMergeToJSMap = addMergeToJSMap;
     exports2.isMergeKey = isMergeKey;
@@ -3749,10 +3749,10 @@ var require_addPairToJSMap = __commonJS({
     var log = require_log();
     var merge = require_merge();
     var stringify = require_stringify();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
-      if (identity.isNode(key) && key.addToJSMap)
+      if (identity2.isNode(key) && key.addToJSMap)
         key.addToJSMap(ctx, map, value);
       else if (merge.isMergeKey(ctx, key))
         merge.addMergeToJSMap(ctx, map, value);
@@ -3783,7 +3783,7 @@ var require_addPairToJSMap = __commonJS({
         return "";
       if (typeof jsKey !== "object")
         return String(jsKey);
-      if (identity.isNode(key) && ctx?.doc) {
+      if (identity2.isNode(key) && ctx?.doc) {
         const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
@@ -3813,7 +3813,7 @@ var require_Pair = __commonJS({
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
     var addPairToJSMap = require_addPairToJSMap();
-    var identity = require_identity();
+    var identity2 = require_identity();
     function createPair(key, value, ctx) {
       const k2 = createNode.createNode(key, void 0, ctx);
       const v2 = createNode.createNode(value, void 0, ctx);
@@ -3821,15 +3821,15 @@ var require_Pair = __commonJS({
     }
     var Pair = class _Pair {
       constructor(key, value = null) {
-        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
+        Object.defineProperty(this, identity2.NODE_TYPE, { value: identity2.PAIR });
         this.key = key;
         this.value = value;
       }
       clone(schema) {
         let { key, value } = this;
-        if (identity.isNode(key))
+        if (identity2.isNode(key))
           key = key.clone(schema);
-        if (identity.isNode(value))
+        if (identity2.isNode(value))
           value = value.clone(schema);
         return new _Pair(key, value);
       }
@@ -3850,7 +3850,7 @@ var require_Pair = __commonJS({
 var require_stringifyCollection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
@@ -3866,14 +3866,14 @@ var require_stringifyCollection = __commonJS({
       for (let i = 0; i < items.length; ++i) {
         const item = items[i];
         let comment2 = null;
-        if (identity.isNode(item)) {
+        if (identity2.isNode(item)) {
           if (!chompKeep && item.spaceBefore)
             lines.push("");
           addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
           if (item.comment)
             comment2 = item.comment;
-        } else if (identity.isPair(item)) {
-          const ik = identity.isNode(item.key) ? item.key : null;
+        } else if (identity2.isPair(item)) {
+          const ik = identity2.isNode(item.key) ? item.key : null;
           if (ik) {
             if (!chompKeep && ik.spaceBefore)
               lines.push("");
@@ -3921,14 +3921,14 @@ ${indent}${line}` : "\n";
       for (let i = 0; i < items.length; ++i) {
         const item = items[i];
         let comment = null;
-        if (identity.isNode(item)) {
+        if (identity2.isNode(item)) {
           if (item.spaceBefore)
             lines.push("");
           addCommentBefore(ctx, lines, item.commentBefore, false);
           if (item.comment)
             comment = item.comment;
-        } else if (identity.isPair(item)) {
-          const ik = identity.isNode(item.key) ? item.key : null;
+        } else if (identity2.isPair(item)) {
+          const ik = identity2.isNode(item.key) ? item.key : null;
           if (ik) {
             if (ik.spaceBefore)
               lines.push("");
@@ -3936,7 +3936,7 @@ ${indent}${line}` : "\n";
             if (ik.comment)
               reqNewline = true;
           }
-          const iv = identity.isNode(item.value) ? item.value : null;
+          const iv = identity2.isNode(item.value) ? item.value : null;
           if (iv) {
             if (iv.comment)
               comment = iv.comment;
@@ -4004,16 +4004,16 @@ var require_YAMLMap = __commonJS({
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
     var Collection = require_Collection();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
     function findPair(items, key) {
-      const k2 = identity.isScalar(key) ? key.value : key;
+      const k2 = identity2.isScalar(key) ? key.value : key;
       for (const it2 of items) {
-        if (identity.isPair(it2)) {
+        if (identity2.isPair(it2)) {
           if (it2.key === key || it2.key === k2)
             return it2;
-          if (identity.isScalar(it2.key) && it2.key.value === k2)
+          if (identity2.isScalar(it2.key) && it2.key.value === k2)
             return it2;
         }
       }
@@ -4024,7 +4024,7 @@ var require_YAMLMap = __commonJS({
         return "tag:yaml.org,2002:map";
       }
       constructor(schema) {
-        super(identity.MAP, schema);
+        super(identity2.MAP, schema);
         this.items = [];
       }
       /**
@@ -4062,7 +4062,7 @@ var require_YAMLMap = __commonJS({
        */
       add(pair, overwrite) {
         let _pair;
-        if (identity.isPair(pair))
+        if (identity2.isPair(pair))
           _pair = pair;
         else if (!pair || typeof pair !== "object" || !("key" in pair)) {
           _pair = new Pair.Pair(pair, pair?.value);
@@ -4073,7 +4073,7 @@ var require_YAMLMap = __commonJS({
         if (prev) {
           if (!overwrite)
             throw new Error(`Key ${_pair.key} already set`);
-          if (identity.isScalar(prev.value) && Scalar.isScalarValue(_pair.value))
+          if (identity2.isScalar(prev.value) && Scalar.isScalarValue(_pair.value))
             prev.value.value = _pair.value;
           else
             prev.value = _pair.value;
@@ -4097,7 +4097,7 @@ var require_YAMLMap = __commonJS({
       get(key, keepScalar) {
         const it2 = findPair(this.items, key);
         const node = it2?.value;
-        return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
+        return (!keepScalar && identity2.isScalar(node) ? node.value : node) ?? void 0;
       }
       has(key) {
         return !!findPair(this.items, key);
@@ -4122,7 +4122,7 @@ var require_YAMLMap = __commonJS({
         if (!ctx)
           return JSON.stringify(this);
         for (const item of this.items) {
-          if (!identity.isPair(item))
+          if (!identity2.isPair(item))
             throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
         }
         if (!ctx.allNullValues && this.hasAllNullValues(false))
@@ -4145,7 +4145,7 @@ var require_YAMLMap = __commonJS({
 var require_map = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var YAMLMap = require_YAMLMap();
     var map = {
       collection: "map",
@@ -4153,7 +4153,7 @@ var require_map = __commonJS({
       nodeClass: YAMLMap.YAMLMap,
       tag: "tag:yaml.org,2002:map",
       resolve(map2, onError) {
-        if (!identity.isMap(map2))
+        if (!identity2.isMap(map2))
           onError("Expected a mapping for this tag");
         return map2;
       },
@@ -4170,7 +4170,7 @@ var require_YAMLSeq = __commonJS({
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
     var Collection = require_Collection();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var toJS = require_toJS();
     var YAMLSeq = class extends Collection.Collection {
@@ -4178,7 +4178,7 @@ var require_YAMLSeq = __commonJS({
         return "tag:yaml.org,2002:seq";
       }
       constructor(schema) {
-        super(identity.SEQ, schema);
+        super(identity2.SEQ, schema);
         this.items = [];
       }
       add(value) {
@@ -4204,7 +4204,7 @@ var require_YAMLSeq = __commonJS({
         if (typeof idx !== "number")
           return void 0;
         const it2 = this.items[idx];
-        return !keepScalar && identity.isScalar(it2) ? it2.value : it2;
+        return !keepScalar && identity2.isScalar(it2) ? it2.value : it2;
       }
       /**
        * Checks if the collection includes a value with the key `key`.
@@ -4228,7 +4228,7 @@ var require_YAMLSeq = __commonJS({
         if (typeof idx !== "number")
           throw new Error(`Expected a valid index, not ${key}.`);
         const prev = this.items[idx];
-        if (identity.isScalar(prev) && Scalar.isScalarValue(value))
+        if (identity2.isScalar(prev) && Scalar.isScalarValue(value))
           prev.value = value;
         else
           this.items[idx] = value;
@@ -4270,7 +4270,7 @@ var require_YAMLSeq = __commonJS({
       }
     };
     function asItemIndex(key) {
-      let idx = identity.isScalar(key) ? key.value : key;
+      let idx = identity2.isScalar(key) ? key.value : key;
       if (idx && typeof idx === "string")
         idx = Number(idx);
       return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
@@ -4283,7 +4283,7 @@ var require_YAMLSeq = __commonJS({
 var require_seq = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var YAMLSeq = require_YAMLSeq();
     var seq = {
       collection: "seq",
@@ -4291,7 +4291,7 @@ var require_seq = __commonJS({
       nodeClass: YAMLSeq.YAMLSeq,
       tag: "tag:yaml.org,2002:seq",
       resolve(seq2, onError) {
-        if (!identity.isSeq(seq2))
+        if (!identity2.isSeq(seq2))
           onError("Expected a sequence for this tag");
         return seq2;
       },
@@ -4645,17 +4645,17 @@ var require_binary = __commonJS({
 var require_pairs = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
     var YAMLSeq = require_YAMLSeq();
     function resolvePairs(seq, onError) {
-      if (identity.isSeq(seq)) {
+      if (identity2.isSeq(seq)) {
         for (let i = 0; i < seq.items.length; ++i) {
           let item = seq.items[i];
-          if (identity.isPair(item))
+          if (identity2.isPair(item))
             continue;
-          else if (identity.isMap(item)) {
+          else if (identity2.isMap(item)) {
             if (item.items.length > 1)
               onError("Each pair must have its own sequence indicator");
             const pair = item.items[0] || new Pair.Pair(new Scalar.Scalar(null));
@@ -4669,7 +4669,7 @@ ${cn2.comment}` : item.comment;
             }
             item = pair;
           }
-          seq.items[i] = identity.isPair(item) ? item : new Pair.Pair(item);
+          seq.items[i] = identity2.isPair(item) ? item : new Pair.Pair(item);
         }
       } else
         onError("Expected a sequence for this tag");
@@ -4723,7 +4723,7 @@ ${cn2.comment}` : item.comment;
 var require_omap = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var toJS = require_toJS();
     var YAMLMap = require_YAMLMap();
     var YAMLSeq = require_YAMLSeq();
@@ -4750,7 +4750,7 @@ var require_omap = __commonJS({
           ctx.onCreate(map);
         for (const pair of this.items) {
           let key, value;
-          if (identity.isPair(pair)) {
+          if (identity2.isPair(pair)) {
             key = toJS.toJS(pair.key, "", ctx);
             value = toJS.toJS(pair.value, key, ctx);
           } else {
@@ -4780,7 +4780,7 @@ var require_omap = __commonJS({
         const pairs$1 = pairs.resolvePairs(seq, onError);
         const seenKeys = [];
         for (const { key } of pairs$1.items) {
-          if (identity.isScalar(key)) {
+          if (identity2.isScalar(key)) {
             if (seenKeys.includes(key.value)) {
               onError(`Ordered maps must not include duplicate keys: ${key.value}`);
             } else {
@@ -4961,7 +4961,7 @@ var require_int2 = __commonJS({
 var require_set = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
     var YAMLSet = class _YAMLSet extends YAMLMap.YAMLMap {
@@ -4971,7 +4971,7 @@ var require_set = __commonJS({
       }
       add(key) {
         let pair;
-        if (identity.isPair(key))
+        if (identity2.isPair(key))
           pair = key;
         else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
           pair = new Pair.Pair(key.key, null);
@@ -4987,7 +4987,7 @@ var require_set = __commonJS({
        */
       get(key, keepPair) {
         const pair = YAMLMap.findPair(this.items, key);
-        return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
+        return !keepPair && identity2.isPair(pair) ? identity2.isScalar(pair.key) ? pair.key.value : pair.key : pair;
       }
       set(key, value) {
         if (typeof value !== "boolean")
@@ -5031,7 +5031,7 @@ var require_set = __commonJS({
       tag: "tag:yaml.org,2002:set",
       createNode: (schema, iterable, ctx) => YAMLSet.from(schema, iterable, ctx),
       resolve(map, onError) {
-        if (identity.isMap(map)) {
+        if (identity2.isMap(map)) {
           if (map.hasAllNullValues(true))
             return Object.assign(new YAMLSet(), map);
           else
@@ -5276,7 +5276,7 @@ var require_tags = __commonJS({
 var require_Schema = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var map = require_map();
     var seq = require_seq();
     var string = require_string();
@@ -5289,9 +5289,9 @@ var require_Schema = __commonJS({
         this.knownTags = resolveKnownTags ? tags.coreKnownTags : {};
         this.tags = tags.getTags(customTags, this.name, merge);
         this.toStringOptions = toStringDefaults ?? null;
-        Object.defineProperty(this, identity.MAP, { value: map.map });
-        Object.defineProperty(this, identity.SCALAR, { value: string.string });
-        Object.defineProperty(this, identity.SEQ, { value: seq.seq });
+        Object.defineProperty(this, identity2.MAP, { value: map.map });
+        Object.defineProperty(this, identity2.SCALAR, { value: string.string });
+        Object.defineProperty(this, identity2.SEQ, { value: seq.seq });
         this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
       }
       clone() {
@@ -5308,7 +5308,7 @@ var require_Schema = __commonJS({
 var require_stringifyDocument = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
@@ -5335,7 +5335,7 @@ var require_stringifyDocument = __commonJS({
       let chompKeep = false;
       let contentComment = null;
       if (doc.contents) {
-        if (identity.isNode(doc.contents)) {
+        if (identity2.isNode(doc.contents)) {
           if (doc.contents.spaceBefore && hasDirectives)
             lines.push("");
           if (doc.contents.commentBefore) {
@@ -5390,7 +5390,7 @@ var require_Document = __commonJS({
     "use strict";
     var Alias = require_Alias();
     var Collection = require_Collection();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var toJS = require_toJS();
     var Schema = require_Schema();
@@ -5405,7 +5405,7 @@ var require_Document = __commonJS({
         this.comment = null;
         this.errors = [];
         this.warnings = [];
-        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.DOC });
+        Object.defineProperty(this, identity2.NODE_TYPE, { value: identity2.DOC });
         let _replacer = null;
         if (typeof replacer === "function" || Array.isArray(replacer)) {
           _replacer = replacer;
@@ -5441,7 +5441,7 @@ var require_Document = __commonJS({
        */
       clone() {
         const copy = Object.create(_Document.prototype, {
-          [identity.NODE_TYPE]: { value: identity.DOC }
+          [identity2.NODE_TYPE]: { value: identity2.DOC }
         });
         copy.commentBefore = this.commentBefore;
         copy.comment = this.comment;
@@ -5451,7 +5451,7 @@ var require_Document = __commonJS({
         if (this.directives)
           copy.directives = this.directives.clone();
         copy.schema = this.schema.clone();
-        copy.contents = identity.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents;
+        copy.contents = identity2.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents;
         if (this.range)
           copy.range = this.range.slice();
         return copy;
@@ -5514,7 +5514,7 @@ var require_Document = __commonJS({
           sourceObjects
         };
         const node = createNode.createNode(value, tag, ctx);
-        if (flow && identity.isCollection(node))
+        if (flow && identity2.isCollection(node))
           node.flow = true;
         setAnchors();
         return node;
@@ -5554,7 +5554,7 @@ var require_Document = __commonJS({
        * `true` (collections are always returned intact).
        */
       get(key, keepScalar) {
-        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+        return identity2.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
       }
       /**
        * Returns item at `path`, or `undefined` if not found. By default unwraps
@@ -5563,14 +5563,14 @@ var require_Document = __commonJS({
        */
       getIn(path, keepScalar) {
         if (Collection.isEmptyPath(path))
-          return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+          return !keepScalar && identity2.isScalar(this.contents) ? this.contents.value : this.contents;
+        return identity2.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
        */
       has(key) {
-        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+        return identity2.isCollection(this.contents) ? this.contents.has(key) : false;
       }
       /**
        * Checks if the document includes a value at `path`.
@@ -5578,7 +5578,7 @@ var require_Document = __commonJS({
       hasIn(path) {
         if (Collection.isEmptyPath(path))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+        return identity2.isCollection(this.contents) ? this.contents.hasIn(path) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -5685,7 +5685,7 @@ var require_Document = __commonJS({
       }
     };
     function assertCollection(contents) {
-      if (identity.isCollection(contents))
+      if (identity2.isCollection(contents))
         return true;
       throw new Error("Expected a YAML collection as document contents");
     }
@@ -5956,12 +5956,12 @@ var require_util_flow_indent_check = __commonJS({
 var require_util_map_includes = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     function mapIncludes(ctx, items, search) {
       const { uniqueKeys } = ctx.options;
       if (uniqueKeys === false)
         return false;
-      const isEqual = typeof uniqueKeys === "function" ? uniqueKeys : (a, b2) => a === b2 || identity.isScalar(a) && identity.isScalar(b2) && a.value === b2.value;
+      const isEqual = typeof uniqueKeys === "function" ? uniqueKeys : (a, b2) => a === b2 || identity2.isScalar(a) && identity2.isScalar(b2) && a.value === b2.value;
       return items.some((pair) => isEqual(pair.key, search));
     }
     exports2.mapIncludes = mapIncludes;
@@ -5987,10 +5987,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -6004,7 +6004,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -6028,7 +6028,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -6044,7 +6044,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -6135,7 +6135,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -6149,13 +6149,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -6174,7 +6174,7 @@ var require_resolve_end = __commonJS({
 var require_resolve_flow_collection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
     var YAMLSeq = require_YAMLSeq();
@@ -6198,18 +6198,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -6253,7 +6253,7 @@ var require_resolve_flow_collection = __commonJS({
             }
             if (prevItemComment) {
               let prev = coll.items[coll.items.length - 1];
-              if (identity.isPair(prev))
+              if (identity2.isPair(prev))
                 prev = prev.value ?? prev.key;
               if (prev.comment)
                 prev.comment += "\n" + prevItemComment;
@@ -6263,8 +6263,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -6276,7 +6276,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -6287,8 +6287,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st2 of sep) {
+              if (sep2)
+                for (const st2 of sep2) {
                   if (st2 === valueProps.found)
                     break;
                   if (st2.type === "newline") {
@@ -6305,7 +6305,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -6368,7 +6368,7 @@ var require_resolve_flow_collection = __commonJS({
 var require_compose_collection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var YAMLMap = require_YAMLMap();
     var YAMLSeq = require_YAMLSeq();
@@ -6418,7 +6418,7 @@ var require_compose_collection = __commonJS({
       }
       const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
       const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
-      const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
+      const node = identity2.isNode(res) ? res : new Scalar.Scalar(res);
       node.range = coll.range;
       node.tag = tagName;
       if (tag?.format)
@@ -6485,7 +6485,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -6502,24 +6502,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -6702,25 +6702,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep = " ";
+      let sep2 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + lm;
-          sep = " ";
+          res += sep2 + lm;
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -6837,7 +6837,7 @@ var require_resolve_flow_scalar = __commonJS({
 var require_compose_scalar = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js"(exports2) {
     "use strict";
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Scalar = require_Scalar();
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
@@ -6846,17 +6846,17 @@ var require_compose_scalar = __commonJS({
       const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
       let tag;
       if (ctx.options.stringKeys && ctx.atKey) {
-        tag = ctx.schema[identity.SCALAR];
+        tag = ctx.schema[identity2.SCALAR];
       } else if (tagName)
         tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
       else if (token.type === "scalar")
         tag = findScalarTagByTest(ctx, value, token, onError);
       else
-        tag = ctx.schema[identity.SCALAR];
+        tag = ctx.schema[identity2.SCALAR];
       let scalar;
       try {
         const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
-        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+        scalar = identity2.isScalar(res) ? res : new Scalar.Scalar(res);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
@@ -6876,7 +6876,7 @@ var require_compose_scalar = __commonJS({
     }
     function findScalarTagByName(schema, value, tagName, tagToken, onError) {
       if (tagName === "!")
-        return schema[identity.SCALAR];
+        return schema[identity2.SCALAR];
       const matchWithTest = [];
       for (const tag of schema.tags) {
         if (!tag.collection && tag.tag === tagName) {
@@ -6895,12 +6895,12 @@ var require_compose_scalar = __commonJS({
         return kt2;
       }
       onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str");
-      return schema[identity.SCALAR];
+      return schema[identity2.SCALAR];
     }
     function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
-      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity2.SCALAR];
       if (schema.compat) {
-        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
+        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity2.SCALAR];
         if (tag.tag !== compat.tag) {
           const ts2 = directives.tagString(tag.tag);
           const cs2 = directives.tagString(compat.tag);
@@ -6949,7 +6949,7 @@ var require_compose_node = __commonJS({
   "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js"(exports2) {
     "use strict";
     var Alias = require_Alias();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var composeCollection = require_compose_collection();
     var composeScalar = require_compose_scalar();
     var resolveEnd = require_resolve_end();
@@ -6995,7 +6995,7 @@ var require_compose_node = __commonJS({
       node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError));
       if (anchor && node.anchor === "")
         onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
-      if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
+      if (atKey && ctx.options.stringKeys && (!identity2.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
         const msg = "With stringKeys, all keys must be strings";
         onError(tag ?? token, "NON_STRING_KEY", msg);
       }
@@ -7101,7 +7101,7 @@ var require_composer = __commonJS({
     var directives = require_directives();
     var Document = require_Document();
     var errors = require_errors();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var composeDoc = require_compose_doc();
     var resolveEnd = require_resolve_end();
     function getErrorPos(src) {
@@ -7163,9 +7163,9 @@ var require_composer = __commonJS({
 ${comment}` : comment;
           } else if (afterEmptyLine || doc.directives.docStart || !dc) {
             doc.commentBefore = comment;
-          } else if (identity.isCollection(dc) && !dc.flow && dc.items.length > 0) {
+          } else if (identity2.isCollection(dc) && !dc.flow && dc.items.length > 0) {
             let it2 = dc.items[0];
-            if (identity.isPair(it2))
+            if (identity2.isPair(it2))
               it2 = it2.key;
             const cb = it2.commentBefore;
             it2.commentBefore = cb ? `${comment}
@@ -7530,14 +7530,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st2 of start)
         res += st2.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st2 of sep)
+      if (sep2)
+        for (const st2 of sep2)
           res += st2.source;
       if (value)
         res += stringifyToken(value);
@@ -8704,18 +8704,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -8868,15 +8868,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it2.key) && !includesToken(it2.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it2.start);
                   const key = it2.key;
-                  const sep = it2.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it2.sep;
+                  sep2.push(this.sourceToken);
                   delete it2.key;
                   delete it2.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it2.sep = it2.sep.concat(start, this.sourceToken);
@@ -9070,13 +9070,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -9213,7 +9213,7 @@ var require_public_api = __commonJS({
     var Document = require_Document();
     var errors = require_errors();
     var log = require_log();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var lineCounter = require_line_counter();
     var parser = require_parser();
     function parseOptions(options) {
@@ -9291,7 +9291,7 @@ var require_public_api = __commonJS({
         if (!keepUndefined)
           return void 0;
       }
-      if (identity.isDocument(value) && !_replacer)
+      if (identity2.isDocument(value) && !_replacer)
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
@@ -9311,7 +9311,7 @@ var require_dist = __commonJS({
     var Schema = require_Schema();
     var errors = require_errors();
     var Alias = require_Alias();
-    var identity = require_identity();
+    var identity2 = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
     var YAMLMap = require_YAMLMap();
@@ -9329,14 +9329,14 @@ var require_dist = __commonJS({
     exports2.YAMLParseError = errors.YAMLParseError;
     exports2.YAMLWarning = errors.YAMLWarning;
     exports2.Alias = Alias.Alias;
-    exports2.isAlias = identity.isAlias;
-    exports2.isCollection = identity.isCollection;
-    exports2.isDocument = identity.isDocument;
-    exports2.isMap = identity.isMap;
-    exports2.isNode = identity.isNode;
-    exports2.isPair = identity.isPair;
-    exports2.isScalar = identity.isScalar;
-    exports2.isSeq = identity.isSeq;
+    exports2.isAlias = identity2.isAlias;
+    exports2.isCollection = identity2.isCollection;
+    exports2.isDocument = identity2.isDocument;
+    exports2.isMap = identity2.isMap;
+    exports2.isNode = identity2.isNode;
+    exports2.isPair = identity2.isPair;
+    exports2.isScalar = identity2.isScalar;
+    exports2.isSeq = identity2.isSeq;
     exports2.Pair = Pair.Pair;
     exports2.Scalar = Scalar.Scalar;
     exports2.YAMLMap = YAMLMap.YAMLMap;
@@ -10696,12 +10696,12 @@ var require_lib3 = __commonJS({
           return process.emit("input", "end", ...args);
         },
         read: function(...args) {
-          let resolve13, reject;
+          let resolve15, reject;
           const promise = new Promise((_resolve, _reject) => {
-            resolve13 = _resolve;
+            resolve15 = _resolve;
             reject = _reject;
           });
-          process.emit("input", "read", resolve13, reject, ...args);
+          process.emit("input", "read", resolve15, reject, ...args);
           return promise;
         }
       }
@@ -10753,15 +10753,15 @@ var require_npa = __commonJS({
         name = namePart;
         spec = arg.slice(nameEndsAt + 1) || "*";
       } else {
-        const valid6 = validatePackageName(arg);
-        if (valid6.validForOldPackages) {
+        const valid7 = validatePackageName(arg);
+        if (valid7.validForOldPackages) {
           name = arg;
           spec = "*";
         } else {
           spec = arg;
         }
       }
-      return resolve13(name, spec, where, arg);
+      return resolve15(name, spec, where, arg);
     }
     function isFileSpec(spec) {
       if (!spec) {
@@ -10781,7 +10781,7 @@ var require_npa = __commonJS({
       }
       return spec.toLowerCase().startsWith("npm:");
     }
-    function resolve13(name, spec, where, arg) {
+    function resolve15(name, spec, where, arg) {
       const res = new Result({
         raw: arg,
         name,
@@ -10824,8 +10824,8 @@ var require_npa = __commonJS({
       }
       return purl;
     }
-    function invalidPackageName(name, valid6, raw) {
-      const err = new Error(`Invalid package name "${name}" of package "${raw}": ${valid6.errors.join("; ")}.`);
+    function invalidPackageName(name, valid7, raw) {
+      const err = new Error(`Invalid package name "${name}" of package "${raw}": ${valid7.errors.join("; ")}.`);
       err.code = "EINVALIDPACKAGENAME";
       return err;
     }
@@ -10865,9 +10865,9 @@ var require_npa = __commonJS({
       }
       // TODO move this to a getter/setter in a semver major
       setName(name) {
-        const valid6 = validatePackageName(name);
-        if (!valid6.validForOldPackages) {
-          throw invalidPackageName(name, valid6, this.raw);
+        const valid7 = validatePackageName(name);
+        if (!valid7.validForOldPackages) {
+          throw invalidPackageName(name, valid7, this.raw);
         }
         this.name = name;
         this.scope = name[0] === "@" ? name.slice(0, name.indexOf("/")) : void 0;
@@ -11098,7 +11098,7 @@ var require_npa = __commonJS({
       return res;
     }
     module2.exports = npa2;
-    module2.exports.resolve = resolve13;
+    module2.exports.resolve = resolve15;
     module2.exports.toPurl = toPurl;
     module2.exports.Result = Result;
   }
@@ -11308,9 +11308,9 @@ var require_is_glob = __commonJS({
           }
         }
         if (str[index] === "\\") {
-          var open = str[index + 1];
+          var open3 = str[index + 1];
           index += 2;
-          var close = chars[open];
+          var close = chars[open3];
           if (close) {
             var n = str.indexOf(close, index);
             if (n !== -1) {
@@ -11336,9 +11336,9 @@ var require_is_glob = __commonJS({
           return true;
         }
         if (str[index] === "\\") {
-          var open = str[index + 1];
+          var open3 = str[index + 1];
           index += 2;
-          var close = chars[open];
+          var close = chars[open3];
           if (close) {
             var n = str.indexOf(close, index);
             if (n !== -1) {
@@ -12302,7 +12302,7 @@ var require_parse2 = __commonJS({
           continue;
         }
         if (value === CHAR_DOUBLE_QUOTE || value === CHAR_SINGLE_QUOTE || value === CHAR_BACKTICK) {
-          const open = value;
+          const open3 = value;
           let next;
           if (options.keepQuotes !== true) {
             value = "";
@@ -12312,7 +12312,7 @@ var require_parse2 = __commonJS({
               value += next + advance();
               continue;
             }
-            if (next === open) {
+            if (next === open3) {
               if (options.keepQuotes === true) value += next;
               break;
             }
@@ -12355,8 +12355,8 @@ var require_parse2 = __commonJS({
         if (value === CHAR_COMMA && depth > 0) {
           if (block.ranges > 0) {
             block.ranges = 0;
-            const open = block.nodes.shift();
-            block.nodes = [open, { type: "text", value: stringify(block) }];
+            const open3 = block.nodes.shift();
+            block.nodes = [open3, { type: "text", value: stringify(block) }];
           }
           push({ type: "comma", value });
           block.commas++;
@@ -13454,16 +13454,16 @@ var require_parse3 = __commonJS({
         const analysis = analyzeRepeatedExtglob(body, opts);
         if ((token.type === "plus" || token.type === "star") && analysis.risky) {
           const safeOutput = analysis.safeOutput ? (token.output ? "" : ONE_CHAR) + (opts.capture ? `(${analysis.safeOutput})` : analysis.safeOutput) : void 0;
-          const open = tokens[token.tokensIndex];
-          open.type = "text";
-          open.value = literal;
-          open.output = safeOutput || utils.escapeRegex(literal);
+          const open3 = tokens[token.tokensIndex];
+          open3.type = "text";
+          open3.value = literal;
+          open3.output = safeOutput || utils.escapeRegex(literal);
           for (let i = token.tokensIndex + 1; i < tokens.length; i++) {
             tokens[i].value = "";
             tokens[i].output = "";
             delete tokens[i].suffix;
           }
-          state.output = token.output + open.output;
+          state.output = token.output + open3.output;
           state.backtrack = true;
           push({ type: "paren", extglob: true, value, output: "" });
           decrement("parens");
@@ -13683,15 +13683,15 @@ var require_parse3 = __commonJS({
         }
         if (value === "{" && opts.nobrace !== true) {
           increment("braces");
-          const open = {
+          const open3 = {
             type: "brace",
             value,
             output: "(",
             outputIndex: state.output.length,
             tokensIndex: state.tokens.length
           };
-          braces.push(open);
-          push(open);
+          braces.push(open3);
+          push(open3);
           continue;
         }
         if (value === "}") {
@@ -14532,21 +14532,21 @@ var require_pattern = __commonJS({
     exports2.removeDuplicateSlashes = removeDuplicateSlashes;
     function partitionAbsoluteAndRelative(patterns) {
       const absolute = [];
-      const relative2 = [];
+      const relative3 = [];
       for (const pattern of patterns) {
-        if (isAbsolute2(pattern)) {
+        if (isAbsolute3(pattern)) {
           absolute.push(pattern);
         } else {
-          relative2.push(pattern);
+          relative3.push(pattern);
         }
       }
-      return [absolute, relative2];
+      return [absolute, relative3];
     }
     exports2.partitionAbsoluteAndRelative = partitionAbsoluteAndRelative;
-    function isAbsolute2(pattern) {
+    function isAbsolute3(pattern) {
       return path.isAbsolute(pattern);
     }
-    exports2.isAbsolute = isAbsolute2;
+    exports2.isAbsolute = isAbsolute3;
   }
 });
 
@@ -14835,13 +14835,13 @@ var require_async = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.read = void 0;
     function read(path, settings, callback) {
-      settings.fs.lstat(path, (lstatError, lstat3) => {
+      settings.fs.lstat(path, (lstatError, lstat4) => {
         if (lstatError !== null) {
           callFailureCallback(callback, lstatError);
           return;
         }
-        if (!lstat3.isSymbolicLink() || !settings.followSymbolicLink) {
-          callSuccessCallback(callback, lstat3);
+        if (!lstat4.isSymbolicLink() || !settings.followSymbolicLink) {
+          callSuccessCallback(callback, lstat4);
           return;
         }
         settings.fs.stat(path, (statError, stat) => {
@@ -14850,7 +14850,7 @@ var require_async = __commonJS({
               callFailureCallback(callback, statError);
               return;
             }
-            callSuccessCallback(callback, lstat3);
+            callSuccessCallback(callback, lstat4);
             return;
           }
           if (settings.markSymbolicLink) {
@@ -14877,9 +14877,9 @@ var require_sync = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.read = void 0;
     function read(path, settings) {
-      const lstat3 = settings.fs.lstatSync(path);
-      if (!lstat3.isSymbolicLink() || !settings.followSymbolicLink) {
-        return lstat3;
+      const lstat4 = settings.fs.lstatSync(path);
+      if (!lstat4.isSymbolicLink() || !settings.followSymbolicLink) {
+        return lstat4;
       }
       try {
         const stat = settings.fs.statSync(path);
@@ -14889,7 +14889,7 @@ var require_sync = __commonJS({
         return stat;
       } catch (error) {
         if (!settings.throwErrorOnBrokenSymbolicLink) {
-          return lstat3;
+          return lstat4;
         }
         throw error;
       }
@@ -15631,41 +15631,41 @@ var require_queue = __commonJS({
       queue.drained = drained;
       return queue;
       function push(value) {
-        var p2 = new Promise(function(resolve13, reject) {
+        var p2 = new Promise(function(resolve15, reject) {
           pushCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve13(result);
+            resolve15(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function unshift(value) {
-        var p2 = new Promise(function(resolve13, reject) {
+        var p2 = new Promise(function(resolve15, reject) {
           unshiftCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve13(result);
+            resolve15(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function drained() {
-        var p2 = new Promise(function(resolve13) {
+        var p2 = new Promise(function(resolve15) {
           process.nextTick(function() {
             if (queue.idle()) {
-              resolve13();
+              resolve15();
             } else {
               var previousDrain = queue.drain;
               queue.drain = function() {
                 if (typeof previousDrain === "function") previousDrain();
-                resolve13();
+                resolve15();
                 queue.drain = previousDrain;
               };
             }
@@ -16151,9 +16151,9 @@ var require_stream3 = __commonJS({
         });
       }
       _getStat(filepath) {
-        return new Promise((resolve13, reject) => {
+        return new Promise((resolve15, reject) => {
           this._stat(filepath, this._fsStatSettings, (error, stats) => {
-            return error === null ? resolve13(stats) : reject(error);
+            return error === null ? resolve15(stats) : reject(error);
           });
         });
       }
@@ -16177,10 +16177,10 @@ var require_async5 = __commonJS({
         this._readerStream = new stream_1.default(this._settings);
       }
       dynamic(root, options) {
-        return new Promise((resolve13, reject) => {
+        return new Promise((resolve15, reject) => {
           this._walkAsync(root, options, (error, entries) => {
             if (error === null) {
-              resolve13(entries);
+              resolve15(entries);
             } else {
               reject(error);
             }
@@ -16190,10 +16190,10 @@ var require_async5 = __commonJS({
       async static(patterns, options) {
         const entries = [];
         const stream = this._readerStream.static(patterns, options);
-        return new Promise((resolve13, reject) => {
+        return new Promise((resolve15, reject) => {
           stream.once("error", reject);
           stream.on("data", (entry) => entries.push(entry));
-          stream.once("end", () => resolve13(entries));
+          stream.once("end", () => resolve15(entries));
         });
       }
     };
@@ -16926,344 +16926,44 @@ function writeDiagnostics(diagnostic, env, append = import_node_fs.appendFileSyn
 }
 
 // src/action.ts
-var import_node_fs11 = require("node:fs");
-var import_node_path23 = require("node:path");
+var import_node_fs12 = require("node:fs");
+var import_node_path26 = require("node:path");
 
-// src/orchestrate.ts
-var import_promises11 = require("node:fs/promises");
-var import_node_path21 = require("node:path");
-var import_node_os6 = require("node:os");
-var import_semver8 = __toESM(require_semver2(), 1);
-
-// src/config/load.ts
-var import_promises = require("node:fs/promises");
-var import_node_path2 = require("node:path");
-var import_yaml = __toESM(require_dist(), 1);
-var import_semver2 = __toESM(require_semver2(), 1);
-
-// src/config/types.ts
-var DEFAULT_CONFIG = {
-  schema: 1,
-  publish: { mode: "stage" },
-  packages: {}
+// src/artifacts/errors.ts
+var artifactErrorCodes = {
+  MANIFEST_INVALID: "INVALID_INPUT",
+  SOURCE_MISMATCH: "PLAN_CONFIG_MISMATCH",
+  PACKAGE_SET_MISMATCH: "INVALID_INPUT",
+  ARTIFACT_MISSING: "INVALID_INPUT",
+  ARTIFACT_INVALID: "INVALID_INPUT",
+  ARTIFACT_IDENTITY_MISMATCH: "INVALID_INPUT",
+  ARTIFACT_INTEGRITY_MISMATCH: "INVALID_INPUT",
+  ARTIFACT_CHANGED: "INVALID_INPUT",
+  PUBLIC_INTEGRITY_MISMATCH: "ARTIFACT_MISMATCH",
+  REGISTRY_STATE_CHANGED: "REMOTE_UNCERTAIN",
+  UNSUPPORTED_DISTRIBUTION: "CONFIG_INVALID",
+  REGISTRY_UNAVAILABLE: "REMOTE_UNAVAILABLE",
+  PLAN_INVALID: "PLAN_INVALID",
+  PUBLISH_FAILED: "PUBLISH_FAILED",
+  INTERNAL_ERROR: "INTERNAL_ERROR"
+};
+var ArtifactError = class extends ReleaseError {
+  artifactCode;
+  identity;
+  entryIndex;
+  constructor(artifactCode, message, identity2 = null, entryIndex = null, remoteState = "unchanged") {
+    super(artifactErrorCodes[artifactCode], message, remoteState);
+    this.artifactCode = artifactCode;
+    this.identity = identity2;
+    this.entryIndex = entryIndex;
+  }
 };
 
-// src/config/load.ts
-var CONFIG_PATH = ".github/npm/packages.yml";
-function assertRecord(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ReleaseError("CONFIG_INVALID", `${label} must be a mapping`);
-  }
-  return value;
-}
-function assertKnownKeys(value, allowed, label) {
-  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
-  if (unknown.length > 0) {
-    throw new ReleaseError("CONFIG_INVALID", `${label} has unsupported keys: ${unknown.join(", ")}`);
-  }
-}
-function readMode(value, label) {
-  if (value !== "direct" && value !== "stage") {
-    throw new ReleaseError("CONFIG_INVALID", `${label} must be direct or stage`);
-  }
-  return value;
-}
-function readVersion(value, label) {
-  const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["source", "prefix", "prerelease-tag"], label);
-  if (mapping.source !== "git-tag") {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.source must be git-tag`);
-  }
-  const prefix = mapping.prefix ?? "v";
-  if (typeof prefix !== "string" || /\s/.test(prefix)) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.prefix must be a whitespace-free string`);
-  }
-  let prereleaseTag;
-  if ("prerelease-tag" in mapping) {
-    if (typeof mapping["prerelease-tag"] !== "string" || mapping["prerelease-tag"].length === 0) {
-      throw new ReleaseError("CONFIG_INVALID", `${label}.prerelease-tag must be a non-empty string`);
-    }
-    prereleaseTag = mapping["prerelease-tag"];
-  }
-  return {
-    source: "git-tag",
-    prefix,
-    ...prereleaseTag === void 0 ? {} : { prereleaseTag }
-  };
-}
-function readPublish(value, label) {
-  const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["mode", "channels"], label);
-  if (!("mode" in mapping)) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.mode is required`);
-  }
-  const mode = readMode(mapping.mode, `${label}.mode`);
-  if (mapping.channels === void 0) return { mode };
-  const channels = assertRecord(mapping.channels, `${label}.channels`);
-  assertKnownKeys(channels, ["stable", "prerelease"], `${label}.channels`);
-  for (const [key, tag] of Object.entries(channels)) {
-    if (typeof tag !== "string" || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag) || (0, import_semver2.validRange)(tag) !== null) {
-      throw new ReleaseError("CONFIG_INVALID", `${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
-    }
-  }
-  if (channels.prerelease === "latest") {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.channels.prerelease must not be latest`);
-  }
-  return { mode, channels: { ...channels } };
-}
-function readTarget(value, label) {
-  const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["asset", "executable"], label);
-  if (typeof mapping.asset !== "string" || mapping.asset.length === 0) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.asset must be a non-empty string`);
-  }
-  if (typeof mapping.executable !== "string" || mapping.executable.length === 0) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.executable must be a non-empty string`);
-  }
-  return {
-    asset: mapping.asset,
-    executable: mapping.executable
-  };
-}
-function readDistribution(value, label) {
-  const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["type", "tag", "cache-env", "targets"], label);
-  if (mapping.type !== "github-release") {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.type must be github-release`);
-  }
-  if (typeof mapping.tag !== "string" || mapping.tag.length === 0) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.tag must be a non-empty string`);
-  }
-  let cacheEnv;
-  if ("cache-env" in mapping) {
-    if (typeof mapping["cache-env"] !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping["cache-env"])) {
-      throw new ReleaseError("CONFIG_INVALID", `${label}.cache-env must be an environment variable name`);
-    }
-    cacheEnv = mapping["cache-env"];
-  }
-  const targetsMapping = assertRecord(mapping.targets, `${label}.targets`);
-  const entries = Object.entries(targetsMapping);
-  if (entries.length === 0) {
-    throw new ReleaseError("CONFIG_INVALID", `${label}.targets must not be empty`);
-  }
-  const targets = {};
-  for (const [target, targetValue] of entries) {
-    targets[target] = readTarget(targetValue, `${label}.targets.${target}`);
-  }
-  return {
-    type: "github-release",
-    tag: mapping.tag,
-    ...cacheEnv === void 0 ? {} : { cacheEnv },
-    targets
-  };
-}
-function readPackagePolicy(value, label) {
-  const mapping = assertRecord(value, label);
-  assertKnownKeys(mapping, ["publish", "distribution"], label);
-  const policy = {};
-  if ("publish" in mapping) {
-    policy.publish = readPublish(mapping.publish, `${label}.publish`);
-  }
-  if ("distribution" in mapping) {
-    policy.distribution = readDistribution(
-      mapping.distribution,
-      `${label}.distribution`
-    );
-  }
-  return policy;
-}
-function parseConfig(source) {
-  const document = (0, import_yaml.parseDocument)(source, {
-    uniqueKeys: true,
-    strict: true
-  });
-  if (document.errors.length > 0) {
-    throw new ReleaseError(
-      "CONFIG_INVALID",
-      `Invalid Releaseway config: ${document.errors.map((error) => error.message).join("; ")}`
-    );
-  }
-  const raw = document.toJS();
-  const root = assertRecord(raw, "config");
-  assertKnownKeys(root, ["schema", "version", "publish", "packages"], "config");
-  if ("schema" in root && root.schema !== 1) {
-    throw new ReleaseError("CONFIG_INVALID", "config.schema must be 1");
-  }
-  const version = "version" in root ? readVersion(root.version, "config.version") : void 0;
-  const publish = "publish" in root ? readPublish(root.publish, "config.publish") : DEFAULT_CONFIG.publish;
-  const packages = {};
-  if ("packages" in root) {
-    const packageMapping = assertRecord(root.packages, "config.packages");
-    for (const [name, policy] of Object.entries(packageMapping)) {
-      if (!name) {
-        throw new ReleaseError("CONFIG_INVALID", "config.packages keys must be npm package names");
-      }
-      packages[name] = readPackagePolicy(
-        policy,
-        `config.packages.${name}`
-      );
-    }
-  }
-  return {
-    schema: 1,
-    ...version === void 0 ? {} : { version },
-    publish: { ...publish },
-    packages
-  };
-}
-async function loadConfig(workspaceRoot) {
-  const path = (0, import_node_path2.resolve)(workspaceRoot, CONFIG_PATH);
-  try {
-    return parseConfig(await (0, import_promises.readFile)(path, "utf8"));
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return {
-        schema: 1,
-        publish: { ...DEFAULT_CONFIG.publish },
-        packages: {}
-      };
-    }
-    throw error;
-  }
-}
-
-// src/graph/dependencies.ts
-var import_npm_package_arg = __toESM(require_npa(), 1);
-var import_semver3 = __toESM(require_semver2(), 1);
-function dependencyMap(manifest, field, packageName) {
-  const value = manifest[field];
-  if (value === void 0) return {};
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error(packageName + " packed " + field + " must be a mapping");
-  const result = /* @__PURE__ */ Object.create(null);
-  for (const [name, range] of Object.entries(value)) {
-    if (typeof range !== "string" || range.length === 0)
-      throw new Error(
-        packageName + " packed " + field + "." + name + " must be a non-empty string"
-      );
-    result[name] = range;
-  }
-  return result;
-}
-function buildWorkspaceDependencyGraph(packages, artifacts, snapshots) {
-  const managed = new Map(packages.map((pkg) => [pkg.name, pkg]));
-  const candidates = new Map(
-    packages.filter((pkg) => artifacts.has(pkg.name)).map((pkg) => [pkg.name, pkg])
-  );
-  const hardDependencies = /* @__PURE__ */ new Map();
-  const requirements = /* @__PURE__ */ new Map();
-  for (const [name, pkg] of candidates) {
-    const artifact = artifacts.get(name);
-    const dependencies = dependencyMap(artifact.manifest, "dependencies", name);
-    const optional = dependencyMap(
-      artifact.manifest,
-      "optionalDependencies",
-      name
-    );
-    for (const installName of Object.keys(optional))
-      delete dependencies[installName];
-    const peers = dependencyMap(artifact.manifest, "peerDependencies", name);
-    const hard = /* @__PURE__ */ new Set();
-    const required = [];
-    for (const [field, mapping] of [
-      ["dependencies", dependencies],
-      ["optionalDependencies", optional],
-      ["peerDependencies", peers]
-    ]) {
-      for (const [installName, spec] of Object.entries(mapping)) {
-        const parsed = import_npm_package_arg.default.resolve(installName, spec);
-        const target = parsed.type === "alias" ? parsed.subSpec : parsed;
-        if (!target.name || !managed.has(target.name)) continue;
-        if (target.type !== "range" && target.type !== "version" || !target.fetchSpec || (0, import_semver3.validRange)(target.fetchSpec) === null) {
-          throw new Error(
-            name + " packed " + field + "." + installName + " must resolve to a registry SemVer range for managed package " + target.name
-          );
-        }
-        const snapshot = snapshots.get(target.name);
-        if (!snapshot)
-          throw new Error("Missing registry snapshot for " + target.name);
-        const range = target.fetchSpec;
-        const liveVersion = (0, import_semver3.rsort)(
-          Object.keys(snapshot.versions).filter(
-            (version) => (0, import_semver3.satisfies)(version, range)
-          )
-        )[0];
-        const candidate = candidates.get(target.name);
-        const candidateMatches = candidate !== void 0 && (0, import_semver3.satisfies)(candidate.version, range);
-        if (!liveVersion && !candidateMatches) {
-          throw new Error(
-            name + " packed " + field + " " + installName + " (" + target.name + "@" + range + ") has no satisfying live version or planned candidate"
-          );
-        }
-        if (!liveVersion && field === "dependencies" && pkg.publishMode === "direct" && candidate.publishMode !== "direct") {
-          throw new Error(
-            name + " cannot publish directly: required " + target.name + "@" + range + " is only a staged candidate and has no satisfying live version"
-          );
-        }
-        const requirement = {
-          field,
-          installName,
-          name: target.name,
-          range,
-          version: liveVersion ?? candidate.version,
-          source: liveVersion ? "live" : "candidate"
-        };
-        required.push(Object.freeze(requirement));
-        if (!liveVersion && field !== "peerDependencies") hard.add(target.name);
-      }
-    }
-    hardDependencies.set(name, hard);
-    requirements.set(name, Object.freeze(required));
-  }
-  return { packages: candidates, hardDependencies, requirements };
-}
-
-// src/graph/topo.ts
-function topologicalPublishOrder(graph, candidates) {
-  for (const candidate of candidates) {
-    if (!graph.packages.has(candidate)) {
-      throw new Error(`Unknown publish candidate: ${candidate}`);
-    }
-  }
-  const indegree = /* @__PURE__ */ new Map();
-  const dependents = /* @__PURE__ */ new Map();
-  for (const candidate of candidates) {
-    indegree.set(candidate, 0);
-    dependents.set(candidate, /* @__PURE__ */ new Set());
-  }
-  for (const candidate of candidates) {
-    const dependencies = graph.hardDependencies.get(candidate) ?? /* @__PURE__ */ new Set();
-    for (const dependency of dependencies) {
-      if (!candidates.has(dependency)) {
-        continue;
-      }
-      indegree.set(candidate, (indegree.get(candidate) ?? 0) + 1);
-      dependents.get(dependency)?.add(candidate);
-    }
-  }
-  const ready = [...candidates].filter((name) => indegree.get(name) === 0).sort();
-  const order = [];
-  while (ready.length > 0) {
-    const current = ready.shift();
-    if (!current) break;
-    order.push(current);
-    for (const dependent of [...dependents.get(current) ?? []].sort()) {
-      const next = (indegree.get(dependent) ?? 0) - 1;
-      indegree.set(dependent, next);
-      if (next === 0) {
-        ready.push(dependent);
-        ready.sort();
-      }
-    }
-  }
-  if (order.length !== candidates.size) {
-    const cyclic = [...candidates].filter((name) => (indegree.get(name) ?? 0) > 0).sort();
-    throw new Error(
-      `Workspace publication dependency cycle: ${cyclic.join(", ")}`
-    );
-  }
-  return order;
-}
+// src/artifacts/manifest.ts
+var import_node_crypto = require("node:crypto");
+var import_promises = require("node:fs/promises");
+var import_node_path2 = require("node:path");
+var import_semver2 = __toESM(require_semver2(), 1);
 
 // src/immutable.ts
 function immutableJson(value) {
@@ -17278,10 +16978,128 @@ function immutableJson(value) {
   return copy;
 }
 
-// src/native/augment.ts
+// src/artifacts/manifest.ts
+var ARTIFACT_LIMITS = Object.freeze({
+  manifestBytes: 1024 ** 2,
+  packageJsonBytes: 1024 ** 2,
+  archiveBytes: 1024 ** 3,
+  expandedBytes: 4 * 1024 ** 3,
+  entries: 1e5,
+  copyTimeoutMs: 24e4,
+  inspectTimeoutMs: 12e4
+});
+var bytesIntegrity = (bytes) => "sha512-" + (0, import_node_crypto.createHash)("sha512").update(bytes).digest("base64");
+function canonicalIntegrity(value) {
+  if (typeof value !== "string" || !/^sha512-[A-Za-z0-9+/]{86}==$/.test(value)) return false;
+  const bytes = Buffer.from(value.slice(7), "base64");
+  return bytes.length === 64 && "sha512-" + bytes.toString("base64") === value;
+}
+function object(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some((key) => !Object.hasOwn(value, key))) {
+    throw new ArtifactError("MANIFEST_INVALID", "Artifact manifest has missing, unknown or invalid fields");
+  }
+  return value;
+}
+function assertPortablePath(value) {
+  if (typeof value !== "string" || !value || /[\\:\x00-\x1f\x7f]/.test(value) || value.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new ArtifactError("MANIFEST_INVALID", "Tarball path must be a portable relative path inside the manifest directory");
+  }
+}
+function parseArtifactManifest(value) {
+  const root = object(value, ["schema", "source", "packages"]);
+  const source = object(root.source, ["repository", "commit"]);
+  if (root.schema !== 1 || typeof source.repository !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(source.repository) || typeof source.commit !== "string" || !/^[0-9a-f]{40}$/i.test(source.commit) || !Array.isArray(root.packages)) {
+    throw new ArtifactError("MANIFEST_INVALID", "Invalid artifact manifest schema or source");
+  }
+  const names = /* @__PURE__ */ new Set(), paths = /* @__PURE__ */ new Set();
+  const packages = root.packages.map((raw, index) => {
+    const item = object(raw, ["name", "version", "tarball", "integrity"]);
+    if (typeof item.name !== "string" || !item.name || typeof item.version !== "string" || (0, import_semver2.valid)(item.version) !== item.version || !canonicalIntegrity(item.integrity)) {
+      throw new ArtifactError("MANIFEST_INVALID", "Invalid artifact identity or canonical SHA-512 SRI", null, index);
+    }
+    assertPortablePath(item.tarball);
+    if (names.has(item.name) || paths.has(item.tarball)) {
+      throw new ArtifactError("PACKAGE_SET_MISMATCH", "Duplicate artifact package or tarball path", null, index);
+    }
+    names.add(item.name);
+    paths.add(item.tarball);
+    return { name: item.name, version: item.version, tarball: item.tarball, integrity: item.integrity };
+  });
+  return immutableJson({ schema: 1, source: { repository: source.repository.toLowerCase(), commit: source.commit.toLowerCase() }, packages });
+}
+function within(root, path) {
+  const suffix = (0, import_node_path2.relative)(root, path);
+  return suffix === "" || !(0, import_node_path2.isAbsolute)(suffix) && suffix !== ".." && !suffix.startsWith(".." + import_node_path2.sep);
+}
+async function regularFileInside(root, path) {
+  const base = (0, import_node_path2.resolve)(root), target = (0, import_node_path2.resolve)(path);
+  if (!within(base, target) || base === target) throw new Error("Artifact file is outside its allowed directory");
+  const parts = (0, import_node_path2.relative)(base, target).split(import_node_path2.sep);
+  let current = base;
+  for (const [index, part] of parts.entries()) {
+    current = (0, import_node_path2.join)(current, part);
+    const stat = await (0, import_promises.lstat)(current);
+    if (stat.isSymbolicLink() || (index === parts.length - 1 ? !stat.isFile() : !stat.isDirectory())) {
+      throw new Error("Artifact path must use regular files and real directories");
+    }
+  }
+  const [canonicalBase, canonicalTarget] = await Promise.all([(0, import_promises.realpath)(base), (0, import_promises.realpath)(target)]);
+  if (!within(canonicalBase, canonicalTarget)) throw new Error("Artifact path escapes its allowed directory");
+  return canonicalTarget;
+}
+async function loadArtifactManifest(input, context, env, onRead) {
+  try {
+    const path = (0, import_node_path2.resolve)(context.workspace, input);
+    const roots = [(0, import_node_path2.resolve)(context.workspace), ...env.RUNNER_TEMP ? [(0, import_node_path2.resolve)(env.RUNNER_TEMP)] : []].filter((root) => within(root, path)).sort((a, b2) => b2.length - a.length);
+    if (!roots.length) throw new Error("Artifact manifest must be inside the workspace or RUNNER_TEMP");
+    const canonical = await regularFileInside(roots[0], path);
+    const handle = await (0, import_promises.open)(canonical, "r");
+    let bytes;
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size > ARTIFACT_LIMITS.manifestBytes) throw new Error("Artifact manifest exceeds its byte budget");
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of handle.createReadStream()) {
+        size += chunk.length;
+        if (size > ARTIFACT_LIMITS.manifestBytes) throw new Error("Artifact manifest exceeds its byte budget");
+        chunks.push(chunk);
+      }
+      bytes = Buffer.concat(chunks);
+    } finally {
+      await handle.close();
+    }
+    onRead?.(bytesIntegrity(bytes));
+    const manifest = parseArtifactManifest(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
+    return { manifest, directory: (0, import_node_path2.dirname)(canonical), integrity: bytesIntegrity(bytes) };
+  } catch (error) {
+    if (error instanceof ArtifactError) throw error;
+    throw new ArtifactError("MANIFEST_INVALID", "Cannot read a valid artifact manifest inside an allowed directory");
+  }
+}
+function bindArtifacts(loaded, context, packages, candidates) {
+  const { manifest } = loaded;
+  if (manifest.source.repository !== context.repository.toLowerCase() || manifest.source.commit !== (context.sourceSha ?? context.sha).toLowerCase()) {
+    throw new ArtifactError("SOURCE_MISMATCH", "Artifact source does not match the verified checkout source");
+  }
+  const selected = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
+  for (const [index, entry] of manifest.packages.entries()) {
+    if (selected.get(entry.name) !== entry.version) throw new ArtifactError("PACKAGE_SET_MISMATCH", "Artifact identity is outside the selected release", entry, index);
+  }
+  const supplied = new Set(manifest.packages.map((entry) => entry.name));
+  for (const pkg of candidates) {
+    if (!supplied.has(pkg.name)) throw new ArtifactError("PACKAGE_SET_MISMATCH", "Unpublished package has no artifact", pkg);
+  }
+}
+
+// src/artifacts/import.ts
+var import_node_crypto3 = require("node:crypto");
+var import_node_fs8 = require("node:fs");
 var import_promises3 = require("node:fs/promises");
-var import_node_path13 = require("node:path");
-var import_node_os2 = require("node:os");
+var import_node_path12 = require("node:path");
+var import_node_stream2 = require("node:stream");
+var import_promises4 = require("node:stream/promises");
+var import_node_zlib = require("node:zlib");
 
 // node_modules/.pnpm/tar@7.5.22/node_modules/tar/dist/esm/index.min.js
 var import_events = __toESM(require("events"), 1);
@@ -17306,7 +17124,7 @@ var import_node_path6 = require("node:path");
 var import_path3 = __toESM(require("path"), 1);
 var import_node_fs3 = __toESM(require("node:fs"), 1);
 var import_node_assert = __toESM(require("node:assert"), 1);
-var import_node_crypto = require("node:crypto");
+var import_node_crypto2 = require("node:crypto");
 var import_node_fs4 = __toESM(require("node:fs"), 1);
 var import_node_path7 = __toESM(require("node:path"), 1);
 var import_fs4 = __toESM(require("fs"), 1);
@@ -19721,7 +19539,7 @@ var Te = fo === "win32";
 var uo = 1024;
 var mo = (s3, t) => {
   if (!Te) return import_node_fs4.default.unlink(s3, t);
-  let e = s3 + ".DELETE." + (0, import_node_crypto.randomBytes)(16).toString("hex");
+  let e = s3 + ".DELETE." + (0, import_node_crypto2.randomBytes)(16).toString("hex");
   import_node_fs4.default.rename(s3, e, (i) => {
     if (i) return t(i);
     import_node_fs4.default.unlink(e, t);
@@ -19729,7 +19547,7 @@ var mo = (s3, t) => {
 };
 var po = (s3) => {
   if (!Te) return import_node_fs4.default.unlinkSync(s3);
-  let t = s3 + ".DELETE." + (0, import_node_crypto.randomBytes)(16).toString("hex");
+  let t = s3 + ".DELETE." + (0, import_node_crypto2.randomBytes)(16).toString("hex");
   import_node_fs4.default.renameSync(s3, t), import_node_fs4.default.unlinkSync(t);
 };
 var vr = (s3, t, e) => s3 !== void 0 && s3 === s3 >>> 0 ? s3 : t !== void 0 && t === t >>> 0 ? t : e;
@@ -20252,16 +20070,669 @@ var To = (s3) => {
   s3.mtimeCache || (s3.mtimeCache = /* @__PURE__ */ new Map()), s3.filter = t ? (e, i) => t(e, i) && !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0)) : (e, i) => !((s3.mtimeCache?.get(e) ?? i.mtime ?? 0) > (i.mtime ?? 0));
 };
 
+// src/workspace/repository.ts
+function normalizeRepoName(repo) {
+  return repo.endsWith(".git") ? repo.slice(0, -4) : repo;
+}
+function parseGitHubRepository(value) {
+  const raw = typeof value === "string" ? value : value && typeof value === "object" && !Array.isArray(value) && typeof value.url === "string" ? String(value.url) : "";
+  if (!raw) {
+    throw new Error("package.json.repository must identify the GitHub repository");
+  }
+  const shorthand = /^(?:github:)?([^/:\s]+)\/([^/\s]+)$/.exec(raw);
+  if (shorthand) {
+    return { owner: shorthand[1], repo: normalizeRepoName(shorthand[2]) };
+  }
+  const scp = /^git@github\.com:([^/]+)\/(.+)$/.exec(raw);
+  if (scp) {
+    return { owner: scp[1], repo: normalizeRepoName(scp[2]) };
+  }
+  const cleaned = raw.replace(/^git\+/, "");
+  let url;
+  try {
+    url = new URL(cleaned);
+  } catch {
+    throw new Error(`Unsupported GitHub repository URL: ${raw}`);
+  }
+  if (url.hostname.toLowerCase() !== "github.com") {
+    throw new Error(`Repository must use github.com: ${raw}`);
+  }
+  const path = url.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+  const parts = path.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`Repository must identify owner/repo: ${raw}`);
+  }
+  return {
+    owner: parts[0],
+    repo: normalizeRepoName(parts[1])
+  };
+}
+function repositoryFullName(repository) {
+  return `${repository.owner}/${repository.repo}`;
+}
+
+// src/artifacts/import.ts
+function budget(maximum, consume) {
+  let total = 0;
+  return new import_node_stream2.Transform({ transform(chunk, _encoding, callback) {
+    total += chunk.length;
+    if (!Number.isSafeInteger(total) || total > maximum) return callback(new Error("Artifact byte budget exceeded"));
+    consume?.(chunk);
+    callback(null, chunk);
+  } });
+}
+async function inspectArtifact(path) {
+  const entries = [], seen = /* @__PURE__ */ new Set();
+  let json;
+  const parser = new rt({ strict: true, maxMetaEntrySize: ARTIFACT_LIMITS.packageJsonBytes });
+  parser.on("ignoredEntry", () => parser.abort(new Error("Ignored tar entries are not accepted")));
+  parser.on("entry", (entry) => {
+    try {
+      const name = entry.path.endsWith("/") ? entry.path.slice(0, -1) : entry.path;
+      assertPortablePath(name);
+      if (name !== "package" && !name.startsWith("package/") || seen.has(name) || !["File", "OldFile", "Directory"].includes(entry.type) || name === "package" && entry.type !== "Directory" || !Number.isSafeInteger(entry.size) || entry.size < 0 || entries.length >= ARTIFACT_LIMITS.entries) {
+        throw new Error("Ambiguous or unsupported artifact archive entry");
+      }
+      seen.add(name);
+      entries.push({ path: entry.path, type: entry.type, mode: entry.mode ?? 0, size: entry.size });
+      if (name === "package/package.json") {
+        if (entry.type === "Directory" || entry.size > ARTIFACT_LIMITS.packageJsonBytes) throw new Error("Invalid package.json entry");
+        json = [];
+        entry.on("data", (chunk) => json.push(Buffer.from(chunk)));
+      }
+      entry.resume();
+    } catch {
+      parser.abort(new Error("Invalid archive entry"));
+    }
+  });
+  await (0, import_promises4.pipeline)(
+    (0, import_node_fs8.createReadStream)(path),
+    (0, import_node_zlib.createGunzip)(),
+    budget(ARTIFACT_LIMITS.expandedBytes),
+    parser,
+    { signal: AbortSignal.timeout(ARTIFACT_LIMITS.inspectTimeoutMs) }
+  );
+  if (!json) throw new Error("Artifact lacks package/package.json");
+  const manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(json)));
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) throw new Error("Invalid packed package.json");
+  return { tarballPath: path, entries, manifest };
+}
+async function importArtifact(directory, entry, destination, repository, onIntegrity) {
+  let source;
+  try {
+    source = await regularFileInside(directory, (0, import_node_path12.join)(directory, entry.tarball));
+  } catch {
+    throw new ArtifactError("ARTIFACT_MISSING", "Candidate artifact is missing or is not a regular contained file", entry);
+  }
+  await (0, import_promises3.mkdir)((0, import_node_path12.join)(destination, ".."), { recursive: true, mode: 448 });
+  let handle;
+  try {
+    handle = await (0, import_promises3.open)(source, "r");
+  } catch {
+    throw new ArtifactError("ARTIFACT_MISSING", "Candidate artifact cannot be opened", entry);
+  }
+  try {
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile() || stat.size > ARTIFACT_LIMITS.archiveBytes) throw new Error("Artifact exceeds its compressed byte budget");
+      const hash = (0, import_node_crypto3.createHash)("sha512");
+      await (0, import_promises4.pipeline)(
+        handle.createReadStream(),
+        budget(ARTIFACT_LIMITS.archiveBytes, (chunk) => hash.update(chunk)),
+        (0, import_node_fs8.createWriteStream)(destination, { flags: "wx", mode: 384 }),
+        { signal: AbortSignal.timeout(ARTIFACT_LIMITS.copyTimeoutMs) }
+      );
+      const integrity = "sha512-" + hash.digest("base64");
+      onIntegrity?.(integrity, integrity === entry.integrity);
+      if (integrity !== entry.integrity) {
+        throw new ArtifactError("ARTIFACT_INTEGRITY_MISMATCH", "Candidate artifact differs from its expected SHA-512", entry);
+      }
+      await (0, import_promises3.chmod)(destination, 256);
+      const artifact = await inspectArtifact(destination);
+      let packedRepository;
+      try {
+        packedRepository = repositoryFullName(parseGitHubRepository(artifact.manifest.repository));
+      } catch {
+        throw new ArtifactError("ARTIFACT_IDENTITY_MISMATCH", "Candidate packed repository is invalid", entry);
+      }
+      if (artifact.manifest.name !== entry.name || artifact.manifest.version !== entry.version || artifact.manifest.private === true || artifact.manifest.private !== void 0 && typeof artifact.manifest.private !== "boolean" || packedRepository.toLowerCase() !== repository.toLowerCase()) {
+        throw new ArtifactError("ARTIFACT_IDENTITY_MISMATCH", "Candidate packed identity is not publishable from this source", entry);
+      }
+      return artifact;
+    } catch (error) {
+      await (0, import_promises3.rm)(destination, { force: true }).catch(() => {
+      });
+      if (error instanceof ArtifactError) throw error;
+      throw new ArtifactError("ARTIFACT_INVALID", "Candidate archive failed admission checks", entry);
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+// src/registry/client.ts
+var import_semver3 = __toESM(require_semver2(), 1);
+
+// src/registry/integrity.ts
+var import_node_crypto4 = require("node:crypto");
+var import_node_fs9 = require("node:fs");
+async function sha512Integrity(path) {
+  const hash = (0, import_node_crypto4.createHash)("sha512");
+  for await (const chunk of (0, import_node_fs9.createReadStream)(path)) hash.update(chunk);
+  return "sha512-" + hash.digest("base64");
+}
+function decodeSha512(token) {
+  const match = /^sha512-([A-Za-z0-9+/]+={0,2})$/.exec(token);
+  if (!match) {
+    return void 0;
+  }
+  const decoded = Buffer.from(match[1], "base64");
+  return decoded.length === 64 ? decoded : void 0;
+}
+function integrityContainsExactSha512(remoteIntegrity, expectedIntegrity) {
+  const expected = decodeSha512(expectedIntegrity);
+  if (!expected) {
+    throw new Error("Expected artifact integrity must be SHA-512 SRI");
+  }
+  for (const token of remoteIntegrity.trim().split(/\s+/).filter(Boolean)) {
+    const candidate = decodeSha512(token);
+    if (candidate && candidate.length === expected.length && (0, import_node_crypto4.timingSafeEqual)(candidate, expected)) {
+      return true;
+    }
+  }
+  return false;
+}
+function hasValidSha512Integrity(remoteIntegrity) {
+  return remoteIntegrity.trim().split(/\s+/).filter(Boolean).some((token) => decodeSha512(token) !== void 0);
+}
+
+// src/registry/client.ts
+var NPM_REGISTRY = "https://registry.npmjs.org";
+function record(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(label + " must be a mapping");
+  return value;
+}
+function parseRegistrySnapshot(name, raw) {
+  const metadata = record(raw, "npm registry package metadata");
+  if (metadata.name !== name)
+    throw new Error(
+      "npm registry package identity mismatch: expected " + name + ", got " + String(metadata.name)
+    );
+  const rawVersions = record(metadata.versions, name + " registry versions");
+  const versions = /* @__PURE__ */ Object.create(null);
+  for (const [version, rawManifest] of Object.entries(rawVersions)) {
+    if ((0, import_semver3.valid)(version) !== version)
+      throw new Error(
+        name + " registry has an invalid version key: " + version
+      );
+    const manifest = record(
+      rawManifest,
+      name + "@" + version + " registry manifest"
+    );
+    if (manifest.name !== name || manifest.version !== version)
+      throw new Error(
+        "npm registry version identity mismatch for " + name + "@" + version
+      );
+    versions[version] = manifest;
+  }
+  let latestVersion;
+  if (metadata["dist-tags"] !== void 0) {
+    const tags = record(metadata["dist-tags"], name + " registry dist-tags");
+    for (const [tag, version] of Object.entries(tags)) {
+      if (typeof version !== "string" || (0, import_semver3.valid)(version) !== version || !Object.hasOwn(versions, version))
+        throw new Error(
+          name + " registry dist-tag " + tag + " does not identify a live version"
+        );
+    }
+    if (Object.hasOwn(tags, "latest")) latestVersion = tags.latest;
+  }
+  return immutableJson({ name, versions, latestVersion });
+}
+function verifyRegistryIntegrity(manifest, expectedIntegrity) {
+  if (!hasValidSha512Integrity(expectedIntegrity))
+    throw new Error("Expected artifact integrity must be SHA-512 SRI");
+  const identity2 = String(manifest.name) + "@" + String(manifest.version);
+  const dist = record(manifest.dist, identity2 + " registry dist");
+  if (typeof dist.integrity !== "string" || !hasValidSha512Integrity(dist.integrity))
+    throw new ReleaseError(
+      "ARTIFACT_MISMATCH",
+      identity2 + " registry dist.integrity has no valid SHA-512 value",
+      "present"
+    );
+  if (!integrityContainsExactSha512(dist.integrity, expectedIntegrity))
+    throw new ReleaseError(
+      "ARTIFACT_MISMATCH",
+      identity2 + " is live with different package artifact integrity",
+      "present"
+    );
+}
+var NpmRegistryClient = class {
+  #fetchImpl;
+  #readToken;
+  #requestTimeoutMs;
+  constructor(options = {}) {
+    this.#fetchImpl = options.fetchImpl ?? fetch;
+    this.#readToken = options.readToken;
+    this.#requestTimeoutMs = options.requestTimeoutMs ?? 3e4;
+  }
+  async lookupVersion(name, version, options = {}) {
+    if ((0, import_semver3.valid)(version) !== version)
+      throw new Error("Package version must be exact semver: " + version);
+    const headers = {
+      Accept: "application/json",
+      "User-Agent": "releaseway-npm-actions"
+    };
+    if (this.#readToken) headers.Authorization = "Bearer " + this.#readToken;
+    const timeout = AbortSignal.timeout(this.#requestTimeoutMs);
+    const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
+    const response = await this.#fetchImpl(
+      NPM_REGISTRY + "/" + encodeURIComponent(name),
+      { headers, signal }
+    );
+    if (response.status === 404)
+      throw new Error(
+        name + " does not exist in the npm registry; maintainer bootstrap and Trusted Publisher configuration are required"
+      );
+    if (!response.ok)
+      throw new Error(
+        "npm registry metadata request failed for " + name + ": HTTP " + response.status
+      );
+    const snapshot = parseRegistrySnapshot(name, await response.json());
+    signal.throwIfAborted();
+    if (Object.hasOwn(snapshot.versions, version))
+      return {
+        state: "already-published",
+        name,
+        version,
+        snapshot,
+        manifest: snapshot.versions[version]
+      };
+    return { state: "not-published", name, version, snapshot };
+  }
+  async verifyPublishedArtifact(name, version, expectedIntegrity, options = {}) {
+    if (!hasValidSha512Integrity(expectedIntegrity))
+      throw new Error("Expected artifact integrity must be SHA-512 SRI");
+    const lookup = await this.lookupVersion(name, version, options);
+    if (lookup.state === "not-published") return "not-published";
+    verifyRegistryIntegrity(lookup.manifest, expectedIntegrity);
+    return "matched";
+  }
+};
+
+// src/artifacts/registry.ts
+async function readArtifactVersion(registry, identity2) {
+  try {
+    return await registry.lookupVersion(identity2.name, identity2.version);
+  } catch (error) {
+    throw new ArtifactError("REGISTRY_UNAVAILABLE", error instanceof Error ? error.message : "Registry metadata lookup failed", identity2);
+  }
+}
+function verifySuppliedPublic(entry, manifest, progress) {
+  const dist = manifest.dist;
+  const remote = typeof dist?.integrity === "string" ? dist.integrity : "";
+  const actual = remote.split(/\s+/).find((token) => hasValidSha512Integrity(token));
+  const canonical = actual ? "sha512-" + Buffer.from(actual.slice(7), "base64").toString("base64") : null;
+  try {
+    verifyRegistryIntegrity(manifest, entry.integrity);
+  } catch {
+    progress({ phase: "public", identity: entry, integrity: canonical, matched: false });
+    throw new ArtifactError("PUBLIC_INTEGRITY_MISMATCH", "Supplied public version has no matching SHA-512", entry, null, "present");
+  }
+  progress({ phase: "public", identity: entry, integrity: entry.integrity, matched: true });
+}
+
+// src/orchestrate.ts
+var import_promises14 = require("node:fs/promises");
+var import_node_path23 = require("node:path");
+var import_node_os6 = require("node:os");
+var import_semver9 = __toESM(require_semver2(), 1);
+
+// src/config/load.ts
+var import_promises5 = require("node:fs/promises");
+var import_node_path13 = require("node:path");
+var import_yaml = __toESM(require_dist(), 1);
+var import_semver4 = __toESM(require_semver2(), 1);
+
+// src/config/types.ts
+var DEFAULT_CONFIG = {
+  schema: 1,
+  publish: { mode: "stage" },
+  packages: {}
+};
+
+// src/config/load.ts
+var CONFIG_PATH = ".github/npm/packages.yml";
+function assertRecord(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ReleaseError("CONFIG_INVALID", `${label} must be a mapping`);
+  }
+  return value;
+}
+function assertKnownKeys(value, allowed, label) {
+  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) {
+    throw new ReleaseError("CONFIG_INVALID", `${label} has unsupported keys: ${unknown.join(", ")}`);
+  }
+}
+function readMode(value, label) {
+  if (value !== "direct" && value !== "stage") {
+    throw new ReleaseError("CONFIG_INVALID", `${label} must be direct or stage`);
+  }
+  return value;
+}
+function readVersion(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["source", "prefix", "prerelease-tag"], label);
+  if (mapping.source !== "git-tag") {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.source must be git-tag`);
+  }
+  const prefix = mapping.prefix ?? "v";
+  if (typeof prefix !== "string" || /\s/.test(prefix)) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.prefix must be a whitespace-free string`);
+  }
+  let prereleaseTag;
+  if ("prerelease-tag" in mapping) {
+    if (typeof mapping["prerelease-tag"] !== "string" || mapping["prerelease-tag"].length === 0) {
+      throw new ReleaseError("CONFIG_INVALID", `${label}.prerelease-tag must be a non-empty string`);
+    }
+    prereleaseTag = mapping["prerelease-tag"];
+  }
+  return {
+    source: "git-tag",
+    prefix,
+    ...prereleaseTag === void 0 ? {} : { prereleaseTag }
+  };
+}
+function readPublish(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["mode", "channels"], label);
+  if (!("mode" in mapping)) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.mode is required`);
+  }
+  const mode = readMode(mapping.mode, `${label}.mode`);
+  if (mapping.channels === void 0) return { mode };
+  const channels = assertRecord(mapping.channels, `${label}.channels`);
+  assertKnownKeys(channels, ["stable", "prerelease"], `${label}.channels`);
+  for (const [key, tag] of Object.entries(channels)) {
+    if (typeof tag !== "string" || !/^[A-Za-z][A-Za-z0-9._-]*$/.test(tag) || (0, import_semver4.validRange)(tag) !== null) {
+      throw new ReleaseError("CONFIG_INVALID", `${label}.channels.${key} must be a valid non-SemVer npm dist-tag`);
+    }
+  }
+  if (channels.prerelease === "latest") {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.channels.prerelease must not be latest`);
+  }
+  return { mode, channels: { ...channels } };
+}
+function readTarget(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["asset", "executable"], label);
+  if (typeof mapping.asset !== "string" || mapping.asset.length === 0) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.asset must be a non-empty string`);
+  }
+  if (typeof mapping.executable !== "string" || mapping.executable.length === 0) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.executable must be a non-empty string`);
+  }
+  return {
+    asset: mapping.asset,
+    executable: mapping.executable
+  };
+}
+function readDistribution(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["type", "tag", "cache-env", "targets"], label);
+  if (mapping.type !== "github-release") {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.type must be github-release`);
+  }
+  if (typeof mapping.tag !== "string" || mapping.tag.length === 0) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.tag must be a non-empty string`);
+  }
+  let cacheEnv;
+  if ("cache-env" in mapping) {
+    if (typeof mapping["cache-env"] !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(mapping["cache-env"])) {
+      throw new ReleaseError("CONFIG_INVALID", `${label}.cache-env must be an environment variable name`);
+    }
+    cacheEnv = mapping["cache-env"];
+  }
+  const targetsMapping = assertRecord(mapping.targets, `${label}.targets`);
+  const entries = Object.entries(targetsMapping);
+  if (entries.length === 0) {
+    throw new ReleaseError("CONFIG_INVALID", `${label}.targets must not be empty`);
+  }
+  const targets = {};
+  for (const [target, targetValue] of entries) {
+    targets[target] = readTarget(targetValue, `${label}.targets.${target}`);
+  }
+  return {
+    type: "github-release",
+    tag: mapping.tag,
+    ...cacheEnv === void 0 ? {} : { cacheEnv },
+    targets
+  };
+}
+function readPackagePolicy(value, label) {
+  const mapping = assertRecord(value, label);
+  assertKnownKeys(mapping, ["publish", "distribution"], label);
+  const policy = {};
+  if ("publish" in mapping) {
+    policy.publish = readPublish(mapping.publish, `${label}.publish`);
+  }
+  if ("distribution" in mapping) {
+    policy.distribution = readDistribution(
+      mapping.distribution,
+      `${label}.distribution`
+    );
+  }
+  return policy;
+}
+function parseConfig(source) {
+  const document = (0, import_yaml.parseDocument)(source, {
+    uniqueKeys: true,
+    strict: true
+  });
+  if (document.errors.length > 0) {
+    throw new ReleaseError(
+      "CONFIG_INVALID",
+      `Invalid Releaseway config: ${document.errors.map((error) => error.message).join("; ")}`
+    );
+  }
+  const raw = document.toJS();
+  const root = assertRecord(raw, "config");
+  assertKnownKeys(root, ["schema", "version", "publish", "packages"], "config");
+  if ("schema" in root && root.schema !== 1) {
+    throw new ReleaseError("CONFIG_INVALID", "config.schema must be 1");
+  }
+  const version = "version" in root ? readVersion(root.version, "config.version") : void 0;
+  const publish = "publish" in root ? readPublish(root.publish, "config.publish") : DEFAULT_CONFIG.publish;
+  const packages = {};
+  if ("packages" in root) {
+    const packageMapping = assertRecord(root.packages, "config.packages");
+    for (const [name, policy] of Object.entries(packageMapping)) {
+      if (!name) {
+        throw new ReleaseError("CONFIG_INVALID", "config.packages keys must be npm package names");
+      }
+      packages[name] = readPackagePolicy(
+        policy,
+        `config.packages.${name}`
+      );
+    }
+  }
+  return {
+    schema: 1,
+    ...version === void 0 ? {} : { version },
+    publish: { ...publish },
+    packages
+  };
+}
+async function loadConfig(workspaceRoot) {
+  const path = (0, import_node_path13.resolve)(workspaceRoot, CONFIG_PATH);
+  try {
+    return parseConfig(await (0, import_promises5.readFile)(path, "utf8"));
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return {
+        schema: 1,
+        publish: { ...DEFAULT_CONFIG.publish },
+        packages: {}
+      };
+    }
+    throw error;
+  }
+}
+
+// src/graph/dependencies.ts
+var import_npm_package_arg = __toESM(require_npa(), 1);
+var import_semver5 = __toESM(require_semver2(), 1);
+function dependencyMap(manifest, field, packageName) {
+  const value = manifest[field];
+  if (value === void 0) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(packageName + " packed " + field + " must be a mapping");
+  const result = /* @__PURE__ */ Object.create(null);
+  for (const [name, range] of Object.entries(value)) {
+    if (typeof range !== "string" || range.length === 0)
+      throw new Error(
+        packageName + " packed " + field + "." + name + " must be a non-empty string"
+      );
+    result[name] = range;
+  }
+  return result;
+}
+function buildWorkspaceDependencyGraph(packages, artifacts, snapshots) {
+  const managed = new Map(packages.map((pkg) => [pkg.name, pkg]));
+  const candidates = new Map(
+    packages.filter((pkg) => artifacts.has(pkg.name)).map((pkg) => [pkg.name, pkg])
+  );
+  const hardDependencies = /* @__PURE__ */ new Map();
+  const requirements = /* @__PURE__ */ new Map();
+  for (const [name, pkg] of candidates) {
+    const artifact = artifacts.get(name);
+    const dependencies = dependencyMap(artifact.manifest, "dependencies", name);
+    const optional = dependencyMap(
+      artifact.manifest,
+      "optionalDependencies",
+      name
+    );
+    for (const installName of Object.keys(optional))
+      delete dependencies[installName];
+    const peers = dependencyMap(artifact.manifest, "peerDependencies", name);
+    const hard = /* @__PURE__ */ new Set();
+    const required = [];
+    for (const [field, mapping] of [
+      ["dependencies", dependencies],
+      ["optionalDependencies", optional],
+      ["peerDependencies", peers]
+    ]) {
+      for (const [installName, spec] of Object.entries(mapping)) {
+        const parsed = import_npm_package_arg.default.resolve(installName, spec);
+        const target = parsed.type === "alias" ? parsed.subSpec : parsed;
+        if (!target.name || !managed.has(target.name)) continue;
+        if (target.type !== "range" && target.type !== "version" || !target.fetchSpec || (0, import_semver5.validRange)(target.fetchSpec) === null) {
+          throw new Error(
+            name + " packed " + field + "." + installName + " must resolve to a registry SemVer range for managed package " + target.name
+          );
+        }
+        const snapshot = snapshots.get(target.name);
+        if (!snapshot)
+          throw new Error("Missing registry snapshot for " + target.name);
+        const range = target.fetchSpec;
+        const liveVersion = (0, import_semver5.rsort)(
+          Object.keys(snapshot.versions).filter(
+            (version) => (0, import_semver5.satisfies)(version, range)
+          )
+        )[0];
+        const candidate = candidates.get(target.name);
+        const candidateMatches = candidate !== void 0 && (0, import_semver5.satisfies)(candidate.version, range);
+        if (!liveVersion && !candidateMatches) {
+          throw new Error(
+            name + " packed " + field + " " + installName + " (" + target.name + "@" + range + ") has no satisfying live version or planned candidate"
+          );
+        }
+        if (!liveVersion && field === "dependencies" && pkg.publishMode === "direct" && candidate.publishMode !== "direct") {
+          throw new Error(
+            name + " cannot publish directly: required " + target.name + "@" + range + " is only a staged candidate and has no satisfying live version"
+          );
+        }
+        const requirement = {
+          field,
+          installName,
+          name: target.name,
+          range,
+          version: liveVersion ?? candidate.version,
+          source: liveVersion ? "live" : "candidate"
+        };
+        required.push(Object.freeze(requirement));
+        if (!liveVersion && field !== "peerDependencies") hard.add(target.name);
+      }
+    }
+    hardDependencies.set(name, hard);
+    requirements.set(name, Object.freeze(required));
+  }
+  return { packages: candidates, hardDependencies, requirements };
+}
+
+// src/graph/topo.ts
+function topologicalPublishOrder(graph, candidates) {
+  for (const candidate of candidates) {
+    if (!graph.packages.has(candidate)) {
+      throw new Error(`Unknown publish candidate: ${candidate}`);
+    }
+  }
+  const indegree = /* @__PURE__ */ new Map();
+  const dependents = /* @__PURE__ */ new Map();
+  for (const candidate of candidates) {
+    indegree.set(candidate, 0);
+    dependents.set(candidate, /* @__PURE__ */ new Set());
+  }
+  for (const candidate of candidates) {
+    const dependencies = graph.hardDependencies.get(candidate) ?? /* @__PURE__ */ new Set();
+    for (const dependency of dependencies) {
+      if (!candidates.has(dependency)) {
+        continue;
+      }
+      indegree.set(candidate, (indegree.get(candidate) ?? 0) + 1);
+      dependents.get(dependency)?.add(candidate);
+    }
+  }
+  const ready = [...candidates].filter((name) => indegree.get(name) === 0).sort();
+  const order = [];
+  while (ready.length > 0) {
+    const current = ready.shift();
+    if (!current) break;
+    order.push(current);
+    for (const dependent of [...dependents.get(current) ?? []].sort()) {
+      const next = (indegree.get(dependent) ?? 0) - 1;
+      indegree.set(dependent, next);
+      if (next === 0) {
+        ready.push(dependent);
+        ready.sort();
+      }
+    }
+  }
+  if (order.length !== candidates.size) {
+    const cyclic = [...candidates].filter((name) => (indegree.get(name) ?? 0) > 0).sort();
+    throw new Error(
+      `Workspace publication dependency cycle: ${cyclic.join(", ")}`
+    );
+  }
+  return order;
+}
+
+// src/native/augment.ts
+var import_promises6 = require("node:fs/promises");
+var import_node_path15 = require("node:path");
+var import_node_os2 = require("node:os");
+
 // src/native/launcher/wrapper.ts
-var import_node_path12 = require("node:path");
+var import_node_path14 = require("node:path");
 function relativeFromBin(binPath, targetPath) {
-  const relative2 = import_node_path12.posix.relative(import_node_path12.posix.dirname(binPath), targetPath);
-  if (!relative2 || import_node_path12.posix.isAbsolute(relative2)) {
+  const relative3 = import_node_path14.posix.relative(import_node_path14.posix.dirname(binPath), targetPath);
+  if (!relative3 || import_node_path14.posix.isAbsolute(relative3)) {
     throw new Error(
       `Unable to resolve generated native launcher path from ${binPath} to ${targetPath}`
     );
   }
-  return relative2;
+  return relative3;
 }
 function renderNativeLauncher(spec) {
   const runtimeRelative = JSON.stringify(
@@ -20308,7 +20779,7 @@ function packageEntryPath(relativePath) {
   return `package/${relativePath}`;
 }
 function selectLauncherKind(manifest, binPath) {
-  const extension = (0, import_node_path13.extname)(binPath).toLowerCase();
+  const extension = (0, import_node_path15.extname)(binPath).toLowerCase();
   if (extension === ".mjs") {
     return "esm";
   }
@@ -20344,9 +20815,9 @@ async function assertInjectionParentsSafe(packageRoot, relativePath) {
   const parts = relativePath.split("/");
   let current = packageRoot;
   for (const part of parts.slice(0, -1)) {
-    current = (0, import_node_path13.join)(current, part);
+    current = (0, import_node_path15.join)(current, part);
     try {
-      const stat = await (0, import_promises3.lstat)(current);
+      const stat = await (0, import_promises6.lstat)(current);
       if (!stat.isDirectory() || stat.isSymbolicLink()) {
         throw new Error(
           `Native injection parent must be a real directory: ${relativePath}`
@@ -20361,11 +20832,11 @@ async function assertInjectionParentsSafe(packageRoot, relativePath) {
   }
 }
 async function collectArchiveEntries(root, relativePath = "package") {
-  const absolute = (0, import_node_path13.resolve)(root, relativePath);
-  const entries = await (0, import_promises3.readdir)(absolute, { withFileTypes: true });
+  const absolute = (0, import_node_path15.resolve)(root, relativePath);
+  const entries = await (0, import_promises6.readdir)(absolute, { withFileTypes: true });
   const paths = [];
   for (const entry of entries) {
-    const child = import_node_path13.posix.join(relativePath.replaceAll("\\", "/"), entry.name);
+    const child = import_node_path15.posix.join(relativePath.replaceAll("\\", "/"), entry.name);
     if (entry.isDirectory()) {
       paths.push(...await collectArchiveEntries(root, child));
     } else {
@@ -20399,8 +20870,8 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
     throw new Error(`Verified native release does not match ${pkg.name}@${pkg.version}`);
   }
   assertReservedPathsAvailable(artifact, distribution.bin.path);
-  const root = await (0, import_promises3.mkdtemp)(
-    (0, import_node_path13.join)(options.tempRoot ?? (0, import_node_os2.tmpdir)(), "releaseway-native-augment-")
+  const root = await (0, import_promises6.mkdtemp)(
+    (0, import_node_path15.join)(options.tempRoot ?? (0, import_node_os2.tmpdir)(), "releaseway-native-augment-")
   );
   try {
     await So({
@@ -20409,8 +20880,8 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
       strict: true,
       preservePaths: false
     });
-    const packageRoot = (0, import_node_path13.join)(root, "package");
-    const packageStat = await (0, import_promises3.lstat)(packageRoot);
+    const packageRoot = (0, import_node_path15.join)(root, "package");
+    const packageStat = await (0, import_promises6.lstat)(packageRoot);
     if (!packageStat.isDirectory() || packageStat.isSymbolicLink()) {
       throw new Error("Packed package root must be a real directory");
     }
@@ -20430,29 +20901,29 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
       runtimePath: NATIVE_RUNTIME_PATH,
       manifestPath: NATIVE_MANIFEST_PATH
     });
-    const launcherPath = (0, import_node_path13.join)(packageRoot, ...distribution.bin.path.split("/"));
-    await (0, import_promises3.mkdir)((0, import_node_path13.dirname)(launcherPath), { recursive: true });
-    await (0, import_promises3.writeFile)(launcherPath, launcher, { encoding: "utf8", mode: 493 });
-    await (0, import_promises3.chmod)(launcherPath, 493);
-    const releasewayRoot = (0, import_node_path13.join)(packageRoot, ".releaseway");
-    await (0, import_promises3.mkdir)(releasewayRoot, { recursive: true });
-    const runtimePath = (0, import_node_path13.join)(
+    const launcherPath = (0, import_node_path15.join)(packageRoot, ...distribution.bin.path.split("/"));
+    await (0, import_promises6.mkdir)((0, import_node_path15.dirname)(launcherPath), { recursive: true });
+    await (0, import_promises6.writeFile)(launcherPath, launcher, { encoding: "utf8", mode: 493 });
+    await (0, import_promises6.chmod)(launcherPath, 493);
+    const releasewayRoot = (0, import_node_path15.join)(packageRoot, ".releaseway");
+    await (0, import_promises6.mkdir)(releasewayRoot, { recursive: true });
+    const runtimePath = (0, import_node_path15.join)(
       packageRoot,
       ...NATIVE_RUNTIME_PATH.split("/")
     );
-    await (0, import_promises3.writeFile)(runtimePath, runtimeBundle.runtime, { mode: 420 });
+    await (0, import_promises6.writeFile)(runtimePath, runtimeBundle.runtime, { mode: 420 });
     const generatedManifest = buildNativeManifest(release, distribution);
-    const manifestPath = (0, import_node_path13.join)(
+    const manifestPath = (0, import_node_path15.join)(
       packageRoot,
       ...NATIVE_MANIFEST_PATH.split("/")
     );
-    await (0, import_promises3.writeFile)(
+    await (0, import_promises6.writeFile)(
       manifestPath,
       JSON.stringify(generatedManifest, null, 2) + "\n",
       { encoding: "utf8", mode: 420 }
     );
-    const output = (0, import_node_path13.resolve)(outputPath);
-    await (0, import_promises3.mkdir)((0, import_node_path13.dirname)(output), { recursive: true });
+    const output = (0, import_node_path15.resolve)(outputPath);
+    await (0, import_promises6.mkdir)((0, import_node_path15.dirname)(output), { recursive: true });
     const entries = await collectArchiveEntries(root);
     await Qn(
       {
@@ -20466,14 +20937,14 @@ async function augmentNativeArtifact(pkg, artifact, distribution, release, outpu
       },
       entries
     );
-    await (0, import_promises3.readFile)(output);
+    await (0, import_promises6.readFile)(output);
     return {
       tarballPath: output,
       manifest: generatedManifest,
       launcherKind
     };
   } finally {
-    await (0, import_promises3.rm)(root, { recursive: true, force: true });
+    await (0, import_promises6.rm)(root, { recursive: true, force: true });
   }
 }
 
@@ -20588,11 +21059,11 @@ function refObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} is malformed`);
   }
-  const object = value;
-  if (object.type !== "commit" && object.type !== "tag" || typeof object.sha !== "string" || !/^[0-9a-f]{40}$/i.test(object.sha)) {
+  const object2 = value;
+  if (object2.type !== "commit" && object2.type !== "tag" || typeof object2.sha !== "string" || !/^[0-9a-f]{40}$/i.test(object2.sha)) {
     throw new Error(`${label} is malformed`);
   }
-  return object;
+  return object2;
 }
 async function resolveTagCommit(repository, tag, fetchImpl, env) {
   const refRaw = await apiJson(
@@ -20757,7 +21228,7 @@ var NativeReleaseResolver = class {
 };
 
 // src/native/validate.ts
-var import_node_path14 = require("node:path");
+var import_node_path16 = require("node:path");
 var SUPPORTED_NATIVE_TARGETS = /* @__PURE__ */ new Set([
   "darwin-arm64",
   "darwin-x64",
@@ -20772,8 +21243,8 @@ function safePackagePath(value, label) {
   if (value.length === 0 || value.includes("\\") || value.startsWith("/") || value.includes("\0")) {
     throw new Error(`${label} must be a safe relative POSIX path`);
   }
-  const normalized = import_node_path14.posix.normalize(value.replace(/^\.\//, ""));
-  if (normalized === "." || normalized === ".." || normalized.startsWith("../") || import_node_path14.posix.isAbsolute(normalized)) {
+  const normalized = import_node_path16.posix.normalize(value.replace(/^\.\//, ""));
+  if (normalized === "." || normalized === ".." || normalized.startsWith("../") || import_node_path16.posix.isAbsolute(normalized)) {
     throw new Error(`${label} must be a safe relative POSIX path`);
   }
   return normalized;
@@ -20880,21 +21351,21 @@ function validateNativeDistribution(pkg, artifact) {
 
 // src/pack/index.ts
 var import_node_child_process3 = require("node:child_process");
-var import_promises8 = require("node:fs/promises");
+var import_promises11 = require("node:fs/promises");
 var import_node_os4 = require("node:os");
-var import_node_path17 = require("node:path");
+var import_node_path19 = require("node:path");
 var import_node_process2 = __toESM(require("node:process"), 1);
 
 // src/toolchain/bootstrap.ts
 var import_node_child_process = require("node:child_process");
-var import_node_fs8 = require("node:fs");
-var import_promises4 = require("node:stream/promises");
-var import_node_crypto2 = require("node:crypto");
-var import_promises5 = require("node:fs/promises");
+var import_node_fs10 = require("node:fs");
+var import_promises7 = require("node:stream/promises");
+var import_node_crypto5 = require("node:crypto");
+var import_promises8 = require("node:fs/promises");
 var import_node_os3 = require("node:os");
-var import_node_path15 = require("node:path");
+var import_node_path17 = require("node:path");
 var import_node_process = __toESM(require("node:process"), 1);
-var import_semver4 = __toESM(require_semver2(), 1);
+var import_semver6 = __toESM(require_semver2(), 1);
 
 // toolchain.lock.json
 var toolchain_lock_default = {
@@ -20932,8 +21403,8 @@ function verifyIntegrity(bytes, integrity) {
     throw new Error("Toolchain integrity must be an SRI SHA-512 value");
   }
   const expected = Buffer.from(match[1], "base64");
-  const actual = (0, import_node_crypto2.createHash)("sha512").update(bytes).digest();
-  if (expected.length !== actual.length || !(0, import_node_crypto2.timingSafeEqual)(expected, actual)) {
+  const actual = (0, import_node_crypto5.createHash)("sha512").update(bytes).digest();
+  if (expected.length !== actual.length || !(0, import_node_crypto5.timingSafeEqual)(expected, actual)) {
     throw new Error("Toolchain tarball integrity mismatch");
   }
 }
@@ -20949,10 +21420,10 @@ async function downloadAndExtract(name, spec, root, fetchImpl, env = import_node
     return readBoundedResponse(response, limits.maxArchiveBytes, signal);
   });
   verifyIntegrity(bytes, spec.integrity);
-  const archive = (0, import_node_path15.join)(root, `${name}.tgz`);
-  const destination = (0, import_node_path15.join)(root, name);
-  await (0, import_promises5.mkdir)(destination, { recursive: true });
-  await (0, import_promises5.writeFile)(archive, bytes);
+  const archive = (0, import_node_path17.join)(root, `${name}.tgz`);
+  const destination = (0, import_node_path17.join)(root, name);
+  await (0, import_promises8.mkdir)(destination, { recursive: true });
+  await (0, import_promises8.writeFile)(archive, bytes);
   try {
     let expanded = 0;
     await withDeadline("Pinned toolchain extraction", limits.extractTimeoutMs, (signal) => {
@@ -20969,21 +21440,21 @@ async function downloadAndExtract(name, spec, root, fetchImpl, env = import_node
           return true;
         }
       });
-      return (0, import_promises4.pipeline)((0, import_node_fs8.createReadStream)(archive), unpack, { signal });
+      return (0, import_promises7.pipeline)((0, import_node_fs10.createReadStream)(archive), unpack, { signal });
     });
   } finally {
-    await (0, import_promises5.rm)(archive, { force: true });
+    await (0, import_promises8.rm)(archive, { force: true });
   }
-  const cli = (0, import_node_path15.resolve)(destination, spec.bin);
-  await (0, import_promises5.access)(cli);
+  const cli = (0, import_node_path17.resolve)(destination, spec.bin);
+  await (0, import_promises8.access)(cli);
   return cli;
 }
 async function bootstrapReleasewayToolchain(options = {}) {
-  const base = (0, import_node_path15.resolve)(
+  const base = (0, import_node_path17.resolve)(
     options.rootBase ?? import_node_process.default.env.RUNNER_TEMP ?? (0, import_node_os3.tmpdir)()
   );
-  await (0, import_promises5.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises5.mkdtemp)((0, import_node_path15.join)(base, "releaseway-npm-actions-toolchain-"));
+  await (0, import_promises8.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises8.mkdtemp)((0, import_node_path17.join)(base, "releaseway-npm-actions-toolchain-"));
   const fetchImpl = options.fetchImpl ?? fetch;
   const results = await Promise.allSettled([
     downloadAndExtract("npm", toolchain_lock_default.npm, root, fetchImpl, options.env),
@@ -20991,12 +21462,12 @@ async function bootstrapReleasewayToolchain(options = {}) {
   ]);
   const failed = results.find((result) => result.status === "rejected");
   if (failed?.status === "rejected") {
-    await (0, import_promises5.rm)(root, { recursive: true, force: true });
+    await (0, import_promises8.rm)(root, { recursive: true, force: true });
     throw failed.reason;
   }
   const [npmCli, corepackCli] = results.map((result) => result.value);
-  const corepackHome = (0, import_node_path15.join)(root, "corepack-home");
-  await (0, import_promises5.mkdir)(corepackHome, { recursive: true });
+  const corepackHome = (0, import_node_path17.join)(root, "corepack-home");
+  await (0, import_promises8.mkdir)(corepackHome, { recursive: true });
   return { root, npmCli, corepackCli, corepackHome };
 }
 function parsePackageManager(declaration) {
@@ -21011,7 +21482,7 @@ function parsePackageManager(declaration) {
   const reference = declaration.slice(at2 + 1);
   const hashIndex = reference.search(/\+sha(?:224|256|384|512)\./);
   const version = hashIndex === -1 ? reference : reference.slice(0, hashIndex);
-  if ((0, import_semver4.valid)(version) !== version) {
+  if ((0, import_semver6.valid)(version) !== version) {
     throw new Error(
       `packageManager must use an exact semantic version: ${declaration}`
     );
@@ -21081,7 +21552,7 @@ function provisionPackageManager(declaration, toolchain, cwd, env = import_node_
 }
 
 // src/pack/inspect.ts
-var import_promises6 = require("node:fs/promises");
+var import_promises9 = require("node:fs/promises");
 async function inspectPackedTarball(tarballPath) {
   const entries = [];
   let packageJson;
@@ -21099,11 +21570,11 @@ async function inspectPackedTarball(tarballPath) {
       if (entry.path === "package/package.json") {
         const chunks = [];
         pending.push(
-          new Promise((resolve13, reject) => {
+          new Promise((resolve15, reject) => {
             entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
             entry.on("end", () => {
               packageJson = Buffer.concat(chunks).toString("utf8");
-              resolve13();
+              resolve15();
             });
             entry.on("error", reject);
           })
@@ -21126,7 +21597,7 @@ async function inspectPackedTarball(tarballPath) {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
     throw new Error("Packed package.json must contain a JSON object");
   }
-  await (0, import_promises6.readFile)(tarballPath);
+  await (0, import_promises9.readFile)(tarballPath);
   return {
     tarballPath,
     manifest,
@@ -21136,10 +21607,10 @@ async function inspectPackedTarball(tarballPath) {
 
 // src/pack/source-state.ts
 var import_node_child_process2 = require("node:child_process");
-var import_node_crypto3 = require("node:crypto");
-var import_node_fs9 = require("node:fs");
-var import_promises7 = require("node:fs/promises");
-var import_node_path16 = require("node:path");
+var import_node_crypto6 = require("node:crypto");
+var import_node_fs11 = require("node:fs");
+var import_promises10 = require("node:fs/promises");
+var import_node_path18 = require("node:path");
 var import_fast_glob = __toESM(require_out4(), 1);
 var defaultRunGit = (args, cwd) => {
   const result = (0, import_node_child_process2.spawnSync)("git", [...args], {
@@ -21162,23 +21633,23 @@ function runGit(runGit2, cwd, args) {
   return result.stdout;
 }
 async function hashRepositoryFiles(root, paths) {
-  const hash = (0, import_node_crypto3.createHash)("sha256");
+  const hash = (0, import_node_crypto6.createHash)("sha256");
   for (const relativePath of paths) {
-    const absolute = (0, import_node_path16.resolve)(root, relativePath);
-    const stat = await (0, import_promises7.lstat)(absolute);
+    const absolute = (0, import_node_path18.resolve)(root, relativePath);
+    const stat = await (0, import_promises10.lstat)(absolute);
     hash.update(relativePath);
     hash.update("\0");
     hash.update(String(stat.mode));
     hash.update("\0");
     if (stat.isSymbolicLink()) {
       hash.update("symlink\0");
-      hash.update(await (0, import_promises7.readlink)(absolute));
+      hash.update(await (0, import_promises10.readlink)(absolute));
     } else if (stat.isFile()) {
       hash.update("file\0");
       if (stat.size <= 1024 * 1024) {
-        hash.update(await (0, import_promises7.readFile)(absolute));
+        hash.update(await (0, import_promises10.readFile)(absolute));
       } else {
-        for await (const chunk of (0, import_node_fs9.createReadStream)(absolute, { highWaterMark: 1024 * 1024 })) {
+        for await (const chunk of (0, import_node_fs11.createReadStream)(absolute, { highWaterMark: 1024 * 1024 })) {
           hash.update(chunk);
         }
       }
@@ -21249,7 +21720,7 @@ var defaultRunManager = (command, args, cwd) => {
 };
 async function pathExists(path) {
   try {
-    await (0, import_promises8.access)(path);
+    await (0, import_promises11.access)(path);
     return true;
   } catch {
     return false;
@@ -21265,9 +21736,9 @@ async function resolvePackCommand(rootManifest2, toolchain, workspaceRoot, env =
     );
   }
   const [pnpmWorkspace, pnpmLock, yarnLock] = await Promise.all([
-    pathExists((0, import_node_path17.resolve)(workspaceRoot, "pnpm-workspace.yaml")),
-    pathExists((0, import_node_path17.resolve)(workspaceRoot, "pnpm-lock.yaml")),
-    pathExists((0, import_node_path17.resolve)(workspaceRoot, "yarn.lock"))
+    pathExists((0, import_node_path19.resolve)(workspaceRoot, "pnpm-workspace.yaml")),
+    pathExists((0, import_node_path19.resolve)(workspaceRoot, "pnpm-lock.yaml")),
+    pathExists((0, import_node_path19.resolve)(workspaceRoot, "yarn.lock"))
   ]);
   if (pnpmWorkspace || pnpmLock) {
     throw new Error(
@@ -21283,7 +21754,7 @@ async function resolvePackCommand(rootManifest2, toolchain, workspaceRoot, env =
 }
 function packArguments(command, outputDirectory) {
   if (command.name === "yarn") {
-    const fixedOutput = (0, import_node_path17.join)(outputDirectory, "package.tgz");
+    const fixedOutput = (0, import_node_path19.join)(outputDirectory, "package.tgz");
     return {
       args: ["pack", "--out", fixedOutput],
       fixedOutput
@@ -21294,17 +21765,17 @@ function packArguments(command, outputDirectory) {
   };
 }
 async function findSingleTarball(outputDirectory) {
-  const files = (await (0, import_promises8.readdir)(outputDirectory)).filter((name) => name.endsWith(".tgz")).sort();
+  const files = (await (0, import_promises11.readdir)(outputDirectory)).filter((name) => name.endsWith(".tgz")).sort();
   if (files.length !== 1) {
     throw new Error(
       `Expected exactly one packed tarball in ${outputDirectory}, found ${files.length}`
     );
   }
-  return (0, import_node_path17.resolve)(outputDirectory, files[0]);
+  return (0, import_node_path19.resolve)(outputDirectory, files[0]);
 }
 async function packPackage(pkg, command, outputRoot, runManager = defaultRunManager) {
-  const outputDirectory = (0, import_node_path17.resolve)(outputRoot, encodeURIComponent(pkg.name));
-  await (0, import_promises8.mkdir)(outputDirectory, { recursive: true });
+  const outputDirectory = (0, import_node_path19.resolve)(outputRoot, encodeURIComponent(pkg.name));
+  await (0, import_promises11.mkdir)(outputDirectory, { recursive: true });
   const invocation = packArguments(command, outputDirectory);
   const result = runManager(command, invocation.args, pkg.directory);
   if (result.status !== 0) {
@@ -21327,7 +21798,7 @@ async function materializePackageVersions(packages) {
     const failures = [];
     for (const [path, source] of originals) {
       try {
-        await (0, import_promises8.writeFile)(path, source);
+        await (0, import_promises11.writeFile)(path, source);
       } catch (error2) {
         failures.push({ path, source, error: error2 });
       }
@@ -21336,12 +21807,12 @@ async function materializePackageVersions(packages) {
     let recoveryDirectory;
     const errors = [...originalError === void 0 ? [] : [originalError], ...failures.map((f2) => f2.error)];
     try {
-      recoveryDirectory = await (0, import_promises8.mkdtemp)((0, import_node_path17.join)((0, import_node_os4.tmpdir)(), "releaseway-npm-recovery-"));
+      recoveryDirectory = await (0, import_promises11.mkdtemp)((0, import_node_path19.join)((0, import_node_os4.tmpdir)(), "releaseway-npm-recovery-"));
       const index = failures.map((failure, i) => ({ path: failure.path, backup: `${i}.json` }));
-      await (0, import_promises8.writeFile)((0, import_node_path17.join)(recoveryDirectory, "recovery.json"), JSON.stringify(index, null, 2) + "\n", { mode: 384 });
+      await (0, import_promises11.writeFile)((0, import_node_path19.join)(recoveryDirectory, "recovery.json"), JSON.stringify(index, null, 2) + "\n", { mode: 384 });
       for (const [i, failure] of failures.entries()) {
         try {
-          await (0, import_promises8.writeFile)((0, import_node_path17.join)(recoveryDirectory, index[i].backup), failure.source, { mode: 384 });
+          await (0, import_promises11.writeFile)((0, import_node_path19.join)(recoveryDirectory, index[i].backup), failure.source, { mode: 384 });
         } catch (error2) {
           errors.push(error2);
         }
@@ -21360,11 +21831,11 @@ async function materializePackageVersions(packages) {
       if (pkg.manifest.version === pkg.version) {
         continue;
       }
-      const source = await (0, import_promises8.readFile)(pkg.manifestPath);
+      const source = await (0, import_promises11.readFile)(pkg.manifestPath);
       originals.set(pkg.manifestPath, source);
       const manifest = JSON.parse(source.toString("utf8"));
       manifest.version = pkg.version;
-      await (0, import_promises8.writeFile)(
+      await (0, import_promises11.writeFile)(
         pkg.manifestPath,
         JSON.stringify(manifest, null, 2) + "\n",
         { encoding: "utf8" }
@@ -21452,162 +21923,10 @@ function isolatedPublisherEnvironment(source, home) {
 
 // src/publish/index.ts
 var import_node_child_process4 = require("node:child_process");
-var import_promises9 = require("node:fs/promises");
-var import_node_path18 = require("node:path");
+var import_promises12 = require("node:fs/promises");
+var import_node_path20 = require("node:path");
 var import_node_os5 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"), 1);
-
-// src/registry/client.ts
-var import_semver5 = __toESM(require_semver2(), 1);
-
-// src/registry/integrity.ts
-var import_node_crypto4 = require("node:crypto");
-var import_node_fs10 = require("node:fs");
-async function sha512Integrity(path) {
-  const hash = (0, import_node_crypto4.createHash)("sha512");
-  for await (const chunk of (0, import_node_fs10.createReadStream)(path)) hash.update(chunk);
-  return "sha512-" + hash.digest("base64");
-}
-function decodeSha512(token) {
-  const match = /^sha512-([A-Za-z0-9+/]+={0,2})$/.exec(token);
-  if (!match) {
-    return void 0;
-  }
-  const decoded = Buffer.from(match[1], "base64");
-  return decoded.length === 64 ? decoded : void 0;
-}
-function integrityContainsExactSha512(remoteIntegrity, expectedIntegrity) {
-  const expected = decodeSha512(expectedIntegrity);
-  if (!expected) {
-    throw new Error("Expected artifact integrity must be SHA-512 SRI");
-  }
-  for (const token of remoteIntegrity.trim().split(/\s+/).filter(Boolean)) {
-    const candidate = decodeSha512(token);
-    if (candidate && candidate.length === expected.length && (0, import_node_crypto4.timingSafeEqual)(candidate, expected)) {
-      return true;
-    }
-  }
-  return false;
-}
-function hasValidSha512Integrity(remoteIntegrity) {
-  return remoteIntegrity.trim().split(/\s+/).filter(Boolean).some((token) => decodeSha512(token) !== void 0);
-}
-
-// src/registry/client.ts
-var NPM_REGISTRY = "https://registry.npmjs.org";
-function record(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error(label + " must be a mapping");
-  return value;
-}
-function parseRegistrySnapshot(name, raw) {
-  const metadata = record(raw, "npm registry package metadata");
-  if (metadata.name !== name)
-    throw new Error(
-      "npm registry package identity mismatch: expected " + name + ", got " + String(metadata.name)
-    );
-  const rawVersions = record(metadata.versions, name + " registry versions");
-  const versions = /* @__PURE__ */ Object.create(null);
-  for (const [version, rawManifest] of Object.entries(rawVersions)) {
-    if ((0, import_semver5.valid)(version) !== version)
-      throw new Error(
-        name + " registry has an invalid version key: " + version
-      );
-    const manifest = record(
-      rawManifest,
-      name + "@" + version + " registry manifest"
-    );
-    if (manifest.name !== name || manifest.version !== version)
-      throw new Error(
-        "npm registry version identity mismatch for " + name + "@" + version
-      );
-    versions[version] = manifest;
-  }
-  let latestVersion;
-  if (metadata["dist-tags"] !== void 0) {
-    const tags = record(metadata["dist-tags"], name + " registry dist-tags");
-    for (const [tag, version] of Object.entries(tags)) {
-      if (typeof version !== "string" || (0, import_semver5.valid)(version) !== version || !Object.hasOwn(versions, version))
-        throw new Error(
-          name + " registry dist-tag " + tag + " does not identify a live version"
-        );
-    }
-    if (Object.hasOwn(tags, "latest")) latestVersion = tags.latest;
-  }
-  return immutableJson({ name, versions, latestVersion });
-}
-function verifyRegistryIntegrity(manifest, expectedIntegrity) {
-  if (!hasValidSha512Integrity(expectedIntegrity))
-    throw new Error("Expected artifact integrity must be SHA-512 SRI");
-  const identity = String(manifest.name) + "@" + String(manifest.version);
-  const dist = record(manifest.dist, identity + " registry dist");
-  if (typeof dist.integrity !== "string" || !hasValidSha512Integrity(dist.integrity))
-    throw new ReleaseError(
-      "ARTIFACT_MISMATCH",
-      identity + " registry dist.integrity has no valid SHA-512 value",
-      "present"
-    );
-  if (!integrityContainsExactSha512(dist.integrity, expectedIntegrity))
-    throw new ReleaseError(
-      "ARTIFACT_MISMATCH",
-      identity + " is live with different package artifact integrity",
-      "present"
-    );
-}
-var NpmRegistryClient = class {
-  #fetchImpl;
-  #readToken;
-  #requestTimeoutMs;
-  constructor(options = {}) {
-    this.#fetchImpl = options.fetchImpl ?? fetch;
-    this.#readToken = options.readToken;
-    this.#requestTimeoutMs = options.requestTimeoutMs ?? 3e4;
-  }
-  async lookupVersion(name, version, options = {}) {
-    if ((0, import_semver5.valid)(version) !== version)
-      throw new Error("Package version must be exact semver: " + version);
-    const headers = {
-      Accept: "application/json",
-      "User-Agent": "releaseway-npm-actions"
-    };
-    if (this.#readToken) headers.Authorization = "Bearer " + this.#readToken;
-    const timeout = AbortSignal.timeout(this.#requestTimeoutMs);
-    const signal = options.signal ? AbortSignal.any([timeout, options.signal]) : timeout;
-    const response = await this.#fetchImpl(
-      NPM_REGISTRY + "/" + encodeURIComponent(name),
-      { headers, signal }
-    );
-    if (response.status === 404)
-      throw new Error(
-        name + " does not exist in the npm registry; maintainer bootstrap and Trusted Publisher configuration are required"
-      );
-    if (!response.ok)
-      throw new Error(
-        "npm registry metadata request failed for " + name + ": HTTP " + response.status
-      );
-    const snapshot = parseRegistrySnapshot(name, await response.json());
-    signal.throwIfAborted();
-    if (Object.hasOwn(snapshot.versions, version))
-      return {
-        state: "already-published",
-        name,
-        version,
-        snapshot,
-        manifest: snapshot.versions[version]
-      };
-    return { state: "not-published", name, version, snapshot };
-  }
-  async verifyPublishedArtifact(name, version, expectedIntegrity, options = {}) {
-    if (!hasValidSha512Integrity(expectedIntegrity))
-      throw new Error("Expected artifact integrity must be SHA-512 SRI");
-    const lookup = await this.lookupVersion(name, version, options);
-    if (lookup.state === "not-published") return "not-published";
-    verifyRegistryIntegrity(lookup.manifest, expectedIntegrity);
-    return "matched";
-  }
-};
-
-// src/publish/index.ts
 var defaultRunPublisher = (executable, args, options) => {
   const result = (0, import_node_child_process4.spawnSync)(executable, [...args], {
     ...options,
@@ -21641,7 +21960,7 @@ async function assertPreparedTarball(request) {
   }
 }
 function publicationArgs(request, userConfig, globalConfig) {
-  const args = request.mode === "direct" ? ["publish", (0, import_node_path18.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path18.resolve)(request.tarballPath)];
+  const args = request.mode === "direct" ? ["publish", (0, import_node_path20.resolve)(request.tarballPath)] : ["stage", "publish", (0, import_node_path20.resolve)(request.tarballPath)];
   args.push(
     "--registry=" + NPM_REGISTRY + "/",
     "--userconfig=" + userConfig,
@@ -21658,18 +21977,18 @@ async function publishPackage(toolchain, request, options = {}) {
   const sourceEnv = options.env ?? import_node_process3.default.env;
   assertTrustedPublishingEnvironment(sourceEnv);
   await assertPreparedTarball(request);
-  const base = (0, import_node_path18.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os5.tmpdir)());
-  await (0, import_promises9.mkdir)(base, { recursive: true });
-  const root = await (0, import_promises9.mkdtemp)((0, import_node_path18.join)(base, "releaseway-npm-publish-"));
+  const base = (0, import_node_path20.resolve)(options.tempRoot ?? sourceEnv.RUNNER_TEMP ?? (0, import_node_os5.tmpdir)());
+  await (0, import_promises12.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises12.mkdtemp)((0, import_node_path20.join)(base, "releaseway-npm-publish-"));
   try {
-    const home = (0, import_node_path18.join)(root, "home");
-    await (0, import_promises9.mkdir)(home, { recursive: true });
-    const userConfig = (0, import_node_path18.join)(root, "user.npmrc");
-    const globalConfig = (0, import_node_path18.join)(root, "global.npmrc");
+    const home = (0, import_node_path20.join)(root, "home");
+    await (0, import_promises12.mkdir)(home, { recursive: true });
+    const userConfig = (0, import_node_path20.join)(root, "user.npmrc");
+    const globalConfig = (0, import_node_path20.join)(root, "global.npmrc");
     const config = "registry=" + NPM_REGISTRY + "/\n";
     await Promise.all([
-      (0, import_promises9.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
-      (0, import_promises9.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
+      (0, import_promises12.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
+      (0, import_promises12.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
     ]);
     const result = (options.runPublisher ?? defaultRunPublisher)(
       import_node_process3.default.execPath,
@@ -21684,12 +22003,12 @@ async function publishPackage(toolchain, request, options = {}) {
     }
     return request.mode === "direct" ? "direct-accepted" : "staged";
   } finally {
-    await (0, import_promises9.rm)(root, { recursive: true, force: true });
+    await (0, import_promises12.rm)(root, { recursive: true, force: true });
   }
 }
 
 // src/publish/options.ts
-var import_semver6 = __toESM(require_semver2(), 1);
+var import_semver7 = __toESM(require_semver2(), 1);
 function publishConfig(manifest) {
   if (manifest.publishConfig === void 0) {
     return {};
@@ -21709,7 +22028,7 @@ function rejectCredentialConfiguration(config) {
   }
 }
 function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
-  if ((0, import_semver6.valid)(version) !== version) {
+  if ((0, import_semver7.valid)(version) !== version) {
     throw new Error(`Package version must be exact semver: ${version}`);
   }
   const config = publishConfig(manifest);
@@ -21724,7 +22043,7 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     if (typeof config.tag !== "string" || config.tag.length === 0) {
       throw new Error("packed publishConfig.tag must be a non-empty string");
     }
-    if ((0, import_semver6.validRange)(config.tag) !== null) {
+    if ((0, import_semver7.validRange)(config.tag) !== null) {
       throw new Error(
         `packed publishConfig.tag must not be interpretable as a SemVer range: ${config.tag}`
       );
@@ -21732,7 +22051,7 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     tag = config.tag;
   }
   if (tagOverride !== void 0) {
-    if (tagOverride.length === 0 || (0, import_semver6.validRange)(tagOverride) !== null) {
+    if (tagOverride.length === 0 || (0, import_semver7.validRange)(tagOverride) !== null) {
       throw new Error(
         `publication tag override must be a non-empty non-SemVer-range tag: ${tagOverride}`
       );
@@ -21753,18 +22072,18 @@ function derivePublishOptions(manifest, version, latestVersion, tagOverride) {
     }
     access3 = config.access;
   }
-  if (!tag && (0, import_semver6.prerelease)(version) !== null) {
+  if (!tag && (0, import_semver7.prerelease)(version) !== null) {
     throw new Error(
       `${version} is a prerelease and requires explicit publishConfig.tag`
     );
   }
   if (!tag && latestVersion !== void 0) {
-    if ((0, import_semver6.valid)(latestVersion) !== latestVersion) {
+    if ((0, import_semver7.valid)(latestVersion) !== latestVersion) {
       throw new Error(
         `npm latest dist-tag is not valid semver: ${latestVersion}`
       );
     }
-    if ((0, import_semver6.lt)(version, latestVersion)) {
+    if ((0, import_semver7.lt)(version, latestVersion)) {
       throw new Error(
         `${version} is lower than current latest ${latestVersion} and requires explicit publishConfig.tag`
       );
@@ -21800,57 +22119,14 @@ function packageOperationEnvironment(source) {
 }
 
 // src/workspace/discover.ts
-var import_promises10 = require("node:fs/promises");
-var import_node_path19 = require("node:path");
+var import_promises13 = require("node:fs/promises");
+var import_node_path21 = require("node:path");
 var import_fast_glob2 = __toESM(require_out4(), 1);
 var import_yaml2 = __toESM(require_dist(), 1);
-
-// src/workspace/repository.ts
-function normalizeRepoName(repo) {
-  return repo.endsWith(".git") ? repo.slice(0, -4) : repo;
-}
-function parseGitHubRepository(value) {
-  const raw = typeof value === "string" ? value : value && typeof value === "object" && !Array.isArray(value) && typeof value.url === "string" ? String(value.url) : "";
-  if (!raw) {
-    throw new Error("package.json.repository must identify the GitHub repository");
-  }
-  const shorthand = /^(?:github:)?([^/:\s]+)\/([^/\s]+)$/.exec(raw);
-  if (shorthand) {
-    return { owner: shorthand[1], repo: normalizeRepoName(shorthand[2]) };
-  }
-  const scp = /^git@github\.com:([^/]+)\/(.+)$/.exec(raw);
-  if (scp) {
-    return { owner: scp[1], repo: normalizeRepoName(scp[2]) };
-  }
-  const cleaned = raw.replace(/^git\+/, "");
-  let url;
-  try {
-    url = new URL(cleaned);
-  } catch {
-    throw new Error(`Unsupported GitHub repository URL: ${raw}`);
-  }
-  if (url.hostname.toLowerCase() !== "github.com") {
-    throw new Error(`Repository must use github.com: ${raw}`);
-  }
-  const path = url.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
-  const parts = path.split("/");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    throw new Error(`Repository must identify owner/repo: ${raw}`);
-  }
-  return {
-    owner: parts[0],
-    repo: normalizeRepoName(parts[1])
-  };
-}
-function repositoryFullName(repository) {
-  return `${repository.owner}/${repository.repo}`;
-}
-
-// src/workspace/discover.ts
 async function readJsonManifest(path) {
   let parsed;
   try {
-    parsed = JSON.parse(await (0, import_promises10.readFile)(path, "utf8"));
+    parsed = JSON.parse(await (0, import_promises13.readFile)(path, "utf8"));
   } catch (error) {
     throw new Error(
       `Failed to read package manifest ${path}: ${error instanceof Error ? error.message : String(error)}`
@@ -21884,10 +22160,10 @@ function packageJsonWorkspacePatterns(manifest) {
   throw new Error("package.json workspaces must be an array or mapping");
 }
 async function pnpmWorkspacePatterns(workspaceRoot) {
-  const path = (0, import_node_path19.resolve)(workspaceRoot, "pnpm-workspace.yaml");
+  const path = (0, import_node_path21.resolve)(workspaceRoot, "pnpm-workspace.yaml");
   let source;
   try {
-    source = await (0, import_promises10.readFile)(path, "utf8");
+    source = await (0, import_promises13.readFile)(path, "utf8");
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return void 0;
@@ -21926,14 +22202,14 @@ function packageManifestPatterns(patterns) {
   });
 }
 function assertWithinWorkspace(workspace, candidate) {
-  const rel = (0, import_node_path19.relative)(workspace, candidate);
-  if (rel === ".." || rel.startsWith("../") || (0, import_node_path19.isAbsolute)(rel)) {
+  const rel = (0, import_node_path21.relative)(workspace, candidate);
+  if (rel === ".." || rel.startsWith("../") || (0, import_node_path21.isAbsolute)(rel)) {
     throw new Error(`Workspace package escapes GITHUB_WORKSPACE: ${candidate}`);
   }
 }
 async function discoverWorkspace(workspaceRoot) {
-  const root = await (0, import_promises10.realpath)((0, import_node_path19.resolve)(workspaceRoot));
-  const rootManifestPath = (0, import_node_path19.resolve)(root, "package.json");
+  const root = await (0, import_promises13.realpath)((0, import_node_path21.resolve)(workspaceRoot));
+  const rootManifestPath = (0, import_node_path21.resolve)(root, "package.json");
   const rootManifest2 = await readJsonManifest(rootManifestPath);
   const pnpmPatterns = await pnpmWorkspacePatterns(root);
   const patterns = pnpmPatterns ?? packageJsonWorkspacePatterns(rootManifest2);
@@ -21948,14 +22224,14 @@ async function discoverWorkspace(workspaceRoot) {
       ignore: ["**/node_modules/**", "**/.git/**"]
     });
     for (const match of matches) {
-      manifestPaths.add((0, import_node_path19.resolve)(match));
+      manifestPaths.add((0, import_node_path21.resolve)(match));
     }
   }
   const discovered = [];
   for (const manifestPath of [...manifestPaths].sort()) {
-    const directory = await (0, import_promises10.realpath)((0, import_node_path19.dirname)(manifestPath));
+    const directory = await (0, import_promises13.realpath)((0, import_node_path21.dirname)(manifestPath));
     assertWithinWorkspace(root, directory);
-    const relativeDirectory = (0, import_node_path19.relative)(root, directory) || ".";
+    const relativeDirectory = (0, import_node_path21.relative)(root, directory) || ".";
     discovered.push({
       directory,
       relativeDirectory,
@@ -22067,7 +22343,7 @@ function selectPublishablePackages(discovered, config, expectedRepository, versi
 
 // src/workspace/identity.ts
 var import_node_child_process5 = require("node:child_process");
-var import_node_path20 = require("node:path");
+var import_node_path22 = require("node:path");
 var defaultRunGit2 = (args, cwd) => {
   const result = (0, import_node_child_process5.spawnSync)("git", [...args], {
     cwd,
@@ -22106,7 +22382,7 @@ function githubContextFromEnv(env = process.env) {
   const releaseCommit = env["INPUT_RELEASE-COMMIT"]?.trim().toLowerCase();
   if (releaseCommit && !/^[0-9a-f]{40}$/.test(releaseCommit)) throw new Error("release-commit must be a full 40-character commit SHA");
   return {
-    workspace: (0, import_node_path20.resolve)(workspace),
+    workspace: (0, import_node_path22.resolve)(workspace),
     repository,
     sha: releaseCommit || sha.toLowerCase(),
     ...env["INPUT_RELEASE-TAG"]?.trim() ? { releaseTag: env["INPUT_RELEASE-TAG"].trim() } : {},
@@ -22145,7 +22421,7 @@ function verifySourceIdentity(context, runGit2 = defaultRunGit2) {
 
 // src/version/git-tag.ts
 var import_node_child_process6 = require("node:child_process");
-var import_semver7 = __toESM(require_semver2(), 1);
+var import_semver8 = __toESM(require_semver2(), 1);
 var defaultRunGit3 = (args, cwd) => {
   const result = (0, import_node_child_process6.spawnSync)("git", [...args], {
     cwd,
@@ -22172,7 +22448,7 @@ function resolveGitTagVersion(context, policy, runGit2 = defaultRunGit3) {
   if (selected && (selected.startsWith("refs/tags/") || runGit2(["check-ref-format", `refs/tags/${selected}`], context.workspace).status !== 0)) {
     throw new ReleaseError("TAG_INVALID", "release-tag must be an exact Git tag name");
   }
-  if (selected && (!selected.startsWith(policy.prefix) || (0, import_semver7.valid)(selected.slice(policy.prefix.length)) !== selected.slice(policy.prefix.length))) {
+  if (selected && (!selected.startsWith(policy.prefix) || (0, import_semver8.valid)(selected.slice(policy.prefix.length)) !== selected.slice(policy.prefix.length))) {
     throw new ReleaseError("TAG_INVALID", "release-tag must match the configured prefix and exact SemVer");
   }
   const output = runGitRequired2(runGit2, context.workspace, ["ls-remote", "--tags", "origin"]);
@@ -22201,7 +22477,7 @@ function resolveGitTagVersion(context, policy, runGit2 = defaultRunGit3) {
   for (const [tag, target] of tags) {
     if (!tag.startsWith(policy.prefix)) continue;
     const version = tag.slice(policy.prefix.length);
-    if ((0, import_semver7.valid)(version) !== version) continue;
+    if ((0, import_semver8.valid)(version) !== version) continue;
     const commit = target.peeled ?? target.direct;
     if (commit === context.sha.toLowerCase()) {
       candidates.push({ tag, version });
@@ -22251,8 +22527,8 @@ async function waitForDirectLive(registry, name, version, expectedIntegrity, opt
   }
 }
 async function nativeRuntimeBundle(actionPath) {
-  const runtime = await (0, import_promises11.readFile)(
-    (0, import_node_path21.resolve)(actionPath, "dist", "native-runtime.cjs")
+  const runtime = await (0, import_promises14.readFile)(
+    (0, import_node_path23.resolve)(actionPath, "dist", "native-runtime.cjs")
   );
   if (runtime.byteLength === 0) {
     throw new Error("Releaseway native runtime bundle is missing or empty");
@@ -22261,7 +22537,7 @@ async function nativeRuntimeBundle(actionPath) {
 }
 function rootManifest(discovered, workspace) {
   const root = discovered.find(
-    (pkg) => (0, import_node_path21.resolve)(pkg.directory) === (0, import_node_path21.resolve)(workspace)
+    (pkg) => (0, import_node_path23.resolve)(pkg.directory) === (0, import_node_path23.resolve)(workspace)
   );
   if (!root) {
     throw new Error(
@@ -22292,8 +22568,8 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
     return;
   }
   const runtimeBundle = await nativeRuntimeBundle(context.actionPath);
-  const outputRoot = (0, import_node_path21.join)(runRoot, "final-native");
-  await (0, import_promises11.mkdir)(outputRoot, { recursive: true });
+  const outputRoot = (0, import_node_path23.join)(runRoot, "final-native");
+  await (0, import_promises14.mkdir)(outputRoot, { recursive: true });
   for (const pkg of nativePackages) {
     const artifact = artifacts.get(pkg.name);
     if (!artifact) {
@@ -22306,7 +22582,7 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
       context.sha,
       distribution
     );
-    const outputPath = (0, import_node_path21.join)(
+    const outputPath = (0, import_node_path23.join)(
       outputRoot,
       encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz"
     );
@@ -22346,58 +22622,101 @@ async function prepareRelease(context, dependencies = {}) {
   );
   if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  const artifactProgress = (event) => dependencies.onProgress?.({ kind: "artifact-verification", event });
+  const manifestInput = context.env["INPUT_ARTIFACTS-MANIFEST"]?.trim();
+  if (manifestInput) artifactProgress({ phase: "selection", packages });
+  const supplied = manifestInput ? await loadArtifactManifest(manifestInput, context, context.env, (integrity) => artifactProgress({ phase: "read", integrity })) : void 0;
+  if (supplied) {
+    artifactProgress({ phase: "manifest", packages: supplied.manifest.packages });
+    bindArtifacts(supplied, context, packages, []);
+    artifactProgress({ phase: "source", source: supplied.manifest.source });
+  }
   const registry = dependencies.registryClient ?? new NpmRegistryClient({ readToken: context.env.NODE_AUTH_TOKEN });
   const snapshots = /* @__PURE__ */ new Map();
   const candidates = [];
   const alreadyPublished = [];
   dependencies.onProgress?.({ kind: "phase", phase: "verify" });
   for (const pkg of packages) {
-    const lookup = await registry.lookupVersion(pkg.name, pkg.version);
+    const lookup = supplied ? await readArtifactVersion(registry, pkg) : await registry.lookupVersion(pkg.name, pkg.version);
     snapshots.set(pkg.name, lookup.snapshot);
-    if (lookup.state === "already-published")
+    if (lookup.state === "already-published") {
       alreadyPublished.push({
         name: pkg.name,
         version: pkg.version,
         state: "already-published"
       });
-    else candidates.push(pkg);
+      if (supplied) artifactProgress({ phase: "existing", identity: pkg });
+    } else candidates.push(pkg);
   }
   const skipped = immutableJson(
     alreadyPublished.sort((a, b2) => a.name.localeCompare(b2.name))
   );
-  if (candidates.length === 0)
+  if (supplied) {
+    bindArtifacts(supplied, context, packages, candidates);
+    for (const entry of supplied.manifest.packages) {
+      const manifest = snapshots.get(entry.name).versions[entry.version];
+      if (manifest) verifySuppliedPublic(entry, manifest, artifactProgress);
+    }
+  }
+  if (candidates.length === 0) {
+    if (supplied) artifactProgress({ phase: "preflight" });
     return Object.freeze({ kind: "noop", alreadyPublished: skipped });
+  }
+  if (supplied && candidates.some((pkg) => pkg.policy?.distribution)) {
+    throw new ArtifactError(
+      "UNSUPPORTED_DISTRIBUTION",
+      "Prepacked candidates cannot require native augmentation",
+      candidates.find((pkg) => pkg.policy?.distribution)
+    );
+  }
   dependencies.onProgress?.({ kind: "phase", phase: "pack" });
   (dependencies.validatePublishEnvironment ?? assertTrustedPublishingEnvironment)(context.env);
-  const root = rootManifest(discovered, context.workspace);
-  const base = (0, import_node_path21.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os6.tmpdir)());
-  await (0, import_promises11.mkdir)(base, { recursive: true });
-  const runRoot = await (0, import_promises11.mkdtemp)((0, import_node_path21.join)(base, "releaseway-npm-actions-run-"));
+  const base = (0, import_node_path23.resolve)(context.env.RUNNER_TEMP ?? (0, import_node_os6.tmpdir)());
+  await (0, import_promises14.mkdir)(base, { recursive: true });
+  const runRoot = await (0, import_promises14.mkdtemp)((0, import_node_path23.join)(base, "releaseway-npm-actions-run-"));
   try {
+    let artifacts;
+    if (supplied) {
+      artifacts = /* @__PURE__ */ new Map();
+      for (const [index, pkg] of candidates.entries()) {
+        const entry = supplied.manifest.packages.find((item) => item.name === pkg.name);
+        const artifact = await importArtifact(
+          supplied.directory,
+          entry,
+          (0, import_node_path23.join)(runRoot, "imported", index + ".tgz"),
+          context.repository,
+          (integrity, matched) => artifactProgress({ phase: "local", identity: entry, integrity, matched })
+        );
+        artifacts.set(pkg.name, artifact);
+      }
+    }
     const toolchain = await (dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain)({ rootBase: runRoot, env: context.env });
-    const command = await resolvePackCommand(
-      { packageManager: root.manifest.packageManager },
-      toolchain,
-      context.workspace,
-      packageOperationEnvironment(context.env)
-    );
-    const packed = await (dependencies.packAll ?? packAllPackages)(
-      context.workspace,
-      candidates,
-      command,
-      (0, import_node_path21.join)(runRoot, "packed"),
-      void 0,
-      packages
-    );
-    const artifacts = artifactMap(candidates, packed);
-    await applyNativeAugmentation(
-      context,
-      candidates,
-      artifacts,
-      runRoot,
-      dependencies.inspect ?? inspectPackedTarball,
-      dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env)
-    );
+    if (!artifacts) {
+      const root = rootManifest(discovered, context.workspace);
+      const command = await resolvePackCommand(
+        { packageManager: root.manifest.packageManager },
+        toolchain,
+        context.workspace,
+        packageOperationEnvironment(context.env)
+      );
+      const packed = await (dependencies.packAll ?? packAllPackages)(
+        context.workspace,
+        candidates,
+        command,
+        (0, import_node_path23.join)(runRoot, "packed"),
+        void 0,
+        packages
+      );
+      artifacts = artifactMap(candidates, packed);
+      await applyNativeAugmentation(
+        context,
+        candidates,
+        artifacts,
+        runRoot,
+        dependencies.inspect ?? inspectPackedTarball,
+        dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env)
+      );
+    }
     const requests = /* @__PURE__ */ new Map();
     for (const pkg of candidates) {
       const artifact = artifacts.get(pkg.name);
@@ -22411,9 +22730,9 @@ async function prepareRelease(context, dependencies = {}) {
         throw new Error(
           "Final packed repository does not match source for " + pkg.name
         );
-      const legacyPrereleaseTag = config.version?.prereleaseTag !== void 0 && (0, import_semver8.prerelease)(pkg.version) !== null ? config.version.prereleaseTag : void 0;
+      const legacyPrereleaseTag = config.version?.prereleaseTag !== void 0 && (0, import_semver9.prerelease)(pkg.version) !== null ? config.version.prereleaseTag : void 0;
       const channels = { ...config.publish.channels, ...pkg.policy?.publish?.channels };
-      const channelTag = (0, import_semver8.prerelease)(pkg.version) === null ? channels.stable : channels.prerelease;
+      const channelTag = (0, import_semver9.prerelease)(pkg.version) === null ? channels.stable : channels.prerelease;
       if (channelTag !== void 0 && legacyPrereleaseTag !== void 0 && channelTag !== legacyPrereleaseTag) {
         throw new Error("publish.channels.prerelease conflicts with version.prerelease-tag");
       }
@@ -22429,8 +22748,8 @@ async function prepareRelease(context, dependencies = {}) {
           name: pkg.name,
           version: pkg.version,
           mode: pkg.publishMode,
-          tarballPath: (0, import_node_path21.resolve)(artifact.tarballPath),
-          integrity: await sha512Integrity(artifact.tarballPath),
+          tarballPath: (0, import_node_path23.resolve)(artifact.tarballPath),
+          integrity: supplied ? supplied.manifest.packages.find((entry) => entry.name === pkg.name).integrity : await sha512Integrity(artifact.tarballPath),
           publishOptions: {
             ...publishOptions,
             tag: publishOptions.tag ?? "latest"
@@ -22461,10 +22780,15 @@ async function prepareRelease(context, dependencies = {}) {
       }),
       toolchain: Object.freeze({ ...toolchain }),
       registryClient: registry,
-      runRoot
+      runRoot,
+      ...supplied ? { artifactChecks: immutableJson(supplied.manifest.packages.map((entry) => ({
+        entry,
+        initiallyPublic: alreadyPublished.some((pkg) => pkg.name === entry.name)
+      }))) } : {}
     });
   } catch (error) {
-    await (0, import_promises11.rm)(runRoot, { recursive: true, force: true });
+    if (supplied) await (0, import_promises14.rm)(runRoot, { recursive: true, force: true }).catch(() => console.warn("Could not clean imported artifacts; preserving preparation failure"));
+    else await (0, import_promises14.rm)(runRoot, { recursive: true, force: true });
     throw error;
   }
 }
@@ -22485,19 +22809,41 @@ async function assertDirectDependenciesLive(registry, publication) {
 async function executePreparedRelease(context, prepared, dependencies = {}) {
   const results = [...prepared.alreadyPublished];
   if (prepared.kind === "noop") return results;
-  if (context.repository !== prepared.source.repository || context.sha !== prepared.source.sha || (0, import_node_path21.resolve)(context.workspace) !== (0, import_node_path21.resolve)(prepared.source.workspace))
+  if (context.repository !== prepared.source.repository || context.sha !== prepared.source.sha || (0, import_node_path23.resolve)(context.workspace) !== (0, import_node_path23.resolve)(prepared.source.workspace))
     throw new Error("Prepared release source context changed");
   const registry = prepared.registryClient;
   const publisher = dependencies.publish ?? publishPackage;
   const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
+  const artifactProgress = (event) => dependencies.onProgress?.({ kind: "artifact-verification", event });
+  const checkTarball = async (request) => {
+    if (prepared.artifactChecks) {
+      let actual = null;
+      try {
+        actual = await sha512Integrity(request.tarballPath);
+      } catch {
+      }
+      artifactProgress({ phase: "local", identity: request, integrity: actual, matched: actual === request.integrity });
+      if (actual !== request.integrity) throw new ArtifactError("ARTIFACT_CHANGED", "Prepared artifact changed before publication", request);
+    } else {
+      await assertPreparedTarball(request);
+    }
+  };
   for (const publication of prepared.publications)
-    await assertPreparedTarball(publication.request);
+    await checkTarball(publication.request);
+  if (prepared.artifactChecks) {
+    for (const { entry, initiallyPublic } of prepared.artifactChecks) {
+      const lookup = await readArtifactVersion(registry, entry);
+      if (lookup.state === "already-published") verifySuppliedPublic(entry, lookup.manifest, artifactProgress);
+      else if (initiallyPublic) throw new ArtifactError("REGISTRY_STATE_CHANGED", "Previously public supplied version disappeared", entry, null, "unknown");
+    }
+    artifactProgress({ phase: "preflight" });
+  }
   const completed = [];
   for (const publication of prepared.publications) {
     const request = publication.request;
     dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
     try {
-      await assertPreparedTarball(request);
+      await checkTarball(request);
       dependencies.onProgress?.({ kind: "phase", phase: "verify" });
       let state;
       if (await registry.verifyPublishedArtifact(
@@ -22511,6 +22857,7 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
         let submitted;
         try {
           dependencies.onProgress?.({ kind: "phase", phase: "publish" });
+          await checkTarball(request);
           submitted = await publisher(prepared.toolchain, request, {
             env: context.env,
             tempRoot: prepared.runRoot
@@ -22569,6 +22916,7 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
 }
 async function runRelease(context, dependencies = {}) {
   const prepared = await prepareRelease(context, dependencies);
+  let failed = false;
   try {
     dependencies.onProgress?.({
       kind: "plan",
@@ -22576,16 +22924,21 @@ async function runRelease(context, dependencies = {}) {
       alreadyPublished: prepared.alreadyPublished
     });
     return await executePreparedRelease(context, prepared, dependencies);
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
-    if (prepared.kind === "ready")
-      await (0, import_promises11.rm)(prepared.runRoot, { recursive: true, force: true });
+    if (prepared.kind === "ready") {
+      if (failed && prepared.artifactChecks) await (0, import_promises14.rm)(prepared.runRoot, { recursive: true, force: true }).catch(() => console.warn("Could not clean imported artifacts; preserving publication failure"));
+      else await (0, import_promises14.rm)(prepared.runRoot, { recursive: true, force: true });
+    }
   }
 }
 
 // src/report.ts
-var import_promises12 = require("node:fs/promises");
+var import_promises15 = require("node:fs/promises");
 var import_node_os7 = require("node:os");
-var import_node_path22 = require("node:path");
+var import_node_path24 = require("node:path");
 function updateReport(report, event) {
   if (event.kind === "plan") {
     report.plan = event.plan.map(({ name, version, mode, integrity }) => ({ name, version, mode, integrity }));
@@ -22600,18 +22953,128 @@ function updateReport(report, event) {
   }
 }
 async function writeReleaseReport(report, env) {
-  const base = (0, import_node_path22.resolve)(env.RUNNER_TEMP ?? (0, import_node_os7.tmpdir)());
-  await (0, import_promises12.mkdir)(base, { recursive: true });
-  const directory = await (0, import_promises12.mkdtemp)((0, import_node_path22.join)(base, "releaseway-npm-report-"));
-  const path = (0, import_node_path22.join)(directory, "report.json");
-  await (0, import_promises12.writeFile)(path, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+  const base = (0, import_node_path24.resolve)(env.RUNNER_TEMP ?? (0, import_node_os7.tmpdir)());
+  await (0, import_promises15.mkdir)(base, { recursive: true });
+  const directory = await (0, import_promises15.mkdtemp)((0, import_node_path24.join)(base, "releaseway-npm-report-"));
+  const path = (0, import_node_path24.join)(directory, "report.json");
+  await (0, import_promises15.writeFile)(path, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
   if (env.GITHUB_STEP_SUMMARY) {
     const safeJson = JSON.stringify(report, null, 2).replace(/`/g, "\\u0060");
-    await (0, import_promises12.appendFile)(env.GITHUB_STEP_SUMMARY, `### Releaseway npm release
+    await (0, import_promises15.appendFile)(env.GITHUB_STEP_SUMMARY, `### Releaseway npm release
 
 \`\`\`json
 ${safeJson}
 \`\`\`
+`);
+  }
+  return path;
+}
+
+// src/artifacts/report.ts
+var import_promises16 = require("node:fs/promises");
+var import_node_os8 = require("node:os");
+var import_node_path25 = require("node:path");
+var identity = (value) => ({ name: value.name, version: value.version });
+var ArtifactReporter = class {
+  report = {
+    schema: 1,
+    mode: "prepacked",
+    source: null,
+    publicationCommit: null,
+    manifestIntegrity: null,
+    status: "failed",
+    preflight: "not-complete",
+    packages: [],
+    error: null
+  };
+  current = null;
+  submitting = false;
+  row(value) {
+    let row = this.report.packages.find((pkg) => pkg.name === value.name && pkg.version === value.version);
+    if (!row) {
+      row = {
+        ...identity(value),
+        coverage: "not-supplied",
+        expectedIntegrity: null,
+        localIntegrity: null,
+        publicIntegrity: null,
+        localVerification: "not-checked",
+        publicVerification: "not-checked",
+        publication: "not-attempted"
+      };
+      this.report.packages.push(row);
+      this.report.packages.sort((a, b2) => a.name.localeCompare(b2.name) || a.version.localeCompare(b2.version));
+    }
+    return row;
+  }
+  progress(event) {
+    if (event.kind === "artifact-verification") {
+      const data = event.event;
+      if (data.phase === "read") this.report.manifestIntegrity = data.integrity;
+      else if (data.phase === "source") this.report.source = { ...data.source };
+      else if (data.phase === "preflight") this.report.preflight = "passed";
+      else if (data.phase === "selection") data.packages.forEach((pkg) => this.row(pkg));
+      else if (data.phase === "manifest") data.packages.forEach((pkg) => Object.assign(this.row(pkg), { coverage: "supplied", expectedIntegrity: pkg.integrity }));
+      else if (data.phase === "existing") Object.assign(this.row(data.identity), { publication: "already-published", localVerification: "not-required" });
+      else if (data.phase === "local") Object.assign(this.row(data.identity), { localIntegrity: data.integrity, localVerification: data.matched ? "matched" : "mismatched" });
+      else if (data.phase === "public") Object.assign(this.row(data.identity), { publicIntegrity: data.integrity, publicVerification: data.matched ? "matched" : "mismatched" });
+    } else if (event.kind === "publishing") {
+      this.current = this.row(event);
+      this.submitting = false;
+    } else if (event.kind === "phase" && event.phase === "publish") {
+      this.submitting = true;
+    } else if (event.kind === "completed") {
+      const row = this.row(event.result);
+      row.publication = event.result.state;
+      if (event.result.state === "published") {
+        row.publicVerification = "matched";
+        row.publicIntegrity = row.expectedIntegrity;
+      }
+      this.submitting = false;
+    }
+  }
+  complete() {
+    if (this.report.preflight !== "passed") throw new ArtifactError("INTERNAL_ERROR", "Artifact preflight was not completed");
+    this.report.status = "success";
+    this.report.error = null;
+  }
+  fail(error) {
+    for (let depth = 0; depth < 8 && error instanceof Error && !(error instanceof ReleaseError) && error.cause; depth++) error = error.cause;
+    const artifact = error instanceof ArtifactError ? error : void 0;
+    let code = artifact?.artifactCode ?? (this.report.preflight === "passed" ? "PUBLISH_FAILED" : "PLAN_INVALID");
+    if (!artifact && error instanceof ReleaseError && error.code === "ARTIFACT_MISMATCH") code = "PUBLIC_INTEGRITY_MISMATCH";
+    if (code === "PUBLIC_INTEGRITY_MISMATCH") {
+      const row = artifact?.identity ? this.row(artifact.identity) : this.current;
+      if (row && row.publicVerification !== "mismatched") Object.assign(row, { publicVerification: "mismatched", publicIntegrity: null });
+    }
+    const localFailure = !!artifact && !["PUBLIC_INTEGRITY_MISMATCH", "REGISTRY_STATE_CHANGED", "REGISTRY_UNAVAILABLE", "PUBLISH_FAILED"].includes(code);
+    if (this.current && this.submitting && !localFailure) this.current.publication = "unknown";
+    const completed = this.report.packages.some((pkg) => pkg.publication === "published" || pkg.publication === "staged");
+    const uncertain = this.report.packages.some((pkg) => pkg.publication === "unknown");
+    const remoteState = uncertain ? "unknown" : completed ? "present" : artifact?.remoteState ?? "unchanged";
+    const recovery = ["PUBLIC_INTEGRITY_MISMATCH", "REGISTRY_STATE_CHANGED", "PUBLISH_FAILED", "INTERNAL_ERROR"].includes(code) ? "inspect-remote" : code === "REGISTRY_UNAVAILABLE" ? "same-input" : "fix-input";
+    this.report.status = "failed";
+    this.report.error = {
+      code,
+      entryIndex: artifact?.entryIndex ?? null,
+      package: artifact?.identity ? identity(artifact.identity) : this.current ? identity(this.current) : null,
+      remoteState,
+      recovery
+    };
+  }
+};
+async function writeArtifactReport(report, env) {
+  const base = (0, import_node_path25.resolve)(env.RUNNER_TEMP ?? (0, import_node_os8.tmpdir)());
+  await (0, import_promises16.mkdir)(base, { recursive: true });
+  const directory = await (0, import_promises16.mkdtemp)((0, import_node_path25.join)(base, "releaseway-npm-artifact-report-"));
+  const path = (0, import_node_path25.join)(directory, "artifact-report.json");
+  await (0, import_promises16.writeFile)(path, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+  if (env.GITHUB_STEP_SUMMARY) {
+    const matched = report.packages.filter((pkg) => pkg.publicVerification === "matched").length;
+    await (0, import_promises16.appendFile)(env.GITHUB_STEP_SUMMARY, `
+### Prepacked artifact verification
+
+Status: ${report.status}; public SHA-512 matches: ${matched}; report: ${path}
 `);
   }
   return path;
@@ -22627,7 +23090,7 @@ function requiredEnvironment(env, name) {
   }
   return value;
 }
-function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs11.appendFileSync) {
+function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs12.appendFileSync) {
   appendOutput(
     outputPath,
     "packages=" + JSON.stringify(packages) + "\n",
@@ -22636,27 +23099,29 @@ function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs
 }
 function resolveActionPath(explicit, env, argv = process.argv) {
   if (explicit) {
-    return (0, import_node_path23.resolve)(explicit);
+    return (0, import_node_path26.resolve)(explicit);
   }
   if (env.GITHUB_ACTION_PATH) {
-    return (0, import_node_path23.resolve)(env.GITHUB_ACTION_PATH);
+    return (0, import_node_path26.resolve)(env.GITHUB_ACTION_PATH);
   }
   const entrypoint = argv[1];
   if (!entrypoint) {
     throw new Error("Unable to determine JavaScript action entrypoint path");
   }
-  return (0, import_node_path23.resolve)((0, import_node_path23.dirname)(entrypoint), "..");
+  return (0, import_node_path26.resolve)((0, import_node_path26.dirname)(entrypoint), "..");
 }
 async function runAction(options = {}) {
   const env = options.env ?? process.env;
-  const append = options.appendOutput ?? import_node_fs11.appendFileSync;
+  const append = options.appendOutput ?? import_node_fs12.appendFileSync;
   const diagnostic = newDiagnostics("npm", "publish");
   diagnostic.selection.source = safeSha(env.GITHUB_SHA);
   let report;
   let failed = false;
+  const artifacts = env["INPUT_ARTIFACTS-MANIFEST"]?.trim() ? new ArtifactReporter() : void 0;
   try {
     const github = githubContextFromEnv(env);
     diagnostic.selection.commit = github.sha;
+    if (artifacts) artifacts.report.publicationCommit = github.sha;
     const actionPath = resolveActionPath(options.actionPath, env, options.argv ?? process.argv);
     const outputPath = requiredEnvironment(env, "GITHUB_OUTPUT");
     report = { schema: 1, source: { repository: github.repository, commit: github.sha }, status: "running", stage: "prepare", plan: [], results: [] };
@@ -22666,6 +23131,7 @@ async function runAction(options = {}) {
         ...options.dependencies,
         onProgress(event) {
           updateReport(report, event);
+          artifacts?.progress(event);
           if (event.kind === "selection") {
             diagnostic.selection.tag = event.tag;
             diagnostic.selection.version = event.version;
@@ -22677,6 +23143,7 @@ async function runAction(options = {}) {
         }
       }
     );
+    artifacts?.complete();
     writePackagesOutput(outputPath, packages, append);
     report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
     report.status = "success";
@@ -22688,6 +23155,7 @@ async function runAction(options = {}) {
   } catch (error) {
     failed = true;
     if (report) report.status = "failed";
+    artifacts?.fail(error);
     failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
     throw error;
   } finally {
@@ -22706,6 +23174,16 @@ async function runAction(options = {}) {
     } catch (error) {
       outputFailure ??= error;
       if (failed) console.warn("Diagnostics could not be saved; preserving the original failure. Inspect the registry before retrying.");
+    }
+    if (artifacts) {
+      if (!failed && outputFailure) artifacts.fail(outputFailure);
+      try {
+        const path = await (options.writeArtifactReport ?? writeArtifactReport)(artifacts.report, env);
+        if (env.GITHUB_OUTPUT) append(env.GITHUB_OUTPUT, "artifact-report-path=" + path + "\n", { encoding: "utf8" });
+      } catch (error) {
+        outputFailure ??= error;
+        if (failed) console.warn("Artifact verification report could not be saved; preserving the original failure");
+      }
     }
     if (!failed && outputFailure) throw outputFailure;
   }

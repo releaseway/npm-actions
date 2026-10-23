@@ -78,6 +78,7 @@ export async function importArtifact(directory: string, entry: ArtifactEntry, de
       try { packedRepository = repositoryFullName(parseGitHubRepository(artifact.manifest.repository)); }
       catch { throw new ArtifactError("ARTIFACT_IDENTITY_MISMATCH", "Candidate packed repository is invalid", entry); }
       if (artifact.manifest.name !== entry.name || artifact.manifest.version !== entry.version || artifact.manifest.private === true ||
+          (artifact.manifest.private !== undefined && typeof artifact.manifest.private !== "boolean") ||
           packedRepository.toLowerCase() !== repository.toLowerCase()) {
         throw new ArtifactError("ARTIFACT_IDENTITY_MISMATCH", "Candidate packed identity is not publishable from this source", entry);
       }

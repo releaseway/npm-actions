@@ -69,7 +69,7 @@ test("import owns the exact compressed bytes and never follows later input chang
 test("digest, identity, duplicate manifest, private and corrupt archives fail and clean owned output", async () => fixture(async h => {
   let entry = await h.make();
   await assert.rejects(importArtifact(h.root, { ...entry, integrity: "sha512-" + Buffer.alloc(64).toString("base64") }, h.output, h.context.repository), /SHA-512/);
-  for (const metadata of [{ ...h.manifest, name: "other" }, { ...h.manifest, version: "2.0.0" }, { ...h.manifest, repository: "owner/other" }, { ...h.manifest, private: true }]) {
+  for (const metadata of [{ ...h.manifest, name: "other" }, { ...h.manifest, version: "2.0.0" }, { ...h.manifest, repository: "owner/other" }, { ...h.manifest, private: true }, { ...h.manifest, private: "false" }]) {
     entry = await h.make(metadata);
     await assert.rejects(importArtifact(h.root, entry, h.output, h.context.repository), /identity/);
   }
