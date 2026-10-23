@@ -2,6 +2,7 @@ import { appendFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { PackageResult } from "./orchestrate.ts";
+import type { ArtifactProgress } from "./artifacts/progress.ts";
 
 export interface ReleasePlanEntry {
   name: string;
@@ -11,6 +12,7 @@ export interface ReleasePlanEntry {
 }
 
 export type ReleaseProgress =
+  | { kind: "artifact-verification"; event: ArtifactProgress }
   | { kind: "selection"; tag: string; version: string }
   | { kind: "phase"; phase: "resolve" | "pack" | "publish" | "verify" }
   | { kind: "plan"; plan: readonly ReleasePlanEntry[]; alreadyPublished: readonly PackageResult[] }

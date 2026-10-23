@@ -1,4 +1,9 @@
 import { ReleaseError } from "./release-error.ts";
+import { ArtifactError } from "./artifacts/errors.ts";
+import { bindArtifacts, loadArtifactManifest, type ArtifactEntry } from "./artifacts/manifest.ts";
+import { importArtifact } from "./artifacts/import.ts";
+import { readArtifactVersion, verifySuppliedPublic } from "./artifacts/registry.ts";
+import type { ArtifactProgress } from "./artifacts/progress.ts";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -81,6 +86,7 @@ export type PreparedRelease =
       readonly toolchain: ReleasewayToolchain;
       readonly registryClient: RegistryReader;
       readonly runRoot: string;
+      readonly artifactChecks?: readonly { entry: ArtifactEntry; initiallyPublic: boolean }[];
     });
 export interface OrchestrationContext extends GithubContext {
   actionPath: string;
@@ -279,6 +285,17 @@ export async function prepareRelease(
   );
   if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  const artifactProgress = (event: ArtifactProgress) => dependencies.onProgress?.({ kind: "artifact-verification", event });
+  const manifestInput = context.env["INPUT_ARTIFACTS-MANIFEST"]?.trim();
+  if (manifestInput) artifactProgress({ phase: "selection", packages });
+  const supplied = manifestInput
+    ? await loadArtifactManifest(manifestInput, context, context.env, integrity => artifactProgress({ phase: "read", integrity }))
+    : undefined;
+  if (supplied) {
+    artifactProgress({ phase: "manifest", packages: supplied.manifest.packages });
+    bindArtifacts(supplied, context, packages, []);
+    artifactProgress({ phase: "source", source: supplied.manifest.source });
+  }
   const registry =
     dependencies.registryClient ??
     new NpmRegistryClient({ readToken: context.env.NODE_AUTH_TOKEN });
@@ -288,7 +305,7 @@ export async function prepareRelease(
   dependencies.onProgress?.({ kind: "phase", phase: "verify" });
   // Classification must finish for the complete workspace before any package-manager work.
   for (const pkg of packages) {
-    const lookup = await registry.lookupVersion(pkg.name, pkg.version);
+    const lookup = supplied ? await readArtifactVersion(registry, pkg) : await registry.lookupVersion(pkg.name, pkg.version);
     snapshots.set(pkg.name, lookup.snapshot);
     if (lookup.state === "already-published")
       alreadyPublished.push({
@@ -301,44 +318,69 @@ export async function prepareRelease(
   const skipped = immutableJson(
     alreadyPublished.sort((a, b) => a.name.localeCompare(b.name)),
   );
-  if (candidates.length === 0)
+  if (supplied) {
+    bindArtifacts(supplied, context, packages, candidates);
+    for (const entry of supplied.manifest.packages) {
+      const manifest = snapshots.get(entry.name)!.versions[entry.version];
+      if (manifest) verifySuppliedPublic(entry, manifest, artifactProgress);
+    }
+  }
+  if (candidates.length === 0) {
+    if (supplied) artifactProgress({ phase: "preflight" });
     return Object.freeze({ kind: "noop", alreadyPublished: skipped });
+  }
+  if (supplied && candidates.some(pkg => pkg.policy?.distribution)) {
+    throw new ArtifactError("UNSUPPORTED_DISTRIBUTION", "Prepacked candidates cannot require native augmentation",
+      candidates.find(pkg => pkg.policy?.distribution)!);
+  }
   dependencies.onProgress?.({ kind: "phase", phase: "pack" });
   (
     dependencies.validatePublishEnvironment ??
     assertTrustedPublishingEnvironment
   )(context.env);
-  const root = rootManifest(discovered, context.workspace);
   const base = resolve(context.env.RUNNER_TEMP ?? tmpdir());
   await mkdir(base, { recursive: true });
   const runRoot = await mkdtemp(join(base, "releaseway-npm-actions-run-"));
   try {
+    let artifacts: Map<string, PackedArtifact> | undefined;
+    if (supplied) {
+      artifacts = new Map();
+      for (const [index, pkg] of candidates.entries()) {
+        const entry = supplied.manifest.packages.find(item => item.name === pkg.name)!;
+        const artifact = await importArtifact(supplied.directory, entry, join(runRoot, "imported", index + ".tgz"), context.repository,
+          (integrity, matched) => artifactProgress({ phase: "local", identity: entry, integrity, matched }));
+        artifacts.set(pkg.name, artifact);
+      }
+    }
     const toolchain = await (
       dependencies.bootstrapToolchain ?? bootstrapReleasewayToolchain
     )({ rootBase: runRoot, env: context.env });
-    const command = await resolvePackCommand(
-      { packageManager: root.manifest.packageManager },
-      toolchain,
-      context.workspace,
-      packageOperationEnvironment(context.env),
-    );
-    const packed = await (dependencies.packAll ?? packAllPackages)(
-      context.workspace,
-      candidates,
-      command,
-      join(runRoot, "packed"),
-      undefined,
-      packages,
-    );
-    const artifacts = artifactMap(candidates, packed);
-    await applyNativeAugmentation(
-      context,
-      candidates,
-      artifacts,
-      runRoot,
-      dependencies.inspect ?? inspectPackedTarball,
-      dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env),
-    );
+    if (!artifacts) {
+      const root = rootManifest(discovered, context.workspace);
+      const command = await resolvePackCommand(
+        { packageManager: root.manifest.packageManager },
+        toolchain,
+        context.workspace,
+        packageOperationEnvironment(context.env),
+      );
+      const packed = await (dependencies.packAll ?? packAllPackages)(
+        context.workspace,
+        candidates,
+        command,
+        join(runRoot, "packed"),
+        undefined,
+        packages,
+      );
+      artifacts = artifactMap(candidates, packed);
+      await applyNativeAugmentation(
+        context,
+        candidates,
+        artifacts,
+        runRoot,
+        dependencies.inspect ?? inspectPackedTarball,
+        dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env),
+      );
+    }
     const requests = new Map<string, PublishRequest>();
     for (const pkg of candidates) {
       const artifact = artifacts.get(pkg.name)!;
@@ -384,7 +426,7 @@ export async function prepareRelease(
           version: pkg.version,
           mode: pkg.publishMode,
           tarballPath: resolve(artifact.tarballPath),
-          integrity: await sha512Integrity(artifact.tarballPath),
+          integrity: supplied ? supplied.manifest.packages.find(entry => entry.name === pkg.name)!.integrity : await sha512Integrity(artifact.tarballPath),
           publishOptions: {
             ...publishOptions,
             tag: publishOptions.tag ?? "latest",
@@ -416,9 +458,12 @@ export async function prepareRelease(
       toolchain: Object.freeze({ ...toolchain }),
       registryClient: registry,
       runRoot,
+      ...(supplied ? { artifactChecks: immutableJson(supplied.manifest.packages.map(entry => ({ entry,
+        initiallyPublic: alreadyPublished.some(pkg => pkg.name === entry.name) }))) } : {}),
     });
   } catch (error) {
-    await rm(runRoot, { recursive: true, force: true });
+    if (supplied) await rm(runRoot, { recursive: true, force: true }).catch(() => console.warn("Could not clean imported artifacts; preserving preparation failure"));
+    else await rm(runRoot, { recursive: true, force: true });
     throw error;
   }
 }
@@ -461,15 +506,32 @@ export async function executePreparedRelease(
   const registry = prepared.registryClient;
   const publisher = dependencies.publish ?? publishPackage;
   const waitForLive = dependencies.waitForDirectLive ?? waitForDirectLive;
+  const artifactProgress = (event: ArtifactProgress) => dependencies.onProgress?.({ kind: "artifact-verification", event });
+  const checkTarball = async (request: PublishRequest) => {
+    try { await assertPreparedTarball(request); }
+    catch (error) {
+      if (prepared.artifactChecks) throw new ArtifactError("ARTIFACT_CHANGED", "Prepared artifact changed before publication", request);
+      throw error;
+    }
+  };
   // Detect alteration of any prepared artifact before the first registry mutation.
   for (const publication of prepared.publications)
-    await assertPreparedTarball(publication.request);
+    await checkTarball(publication.request);
+  // Finish every supplied version check before writing any package. Later races remain per-item checks.
+  if (prepared.artifactChecks) {
+    for (const { entry, initiallyPublic } of prepared.artifactChecks) {
+      const lookup = await readArtifactVersion(registry, entry);
+      if (lookup.state === "already-published") verifySuppliedPublic(entry, lookup.manifest, artifactProgress);
+      else if (initiallyPublic) throw new ArtifactError("REGISTRY_STATE_CHANGED", "Previously public supplied version disappeared", entry, null, "unknown");
+    }
+    artifactProgress({ phase: "preflight" });
+  }
   const completed: PackageResult[] = [];
   for (const publication of prepared.publications) {
     const request = publication.request;
     dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
     try {
-      await assertPreparedTarball(request);
+      await checkTarball(request);
       dependencies.onProgress?.({ kind: "phase", phase: "verify" });
       let state: PackageResult["state"];
       if (
@@ -485,6 +547,7 @@ export async function executePreparedRelease(
         let submitted;
         try {
           dependencies.onProgress?.({ kind: "phase", phase: "publish" });
+          await checkTarball(request);
           submitted = await publisher(prepared.toolchain, request, {
             env: context.env,
             tempRoot: prepared.runRoot,
@@ -564,6 +627,7 @@ export async function runRelease(
   dependencies: OrchestrationDependencies = {},
 ): Promise<PackageResult[]> {
   const prepared = await prepareRelease(context, dependencies);
+  let failed = false;
   try {
     dependencies.onProgress?.({
       kind: "plan",
@@ -571,8 +635,13 @@ export async function runRelease(
       alreadyPublished: prepared.alreadyPublished,
     });
     return await executePreparedRelease(context, prepared, dependencies);
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
-    if (prepared.kind === "ready")
-      await rm(prepared.runRoot, { recursive: true, force: true });
+    if (prepared.kind === "ready") {
+      if (failed && prepared.artifactChecks) await rm(prepared.runRoot, { recursive: true, force: true }).catch(() => console.warn("Could not clean imported artifacts; preserving publication failure"));
+      else await rm(prepared.runRoot, { recursive: true, force: true });
+    }
   }
 }

@@ -2,6 +2,11 @@ name: Releaseway npm publish
 description: Publish npm packages through Releaseway's verified npm release engine.
 
 inputs:
+  artifacts-manifest:
+    description: Optional source-bound schema 1 manifest of verified tarballs and SHA-512 SRI values. Every unpublished package requires an artifact; failures never fall back to packing.
+    required: false
+    default: ""
+
   release-commit:
     description: Optional full release marker SHA returned by releaseway/actions/prepare. Its parent and unchanged tree must match the workflow source; requires git-tag version policy.
     required: false

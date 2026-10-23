@@ -6,10 +6,12 @@ import {
   readdir,
   rm,
   writeFile,
+  chmod,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
+import * as tar from "tar";
 import {
   prepareRelease,
   executePreparedRelease,
@@ -138,6 +140,169 @@ async function fixture(
   }
 }
 const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
+
+async function supplyArtifacts(h, packages) {
+  const entries = [];
+  for (const [index, manifest] of packages.entries()) {
+    const source = join(h.root, "producer", String(index));
+    await mkdir(join(source, "package"), { recursive: true });
+    await writeFile(join(source, "package/package.json"), JSON.stringify(manifest));
+    await writeFile(join(source, "package/index.js"), "module.exports = 42;\n");
+    const tarball = "artifact-" + index + ".tgz";
+    await tar.c({ cwd: source, file: join(h.root, tarball), gzip: true }, ["package"]);
+    entries.push({ name: manifest.name, version: manifest.version, tarball, integrity: await sha512Integrity(join(h.root, tarball)) });
+  }
+  const manifest = { schema: 1, source: { repository: h.context.repository, commit: h.context.sourceSha ?? h.context.sha }, packages: entries };
+  const save = () => writeFile(join(h.root, "artifacts.json"), JSON.stringify(manifest));
+  await save();
+  h.context.env["INPUT_ARTIFACTS-MANIFEST"] = "artifacts.json";
+  h.deps.packAll = () => assert.fail("prepacked mode must not pack");
+  await writeFile(join(h.root, "package.json"), JSON.stringify({ private: true, packageManager: "pnpm@invalid", workspaces: ["packages/*"] }));
+  return { manifest, save };
+}
+
+test("prepacked mode publishes exact independent artifacts in dependency order without a pack manager", async () => {
+  const packages = [pkg("app", { version: "1.2.3", dependencies: { lib: "^2.0.0" } }), pkg("lib", { version: "2.0.0" })];
+  await fixture(packages, async h => {
+    const bundle = await supplyArtifacts(h, packages);
+    const expected = new Map(bundle.manifest.packages.map(e => [e.name, e.integrity]));
+    const publish = h.deps.publish;
+    h.deps.publish = async (toolchain, request) => {
+      assert.equal(await sha512Integrity(request.tarballPath), expected.get(request.name));
+      assert.notEqual(request.tarballPath, join(h.root, "artifact-0.tgz"));
+      return publish(toolchain, request);
+    };
+    const result = await runRelease(h.context, h.deps);
+    assert.deepEqual(result.map(e => [e.name, e.version]), [["lib", "2.0.0"], ["app", "1.2.3"]]);
+    assert.deepEqual(mutations(h.events), ["publish:direct:lib", "publish:direct:app"]);
+    assert.equal(await sha512Integrity(join(h.root, "artifact-0.tgz")), expected.get("app"));
+  });
+});
+
+test("late prepacked mismatch or missing artifact blocks all writes and cleans temporary snapshots", async () => {
+  const packages = [pkg("a"), pkg("z")];
+  await fixture(packages, async h => {
+    const bundle = await supplyArtifacts(h, packages);
+    bundle.manifest.packages[1].integrity = "sha512-" + Buffer.alloc(64).toString("base64");
+    await bundle.save();
+    await assert.rejects(runRelease(h.context, h.deps), /expected SHA-512/);
+    assert.deepEqual(mutations(h.events), []);
+    assert.ok(!h.events.includes("bootstrap"));
+    assert.ok(!(await readdir(h.root)).some(name => name.startsWith("releaseway-npm-actions-run-")));
+    bundle.manifest.packages.pop(); await bundle.save();
+    await assert.rejects(runRelease(h.context, h.deps), /no artifact/);
+    assert.deepEqual(mutations(h.events), []);
+  });
+});
+
+test("supplied public SRI is required even for fileless all-public noop, while uncovered public versions keep their meaning", async () => {
+  const packages = [pkg("a"), pkg("old")];
+  await fixture(packages, async h => {
+    const { manifest } = await supplyArtifacts(h, [packages[0]]);
+    h.put("a", "1.0.0", { dist: { integrity: manifest.packages[0].integrity } });
+    h.put("old", "1.0.0", { dist: { integrity: "sha1-history" } });
+    await rm(join(h.root, "artifact-0.tgz"));
+    h.context.env = { "INPUT_ARTIFACTS-MANIFEST": "artifacts.json" };
+    assert.deepEqual((await runRelease(h.context, h.deps)).map(p => p.state), ["already-published", "already-published"]);
+    assert.ok(!h.events.includes("bootstrap"));
+    for (const dist of [{}, { integrity: "sha1-history" }, { integrity: "sha512-broken" }, { integrity: "sha512-" + Buffer.alloc(64).toString("base64") }]) {
+      h.put("a", "1.0.0", { dist });
+      await assert.rejects(runRelease(h.context, h.deps), /matching SHA-512/);
+    }
+    assert.deepEqual(mutations(h.events), []);
+  });
+});
+
+test("prepacked partial retry verifies the original public SRI without needing that file", async () => {
+  const packages = [pkg("a"), pkg("z")];
+  await fixture(packages, async h => {
+    await supplyArtifacts(h, packages);
+    const publish = h.deps.publish;
+    h.deps.publish = (toolchain, request) => request.name === "z" ? Promise.reject(new Error("outage")) : publish(toolchain, request);
+    await assert.rejects(runRelease(h.context, h.deps), /completed before failure: a@1.0.0/);
+    await rm(join(h.root, "artifact-0.tgz"));
+    h.deps.publish = publish; h.events.length = 0;
+    assert.deepEqual((await runRelease(h.context, h.deps)).map(p => p.state), ["already-published", "published"]);
+    assert.deepEqual(mutations(h.events), ["publish:direct:z"]);
+  });
+});
+
+test("prepacked bulk registry gate rejects a late public mismatch before writing an earlier package", async () => {
+  const packages = [pkg("a"), pkg("z")];
+  await fixture(packages, async h => {
+    await supplyArtifacts(h, packages);
+    const plan = await prepareRelease(h.context, h.deps);
+    try {
+      h.put("z", "1.0.0", { dist: { integrity: "sha512-" + Buffer.alloc(64).toString("base64") } });
+      await assert.rejects(executePreparedRelease(h.context, plan, h.deps), /matching SHA-512/);
+      assert.deepEqual(mutations(h.events), []);
+    } finally { await rm(plan.runRoot, { recursive: true, force: true }); }
+  });
+});
+
+test("prepacked owned-file alteration blocks the whole plan; later alteration leaves only completed writes", async () => {
+  const packages = [pkg("a"), pkg("z")];
+  await fixture(packages, async h => {
+    await supplyArtifacts(h, packages);
+    let plan = await prepareRelease(h.context, h.deps);
+    const corrupt = async path => { await chmod(path, 0o600); await writeFile(path, "changed"); };
+    try {
+      await corrupt(plan.publications[1].request.tarballPath);
+      await assert.rejects(executePreparedRelease(h.context, plan, h.deps), /artifact changed/);
+      assert.deepEqual(mutations(h.events), []);
+    } finally { await rm(plan.runRoot, { recursive: true, force: true }); }
+    plan = await prepareRelease(h.context, h.deps);
+    const publish = h.deps.publish;
+    h.deps.publish = async (toolchain, request) => {
+      const state = await publish(toolchain, request);
+      if (request.name === "a") await corrupt(plan.publications[1].request.tarballPath);
+      return state;
+    };
+    try {
+      await assert.rejects(executePreparedRelease(h.context, plan, h.deps), /artifact changed/);
+      assert.deepEqual(mutations(h.events), ["publish:direct:a"]);
+    } finally { await rm(plan.runRoot, { recursive: true, force: true }); }
+  });
+});
+
+test("prepacked native candidates fail preflight but public native packages do not block ordinary candidates", async () => {
+  const packages = [pkg("native", { bin: "bin/tool.cjs" }), pkg("ordinary")];
+  const config = "schema: 1\npublish:\n  mode: direct\npackages:\n  native:\n    distribution:\n      type: github-release\n      tag: v{version}\n      targets:\n        linux-x64-gnu:\n          asset: native.tar.gz\n          executable: tool\n";
+  await fixture(packages, async h => {
+    await supplyArtifacts(h, packages);
+    await assert.rejects(runRelease(h.context, h.deps), /native augmentation/);
+    assert.deepEqual(mutations(h.events), []);
+    const bundle = await supplyArtifacts(h, [packages[1]]);
+    h.put("native", "1.0.0");
+    assert.deepEqual((await runRelease(h.context, h.deps)).map(p => p.state), ["already-published", "published"]);
+    assert.equal(bundle.manifest.packages.length, 1);
+  }, config);
+});
+
+test("prepacked git-tag selection requires the final version without rewriting source", async () => {
+  await fixture([pkg("app", { version: "0.0.0" })], async h => {
+    h.deps.resolveVersion = () => "1.2.3";
+    await supplyArtifacts(h, [pkg("app", { version: "1.2.3" })]);
+    const path = join(h.root, "packages/0/package.json"), before = await readFile(path);
+    assert.equal((await runRelease(h.context, h.deps))[0].version, "1.2.3");
+    assert.deepEqual(await readFile(path), before);
+  }, "schema: 1\nversion:\n  source: git-tag\n  prefix: v\npublish:\n  mode: direct\n");
+});
+
+test("prepacked stage only claims submission and direct dependencies cannot rely on staged candidates", async () => {
+  await fixture([pkg("app")], async h => {
+    await supplyArtifacts(h, [pkg("app")]);
+    assert.equal((await runRelease(h.context, h.deps))[0].state, "staged");
+    assert.deepEqual(mutations(h.events), ["publish:stage:app"]);
+    assert.equal(h.docs.get("app").versions["1.0.0"], undefined);
+  }, "schema: 1\npublish:\n  mode: stage\n");
+  const packages = [pkg("app", { dependencies: { lib: "1.0.0" } }), pkg("lib")];
+  await fixture(packages, async h => {
+    await supplyArtifacts(h, packages);
+    await assert.rejects(runRelease(h.context, h.deps), /only a staged candidate/);
+    assert.deepEqual(mutations(h.events), []);
+  }, "schema: 1\npublish:\n  mode: stage\npackages:\n  app:\n    publish:\n      mode: direct\n");
+});
 
 test("declared stable and prerelease channels publish below latest without changing source manifests", async () => {
   for (const [version, tag] of [["1.2.0", "latest"], ["1.2.1-rc.0", "next"]]) {

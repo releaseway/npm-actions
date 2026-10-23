@@ -51,7 +51,8 @@ export async function inspectArtifact(path: string): Promise<PackedArtifact> {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) throw new Error("Invalid packed package.json");
   return { tarballPath: path, entries, manifest: manifest as PackageManifest };
 }
-export async function importArtifact(directory: string, entry: ArtifactEntry, destination: string, repository: string): Promise<PackedArtifact> {
+export async function importArtifact(directory: string, entry: ArtifactEntry, destination: string, repository: string,
+  onIntegrity?: (integrity: string, matched: boolean) => void): Promise<PackedArtifact> {
   let source: string;
   try { source = await regularFileInside(directory, join(directory, entry.tarball)); }
   catch { throw new ArtifactError("ARTIFACT_MISSING", "Candidate artifact is missing or is not a regular contained file", entry); }
@@ -66,7 +67,9 @@ export async function importArtifact(directory: string, entry: ArtifactEntry, de
       const hash = createHash("sha512");
       await pipeline(handle.createReadStream(), budget(ARTIFACT_LIMITS.archiveBytes, chunk => hash.update(chunk)),
         createWriteStream(destination, { flags: "wx", mode: 0o600 }), { signal: AbortSignal.timeout(ARTIFACT_LIMITS.copyTimeoutMs) });
-      if ("sha512-" + hash.digest("base64") !== entry.integrity) {
+      const integrity = "sha512-" + hash.digest("base64");
+      onIntegrity?.(integrity, integrity === entry.integrity);
+      if (integrity !== entry.integrity) {
         throw new ArtifactError("ARTIFACT_INTEGRITY_MISMATCH", "Candidate artifact differs from its expected SHA-512", entry);
       }
       await chmod(destination, 0o400);

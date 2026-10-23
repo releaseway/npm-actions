@@ -95,7 +95,7 @@ export async function regularFileInside(root: string, path: string): Promise<str
   if (!within(canonicalBase, canonicalTarget)) throw new Error("Artifact path escapes its allowed directory");
   return canonicalTarget;
 }
-export async function loadArtifactManifest(input: string, context: GithubContext, env: NodeJS.ProcessEnv): Promise<LoadedArtifacts> {
+export async function loadArtifactManifest(input: string, context: GithubContext, env: NodeJS.ProcessEnv, onRead?: (integrity: string) => void): Promise<LoadedArtifacts> {
   try {
     const path = resolve(context.workspace, input);
     const roots = [resolve(context.workspace), ...(env.RUNNER_TEMP ? [resolve(env.RUNNER_TEMP)] : [])]
@@ -115,6 +115,7 @@ export async function loadArtifactManifest(input: string, context: GithubContext
       }
       bytes = Buffer.concat(chunks);
     } finally { await handle.close(); }
+    onRead?.(bytesIntegrity(bytes));
     const manifest = parseArtifactManifest(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
     return { manifest, directory: dirname(canonical), integrity: bytesIntegrity(bytes) };
   } catch (error) {
