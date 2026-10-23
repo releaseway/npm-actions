@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import process from "node:process";
 
 import validationVersions from "../validation-versions.json" with { type: "json" };
 
 import { packPackage } from "../src/pack/index.ts";
+import { importArtifact } from "../src/artifacts/import.ts";
+import { sha512Integrity } from "../src/registry/integrity.ts";
 import {
   bootstrapReleasewayToolchain,
   provisionPackageManager,
@@ -55,12 +57,22 @@ function packageModel(directory, manifest) {
   };
 }
 
+async function verifyPrepackedProducer(artifact, name) {
+  const metadata = artifact.manifest;
+  // Inspect the producer's real bytes; never normalize the archive after packing.
+  const entry = { name: metadata.name, version: metadata.version, tarball: basename(artifact.tarballPath), integrity: await sha512Integrity(artifact.tarballPath) };
+  const imported = await importArtifact(dirname(artifact.tarballPath), entry, join(temp, "admitted", name + ".tgz"), "releaseway/npm-actions");
+  assert.deepEqual(imported.manifest, artifact.manifest);
+  assert.equal(await sha512Integrity(imported.tarballPath), entry.integrity);
+}
+
 const temp = await mkdtemp(join(tmpdir(), "releaseway-pack-integration-"));
 const toolchain = await bootstrapReleasewayToolchain({ rootBase: temp });
 
 try {
   const npmRoot = join(temp, "npm");
   const npmManifest = {
+    repository: "releaseway/npm-actions",
     bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "releaseway-pack-npm-fixture",
     version: "1.0.0",
@@ -98,6 +110,7 @@ try {
     version: "1.0.0",
   });
   const pnpmManifest = {
+    repository: "releaseway/npm-actions",
     bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "@releaseway-fixture/pnpm-b",
     version: "1.0.0",
@@ -146,6 +159,7 @@ try {
     version: "1.0.0",
   });
   const yarnManifest = {
+    repository: "releaseway/npm-actions",
     bin: { example: "bin/generated.cjs", ex: "bin/generated.cjs" },
     name: "@releaseway-fixture/yarn-b",
     version: "1.0.0",
@@ -181,6 +195,9 @@ try {
   ) {
     throw new Error("Yarn pack did not rewrite workspace:^ to ^1.0.0");
   }
+  await verifyPrepackedProducer(npmArtifact, "npm");
+  await verifyPrepackedProducer(pnpmArtifact, "pnpm");
+  await verifyPrepackedProducer(yarnArtifact, "yarn");
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

@@ -101,6 +101,11 @@ toolchain, resolving native Releases, or requiring publish OIDC authority.
 
 ## What gets published
 
+To publish bytes already verified in a separate job, use the optional
+[`artifacts-manifest` contract](docs/prepacked-artifacts.md). It accepts source-bound
+tarballs and SHA-512 SRI values, verifies all candidates before publication and
+emits a separate `artifact-report-path`. Omit the input to retain automatic packing.
+
 `package.json` remains authoritative for npm metadata, including `name`, `version`,
 `bin`, `files`, `exports`, dependencies, and `publishConfig`.
 

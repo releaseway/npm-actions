@@ -1,0 +1,75 @@
+# Example for a single npm library with package-lock.json and an importable export.
+# Replace the zero SHA with a reviewed immutable ref supporting artifacts-manifest.
+name: Verify then publish npm bytes
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-id: ${{ steps.bundle.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test --if-present
+      - name: Pack, install as a consumer, then seal
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-bundle"
+          npm pack --pack-destination "$RUNNER_TEMP/npm-bundle"
+          node --input-type=module <<'NODE'
+          import { readdir, readFile, writeFile, mkdtemp } from 'node:fs/promises';
+          import { createHash } from 'node:crypto';
+          import { spawnSync } from 'node:child_process';
+          import { join } from 'node:path';
+          const directory = join(process.env.RUNNER_TEMP, 'npm-bundle');
+          const files = (await readdir(directory)).filter(name => name.endsWith('.tgz'));
+          if (files.length !== 1) throw new Error('Expected one final archive');
+          const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+          const consumer = await mkdtemp(join(process.env.RUNNER_TEMP, 'npm-consumer-'));
+          const installed = spawnSync('npm', ['install', '--ignore-scripts', '--no-audit', '--prefix', consumer, join(directory, files[0])], { stdio: 'inherit' });
+          if (installed.status !== 0) throw new Error('Consumer install failed');
+          const loaded = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(process.env.PACKAGE_NAME)'], { cwd: consumer, env: { ...process.env, PACKAGE_NAME: pkg.name }, stdio: 'inherit' });
+          if (loaded.status !== 0) throw new Error('Consumer exports failed');
+          const integrity = 'sha512-' + createHash('sha512').update(await readFile(join(directory, files[0]))).digest('base64');
+          await writeFile(join(directory, 'artifacts.json'), JSON.stringify({ schema: 1, source: { repository: process.env.GITHUB_REPOSITORY, commit: process.env.GITHUB_SHA }, packages: [{ name: pkg.name, version: pkg.version, tarball: files[0], integrity }] }) + '\n');
+          NODE
+      - id: bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-npm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/npm-bundle
+          if-no-files-found: error
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/npm-bundle
+      - id: npm
+        uses: releaseway/npm-actions@0000000000000000000000000000000000000000
+        with:
+          artifacts-manifest: ${{ runner.temp }}/npm-bundle/artifacts.json
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-artifact-report-${{ github.run_attempt }}
+          path: ${{ steps.npm.outputs.artifact-report-path }}
+          if-no-files-found: warn

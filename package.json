@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "verify:toolchain": "node scripts/verify-toolchain.mjs",
     "verify:pack": "node scripts/verify-pack.mjs",
+    "verify:prepacked": "node scripts/verify-prepacked.mjs",
     "verify:yarn-corepack": "node scripts/verify-yarn-corepack.mjs",
     "verify:native-runtime": "node scripts/verify-native-runtime.mjs",
     "verify:native-install": "node scripts/verify-native-install.mjs",

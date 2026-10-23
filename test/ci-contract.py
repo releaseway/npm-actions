@@ -97,6 +97,19 @@ class CiTests(unittest.TestCase):
         self.assertIn('tags', tag.get('on', tag.get('true'))['push'])
         self.assertNotIn('pnpm test', json.dumps(tag))
 
+    def test_artifact_contract_runs_on_three_hosts_and_remains_a_required_full_job(self):
+        if ROOT.name != 'npm-actions':
+            self.skipTest('npm artifact contract')
+        raw = subprocess.check_output(['ruby', '-ryaml', '-rjson', '-e',
+            'puts JSON.generate(YAML.load_file(ARGV.fetch(0), aliases: true))',
+            str(ROOT / '.github/workflows/check.yml')], text=True)
+        jobs = json.loads(raw)['jobs']
+        artifact = jobs['artifact-contract']
+        self.assertEqual(artifact['strategy']['matrix']['runner'], ['ubuntu-24.04', 'macos-15', 'windows-2025'])
+        self.assertEqual(artifact['if'], "needs.inputs.outputs.mode == 'full'")
+        self.assertIn('artifact-contract', jobs['validation']['needs'])
+        self.assertIn('pnpm run verify:prepacked', [step.get('run') for step in artifact['steps']])
+
 
 if __name__ == '__main__':
     unittest.main()
