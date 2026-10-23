@@ -42,7 +42,7 @@ export async function inspectArtifact(path: string): Promise<PackedArtifact> {
         entry.on("data", (chunk: Buffer) => json!.push(Buffer.from(chunk)));
       }
       entry.resume();
-    } catch (error) { parser.abort(error instanceof Error ? error : new Error("Invalid archive")); }
+    } catch { parser.abort(new Error("Invalid archive entry")); }
   });
   await pipeline(createReadStream(path), createGunzip(), budget(ARTIFACT_LIMITS.expandedBytes), parser,
     { signal: AbortSignal.timeout(ARTIFACT_LIMITS.inspectTimeoutMs) });

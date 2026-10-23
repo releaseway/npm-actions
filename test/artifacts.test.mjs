@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from "node:fs/promises";
+import { gzipSync, gunzipSync } from "node:zlib";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
@@ -93,5 +94,27 @@ test("external manifest and tarball symlinks cannot escape the declared director
 
 test("oversized package metadata is rejected before publication", async () => fixture(async h => {
   const entry = await h.make({ ...h.manifest, description: "x".repeat(1024 ** 2) });
+  await assert.rejects(importArtifact(h.root, entry, h.output, h.context.repository), /admission/);
+}));
+
+test("PAX effective traversal, links and oversized ignored metadata are rejected", async () => fixture(async h => {
+  const entry = await h.make();
+  const original = gunzipSync(await readFile(join(h.root, "input.tgz")));
+  const header = (type, size, path, linkpath) => {
+    const value = new tar.Header({ type, size, path, linkpath, mode: 0o644 });
+    value.encode(); return value.block;
+  };
+  for (const bytes of [
+    Buffer.concat([new tar.Pax({ path: "package/../outside" }).encode(), original]),
+    Buffer.concat([header("SymbolicLink", 0, "package/link", "../../outside"), original]),
+    Buffer.concat([header("Link", 0, "package/link", "package/package.json"), original]),
+    Buffer.concat([header("ExtendedHeader", 1024 ** 2 + 1, "PaxHeader"), Buffer.alloc(1024 ** 2 + 512), original]),
+  ]) {
+    const compressed = gzipSync(bytes);
+    await writeFile(join(h.root, "input.tgz"), compressed);
+    await assert.rejects(importArtifact(h.root, { ...entry, integrity: bytesIntegrity(compressed) }, h.output, h.context.repository), /admission/);
+  }
+  await writeFile(join(h.root, "input.tgz"), "");
+  await truncate(join(h.root, "input.tgz"), 1024 ** 3 + 1);
   await assert.rejects(importArtifact(h.root, entry, h.output, h.context.repository), /admission/);
 }));
