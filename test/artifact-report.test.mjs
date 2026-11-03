@@ -42,7 +42,7 @@ test("staged bytes, late changed snapshots and uncertain publication retain dist
   emit(tracker, { phase: "local", identity: a, integrity: digest, matched: true });
   emit(tracker, { phase: "preflight" });
   tracker.progress({ kind: "publishing", ...a });
-  tracker.progress({ kind: "phase", phase: "publish" });
+  tracker.progress({ kind: "submission", ...a, state: "started" });
   tracker.progress({ kind: "completed", result: { ...a, state: "staged" } });
   assert.equal(tracker.report.packages[0].publicVerification, "not-checked");
   tracker.progress({ kind: "publishing", ...b });
@@ -51,11 +51,27 @@ test("staged bytes, late changed snapshots and uncertain publication retain dist
   assert.equal(tracker.report.error.code, "ARTIFACT_CHANGED");
   assert.equal(tracker.report.error.remoteState, "present");
   assert.equal(tracker.report.packages[1].publication, "not-attempted");
-  tracker.progress({ kind: "phase", phase: "publish" });
+  tracker.progress({ kind: "submission", ...b, state: "started" });
+  tracker.progress({ kind: "failed", ...b, phase: "publish", code: "PUBLISH_FAILED", remoteState: "unknown" });
   tracker.fail(new Error("lost acknowledgment SECRET"));
   assert.equal(tracker.report.packages[1].publication, "unknown");
   assert.equal(tracker.report.error.remoteState, "unknown");
   assert.ok(!JSON.stringify(tracker.report).includes("SECRET"));
+});
+
+test("a later concurrent public mismatch remains attributed even when another package failed first", () => {
+  const tracker = new ArtifactReporter(); supplied(tracker);
+  emit(tracker, { phase: "preflight" });
+  tracker.progress({ kind: "submission", ...a, state: "started" });
+  tracker.progress({ kind: "submission", ...b, state: "started" });
+  tracker.progress({ kind: "failed", ...a, phase: "publish", code: "PUBLISH_FAILED", remoteState: "unknown" });
+  tracker.progress({ kind: "failed", ...b, phase: "verify", code: "ARTIFACT_MISMATCH", remoteState: "present" });
+  tracker.fail(new Error("SECRET first failure"));
+  assert.deepEqual(tracker.report.error.package, a);
+  const later = tracker.report.packages.find(row => row.name === b.name);
+  assert.equal(later.publicVerification, "mismatched");
+  assert.equal(later.publication, "unknown");
+  assert.equal(tracker.report.error.remoteState, "unknown");
 });
 
 async function actionFixture(run) {

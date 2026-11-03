@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -14,7 +14,7 @@ import {
 import type { PublishOptions } from "./options.ts";
 
 export type PublishMode = "direct" | "stage";
-export type PublicationMutationState = "direct-accepted" | "staged";
+export type PublicationMutationState = "direct-accepted" | "staged" | "not-submitted";
 interface RunResult {
   status: number | null;
   stdout: string;
@@ -24,19 +24,29 @@ export type RunPublisher = (
   executable: string,
   args: readonly string[],
   options: { cwd: string; env: NodeJS.ProcessEnv },
-) => RunResult;
-const defaultRunPublisher: RunPublisher = (executable, args, options) => {
-  const result = spawnSync(executable, [...args], {
-    ...options,
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
+) => RunResult | Promise<RunResult>;
+const defaultRunPublisher: RunPublisher = (executable, args, options) => new Promise((done, reject) => {
+  const child = spawn(executable, [...args], { ...options, stdio: ["ignore", "pipe", "pipe"] });
+  const stdout: Buffer[] = [], stderr: Buffer[] = [];
+  let stdoutBytes = 0, stderrBytes = 0;
+  let failure: Error | undefined;
+  const capture = (chunks: Buffer[], stream: "stdout" | "stderr", chunk: Buffer) => {
+    if (failure) return;
+    if (stream === "stdout") stdoutBytes += chunk.length;
+    else stderrBytes += chunk.length;
+    if (Math.max(stdoutBytes, stderrBytes) > 1024 * 1024) {
+      failure = new Error("npm command output exceeded the capture limit");
+      child.kill();
+    } else chunks.push(chunk);
   };
-};
+  child.stdout.on("data", (chunk: Buffer) => capture(stdout, "stdout", chunk));
+  child.stderr.on("data", (chunk: Buffer) => capture(stderr, "stderr", chunk));
+  child.on("error", error => { failure ??= error; });
+  // close, rather than exit/error, owns completion and cleanup of the subprocess context.
+  child.on("close", status => failure ? reject(failure) : done({
+    status, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"),
+  }));
+});
 export interface PublishRequest {
   readonly mode: PublishMode;
   readonly name: string;
@@ -49,6 +59,7 @@ export interface PublisherOptions {
   env?: NodeJS.ProcessEnv;
   tempRoot?: string;
   runPublisher?: RunPublisher;
+  canPublish?: () => boolean;
 }
 
 /** A subprocess failure is evidence of a failed request, never evidence of acceptance. */
@@ -126,7 +137,9 @@ export async function publishPackage(
       writeFile(userConfig, config, { encoding: "utf8", mode: 0o600 }),
       writeFile(globalConfig, config, { encoding: "utf8", mode: 0o600 }),
     ]);
-    const result = (options.runPublisher ?? defaultRunPublisher)(
+    // Request setup contains awaits. Recheck admission at the actual process boundary.
+    if (options.canPublish && !options.canPublish()) return "not-submitted";
+    const result = await (options.runPublisher ?? defaultRunPublisher)(
       process.execPath,
       [toolchain.npmCli, ...publicationArgs(request, userConfig, globalConfig)],
       { cwd: root, env: isolatedPublisherEnvironment(sourceEnv, home) },

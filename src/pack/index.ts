@@ -3,6 +3,7 @@ import { access, mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
+import { activity, type ProgressObserver } from "../progress.ts";
 
 import type { PackageManagerCommand, ReleasewayToolchain } from "../toolchain/bootstrap.ts";
 import {
@@ -210,6 +211,7 @@ export async function packAllPackages(
   outputRoot: string,
   runManager: RunManager = defaultRunManager,
   versionPackages: readonly PublishablePackage[] = packages,
+  onProgress?: ProgressObserver,
 ): Promise<PackedArtifact[]> {
   const original = await snapshotSourceState(workspaceRoot);
   const restore = await materializePackageVersions(versionPackages);
@@ -220,7 +222,7 @@ export async function packAllPackages(
 
     for (const pkg of packages) {
       artifacts.push(
-        await packPackage(pkg, command, outputRoot, runManager),
+        await activity(pkg, "pack", onProgress, () => packPackage(pkg, command, outputRoot, runManager)),
       );
 
       const afterPackage = await snapshotSourceState(workspaceRoot);

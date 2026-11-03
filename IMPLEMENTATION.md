@@ -34,6 +34,10 @@ executePreparedRelease checks every prepared file before the first write. Candid
 
 Package output states are already-published, published and staged. Published means the planned artifact was confirmed live, including an identical concurrent writer. The already-published result deliberately makes no source-equivalence assertion.
 
+`publish-concurrency` is parsed before preparation. The executor schedules ready candidates from frozen requirements and retains slots through live verification. Its stop gate is checked again before each publisher invocation. The first unresolved failure stops admission; all active tasks settle before runRoot cleanup. Results are collected by identity and returned in original plan order. The asynchronous publisher settles on subprocess close and bounds captured stdout/stderr; it does not introduce a command timeout.
+
+src/progress.ts supplies package-scoped timing events and 30-second heartbeats. Packing remains serial/synchronous. src/execution-report.ts consumes those events for a separate execution-report-path schema, while legacy and artifact reporters use explicit package failure/submission events. Diagnostic phase and failedPackage retain the primary failure even if other tasks complete later. Raw command output is retained only inside errors used for recovery; src/errors.ts formats safe console/annotation metadata instead of printing arbitrary messages or stacks.
+
 ## Tests and ownership
 
 The registry, graph, publisher and orchestration tests verify both successful and failing transitions. Version-provenance tests cover remote annotated/lightweight tag resolution and ambiguous tags. Native/runtime/install tests cover asset templates, shared archives, package-specific cache overrides, and the generated installed runtime. Documentation tests guard the current contract and examples. Rebuild dist/main.js after source or dependency changes and verify it matches a fresh build.

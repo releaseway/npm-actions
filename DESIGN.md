@@ -22,6 +22,8 @@ The successful packages output is a JSON array of name, version and state. The r
 
 Initially public results are ordered by name, followed by candidate results in publication-plan order. No successful output is written for a failed run. There is one contract, with no historical equality mode or compatibility state alias.
 
+Optional `publish-concurrency` is a positive safe integer, default 1. It limits active package workflows including public verification, not just subprocesses. `execution-report-path` adds a separate schema 1 execution report with timings and per-package local/remote states; existing output documents retain their schemas.
+
 ## 3. Discovery and source identity
 
 Discover the root and workspace packages through package.json workspaces or pnpm-workspace.yaml. Exclude private:true packages. Reject duplicate names, stale config selectors, missing identities, invalid registry configuration and repository metadata that does not identify the calling repository.
@@ -78,6 +80,8 @@ A successful direct subprocess means accepted for processing. Report published o
 
 After a failed subprocess, perform a read-only exact-artifact check. A matching live artifact resolves a lost response or concurrent submission. A direct scan-pending conflict may enter bounded live observation, but the conflict itself does not prove acceptance. Other unresolved failures propagate; no write is blindly repeated and no pending stage is approved, inspected, rejected or converted automatically.
 
+Execution scans the frozen plan for ready candidates, using plan order to break ties. Candidate dependency edges unlock only at package completion: direct candidates require matching live SHA-512; stage candidates require stage acceptance. Peers impose no edges and previously selected live resolutions need no candidate edge. Full preparation and the bulk artifact gate precede every mutation. npm commands use asynchronous subprocesses with bounded captured output, isolated per-request state and no subprocess timeout. The visibility budget and registry read deadlines retain their existing scope.
+
 ## 9. Authentication and security boundaries
 
 Publication uses npm Trusted Publishing OIDC only, on a supported GitHub-hosted runner. Keep the public registry fixed to https://registry.npmjs.org/. Read-only NODE_AUTH_TOKEN may be used for registry metadata and dependency reads; it never becomes publication authority.
@@ -88,7 +92,9 @@ The final tarball, manifest and options remain tied to one plan. Runtime metadat
 
 ## 10. Recovery and observable results
 
-A partial failure reports the candidate that failed and candidates completed beforehand. The cleanup boundary always removes owned temporary state. It does not remove user source, mutate remote staged state or automatically choose a new version.
+A partial failure preserves the first unresolved package failure and all confirmed results, including other in-flight candidates that complete later. New writes stop after failure and are gated again immediately before invocation. In-flight tasks drain before owned temporary state is removed. Per-package failure events prevent one completion from clearing another package's failure. Cleanup does not remove user source, mutate remote staged state or automatically choose a new version.
+
+Structured progress identifies package, phase, transition and monotonic elapsed time. Public verification and npm commands emit 30-second heartbeats independently of registry polling. Console errors expose only safe metadata and error codes; raw captured output stays internal for recovery classification. The separate execution report records unstarted packages, phase timings, local failures and uncertain remote outcomes without expanding legacy result states. Forced process/runner termination cannot guarantee report persistence or remote cancellation.
 
 A whole-workflow rerun prepares a new plan. Versions that became public are already-published, even if the caller changed its toolchain. Remaining candidates are prepared again and verified within their new execution. New runtime fixes require new native npm versions.
 

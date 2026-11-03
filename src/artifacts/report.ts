@@ -39,8 +39,9 @@ export class ArtifactReporter {
     schema: 1, mode: "prepacked", source: null, publicationCommit: null, manifestIntegrity: null,
     status: "failed", preflight: "not-complete", packages: [], error: null,
   };
-  private current: ArtifactPackageReport | null = null;
-  private submitting = false;
+  private failedIdentity: ArtifactIdentity | null = null;
+  private readonly submitting = new Set<string>();
+  private key(value: ArtifactIdentity): string { return JSON.stringify([value.name, value.version]); }
 
   private row(value: ArtifactIdentity): ArtifactPackageReport {
     let row = this.report.packages.find(pkg => pkg.name === value.name && pkg.version === value.version);
@@ -64,16 +65,25 @@ export class ArtifactReporter {
       else if (data.phase === "local") Object.assign(this.row(data.identity), { localIntegrity: data.integrity, localVerification: data.matched ? "matched" : "mismatched" });
       else if (data.phase === "public") Object.assign(this.row(data.identity), { publicIntegrity: data.integrity, publicVerification: data.matched ? "matched" : "mismatched" });
     } else if (event.kind === "publishing") {
-      this.current = this.row(event); this.submitting = false;
-    } else if (event.kind === "phase" && event.phase === "publish") {
-      this.submitting = true;
+      this.row(event);
+    } else if (event.kind === "submission" && event.state === "started") {
+      this.submitting.add(this.key(event));
+    } else if (event.kind === "deferred") {
+      this.submitting.delete(this.key(event));
+    } else if (event.kind === "failed") {
+      this.failedIdentity ??= identity(event);
+      const row = this.row(event);
+      if (event.remoteState === "unknown" || this.submitting.has(this.key(event))) row.publication = "unknown";
+      if (event.code === "ARTIFACT_MISMATCH") {
+        row.publicVerification = "mismatched"; row.publicIntegrity = null;
+      }
     } else if (event.kind === "completed") {
       const row = this.row(event.result);
       row.publication = event.result.state;
       if (event.result.state === "published") {
         row.publicVerification = "matched"; row.publicIntegrity = row.expectedIntegrity;
       }
-      this.submitting = false;
+      this.submitting.delete(this.key(event.result));
     }
   }
   complete(): void {
@@ -83,14 +93,15 @@ export class ArtifactReporter {
   fail(error: unknown): void {
     for (let depth = 0; depth < 8 && error instanceof Error && !(error instanceof ReleaseError) && error.cause; depth++) error = error.cause;
     const artifact = error instanceof ArtifactError ? error : undefined;
+    const failedRow = artifact?.identity ? this.row(artifact.identity) : this.failedIdentity ? this.row(this.failedIdentity) : null;
     let code: ArtifactErrorCode = artifact?.artifactCode ?? (this.report.preflight === "passed" ? "PUBLISH_FAILED" : "PLAN_INVALID");
     if (!artifact && error instanceof ReleaseError && error.code === "ARTIFACT_MISMATCH") code = "PUBLIC_INTEGRITY_MISMATCH";
     if (code === "PUBLIC_INTEGRITY_MISMATCH") {
-      const row = artifact?.identity ? this.row(artifact.identity) : this.current;
+      const row = failedRow;
       if (row && row.publicVerification !== "mismatched") Object.assign(row, { publicVerification: "mismatched", publicIntegrity: null });
     }
     const localFailure = !!artifact && !["PUBLIC_INTEGRITY_MISMATCH", "REGISTRY_STATE_CHANGED", "REGISTRY_UNAVAILABLE", "PUBLISH_FAILED"].includes(code);
-    if (this.current && this.submitting && !localFailure) this.current.publication = "unknown";
+    if (failedRow && this.submitting.has(this.key(failedRow)) && !localFailure) failedRow.publication = "unknown";
     const completed = this.report.packages.some(pkg => pkg.publication === "published" || pkg.publication === "staged");
     const uncertain = this.report.packages.some(pkg => pkg.publication === "unknown");
     const remoteState: RemoteState = uncertain ? "unknown" : completed ? "present" : artifact?.remoteState ?? "unchanged";
@@ -98,7 +109,7 @@ export class ArtifactReporter {
       ? "inspect-remote" : code === "REGISTRY_UNAVAILABLE" ? "same-input" : "fix-input";
     this.report.status = "failed";
     this.report.error = { code, entryIndex: artifact?.entryIndex ?? null,
-      package: artifact?.identity ? identity(artifact.identity) : this.current ? identity(this.current) : null, remoteState, recovery };
+      package: failedRow ? identity(failedRow) : null, remoteState, recovery };
   }
 }
 

@@ -63,6 +63,9 @@ import {
 } from "./workspace/repository.ts";
 import { resolveGitTagVersion } from "./version/git-tag.ts";
 import type { ReleaseProgress } from "./report.ts";
+import { activity, HEARTBEAT_MS, type ProgressObserver } from "./progress.ts";
+import { InvalidPublishConcurrencyError, PublicationFailure, releaseErrorCode } from "./errors.ts";
+import type { RemoteState } from "./release-error.ts";
 
 export interface PackageResult {
   readonly name: string;
@@ -91,6 +94,15 @@ export type PreparedRelease =
 export interface OrchestrationContext extends GithubContext {
   actionPath: string;
   env: NodeJS.ProcessEnv;
+}
+
+export function publishConcurrency(env: NodeJS.ProcessEnv): number {
+  const raw = env["INPUT_PUBLISH-CONCURRENCY"]?.trim() || "1";
+  const value = Number(raw);
+  if (!/^[1-9][0-9]*$/.test(raw) || !Number.isSafeInteger(value)) {
+    throw new InvalidPublishConcurrencyError();
+  }
+  return value;
 }
 export interface OrchestrationDependencies {
   onProgress?: (event: ReleaseProgress) => void;
@@ -214,6 +226,7 @@ async function applyNativeAugmentation(
   runRoot: string,
   inspect: typeof inspectPackedTarball,
   resolver: NativeReleaseResolver,
+  onProgress?: ProgressObserver,
 ): Promise<void> {
   const nativePackages = packages.filter((pkg) => pkg.policy?.distribution);
   if (nativePackages.length === 0) {
@@ -225,34 +238,36 @@ async function applyNativeAugmentation(
   await mkdir(outputRoot, { recursive: true });
 
   for (const pkg of nativePackages) {
-    const artifact = artifacts.get(pkg.name);
-    if (!artifact) {
-      throw new Error(`Missing packed artifact for native package ${pkg.name}`);
-    }
+    await activity(pkg, "prepare", onProgress, async () => {
+      const artifact = artifacts.get(pkg.name);
+      if (!artifact) {
+        throw new Error(`Missing packed artifact for native package ${pkg.name}`);
+      }
 
-    const distribution: ValidatedNativeDistribution =
-      validateNativeDistribution(pkg, artifact);
-    const release: VerifiedNativeRelease = await resolver.resolve(
-      context.repository,
-      pkg.version,
-      context.sha,
-      distribution,
-    );
-    const outputPath = join(
-      outputRoot,
-      encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz",
-    );
+      const distribution: ValidatedNativeDistribution =
+        validateNativeDistribution(pkg, artifact);
+      const release: VerifiedNativeRelease = await resolver.resolve(
+        context.repository,
+        pkg.version,
+        context.sha,
+        distribution,
+      );
+      const outputPath = join(
+        outputRoot,
+        encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz",
+      );
 
-    await augmentNativeArtifact(
-      pkg,
-      artifact,
-      distribution,
-      release,
-      outputPath,
-      runtimeBundle,
-      { tempRoot: runRoot },
-    );
-    artifacts.set(pkg.name, await inspect(outputPath));
+      await augmentNativeArtifact(
+        pkg,
+        artifact,
+        distribution,
+        release,
+        outputPath,
+        runtimeBundle,
+        { tempRoot: runRoot },
+      );
+      artifacts.set(pkg.name, await inspect(outputPath));
+    }, HEARTBEAT_MS);
   }
 }
 
@@ -285,6 +300,7 @@ export async function prepareRelease(
   );
   if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  dependencies.onProgress?.({ kind: "selected", packages });
   const artifactProgress = (event: ArtifactProgress) => dependencies.onProgress?.({ kind: "artifact-verification", event });
   const manifestInput = context.env["INPUT_ARTIFACTS-MANIFEST"]?.trim();
   if (manifestInput) artifactProgress({ phase: "selection", packages });
@@ -305,7 +321,7 @@ export async function prepareRelease(
   dependencies.onProgress?.({ kind: "phase", phase: "verify" });
   // Classification must finish for the complete workspace before any package-manager work.
   for (const pkg of packages) {
-    const lookup = supplied ? await readArtifactVersion(registry, pkg) : await registry.lookupVersion(pkg.name, pkg.version);
+    const lookup = await activity(pkg, "prepare", dependencies.onProgress, () => supplied ? readArtifactVersion(registry, pkg) : registry.lookupVersion(pkg.name, pkg.version));
     snapshots.set(pkg.name, lookup.snapshot);
     if (lookup.state === "already-published") {
       alreadyPublished.push({
@@ -348,8 +364,9 @@ export async function prepareRelease(
       artifacts = new Map();
       for (const [index, pkg] of candidates.entries()) {
         const entry = supplied.manifest.packages.find(item => item.name === pkg.name)!;
-        const artifact = await importArtifact(supplied.directory, entry, join(runRoot, "imported", index + ".tgz"), context.repository,
-          (integrity, matched) => artifactProgress({ phase: "local", identity: entry, integrity, matched }));
+        dependencies.onProgress?.({ kind: "activity", package: { name: pkg.name, version: pkg.version }, phase: "pack", state: "skipped", at: new Date().toISOString(), elapsedMs: 0 });
+        const artifact = await activity(pkg, "import", dependencies.onProgress, () => importArtifact(supplied.directory, entry, join(runRoot, "imported", index + ".tgz"), context.repository,
+          (integrity, matched) => artifactProgress({ phase: "local", identity: entry, integrity, matched })));
         artifacts.set(pkg.name, artifact);
       }
     }
@@ -371,6 +388,7 @@ export async function prepareRelease(
         join(runRoot, "packed"),
         undefined,
         packages,
+        dependencies.onProgress,
       );
       artifacts = artifactMap(candidates, packed);
       await applyNativeAugmentation(
@@ -380,6 +398,7 @@ export async function prepareRelease(
         runRoot,
         dependencies.inspect ?? inspectPackedTarball,
         dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env),
+        dependencies.onProgress,
       );
     }
     const requests = new Map<string, PublishRequest>();
@@ -496,6 +515,7 @@ export async function executePreparedRelease(
   prepared: PreparedRelease,
   dependencies: OrchestrationDependencies = {},
 ): Promise<PackageResult[]> {
+  const concurrency = publishConcurrency(context.env);
   const results: PackageResult[] = [...prepared.alreadyPublished];
   if (prepared.kind === "noop") return results;
   if (
@@ -530,40 +550,55 @@ export async function executePreparedRelease(
     }
     artifactProgress({ phase: "preflight" });
   }
-  const completed: PackageResult[] = [];
-  for (const publication of prepared.publications) {
+  const completed = new Map<string, PackageResult>();
+  let firstFailure: PublicationFailure | undefined;
+  let stopped = false;
+  const execute = async (publication: PlannedPublication): Promise<void> => {
     const request = publication.request;
-    dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
+    let phase: "publish" | "verify" = "verify";
+    let attempted = false;
     try {
+      dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
       await checkTarball(request);
       dependencies.onProgress?.({ kind: "phase", phase: "verify" });
       let state: PackageResult["state"];
       if (
-        (await registry.verifyPublishedArtifact(
+        (await activity(request, "prepare", dependencies.onProgress, () => registry.verifyPublishedArtifact(
           request.name,
           request.version,
           request.integrity,
-        )) === "matched"
+        ))) === "matched"
       ) {
         state = "published";
       } else {
         await assertDirectDependenciesLive(registry, publication);
+        if (stopped) return;
         let submitted;
         try {
+          phase = "publish";
           dependencies.onProgress?.({ kind: "phase", phase: "publish" });
           await checkTarball(request);
-          submitted = await publisher(prepared.toolchain, request, {
-            env: context.env,
-            tempRoot: prepared.runRoot,
-          });
+          if (stopped) return;
+          attempted = true;
+          dependencies.onProgress?.({ kind: "submission", name: request.name, version: request.version, state: "started" });
+          submitted = await activity(request, "npm-command", dependencies.onProgress, () => publisher(prepared.toolchain, request, {
+            env: context.env, tempRoot: prepared.runRoot, canPublish: () => !stopped,
+          }), HEARTBEAT_MS);
+          if (submitted === "not-submitted") {
+            if (!stopped) throw new Error("Publisher declined an active publication");
+            dependencies.onProgress?.({ kind: "deferred", name: request.name, version: request.version });
+            return;
+          }
+          dependencies.onProgress?.({ kind: "submission", name: request.name, version: request.version, state: "accepted" });
         } catch (error) {
           // The request may have succeeded remotely before its local failure. Read, never retry the write.
+          phase = "verify";
           if (
-            (await registry.verifyPublishedArtifact(
+            (await activity(request, "public-check", dependencies.onProgress, () => registry.verifyPublishedArtifact(
               request.name,
               request.version,
               request.integrity,
-            )) === "matched"
+            ), HEARTBEAT_MS)) === "matched"
           ) {
             submitted = "verified-live" as const;
           } else if (
@@ -571,25 +606,28 @@ export async function executePreparedRelease(
             error instanceof PublishCommandError &&
             isPendingRegistryScanConflict(error.output)
           ) {
-            await waitForLive(
+            phase = "verify";
+            await activity(request, "public-check", dependencies.onProgress, () => waitForLive(
               registry,
               request.name,
               request.version,
               request.integrity,
-            );
+            ), HEARTBEAT_MS);
             submitted = "verified-live" as const;
           } else {
+            phase = "publish";
             throw error;
           }
         }
         dependencies.onProgress?.({ kind: "phase", phase: "verify" });
+        phase = "verify";
         if (submitted === "direct-accepted") {
-          await waitForLive(
+          await activity(request, "public-check", dependencies.onProgress, () => waitForLive(
             registry,
             request.name,
             request.version,
             request.integrity,
-          );
+          ), HEARTBEAT_MS);
           state = "published";
         } else if (submitted === "verified-live") state = "published";
         else if (submitted === "staged") state = "staged";
@@ -600,37 +638,66 @@ export async function executePreparedRelease(
         version: request.version,
         state,
       };
-      completed.push(result);
-      results.push(result);
+      completed.set(request.name, result);
       dependencies.onProgress?.({ kind: "completed", result });
     } catch (error) {
       const summary =
-        completed
+        [...completed.values()]
           .map(
             (item) => item.name + "@" + item.version + "(" + item.state + ")",
           )
           .join(", ") || "none";
-      throw new Error(
-        "Publication failed for " +
-          request.name +
-          "@" +
-          request.version +
-          "; completed before failure: " +
-          summary +
-          "; cause: " +
-          (error instanceof Error ? error.message : String(error)),
-        { cause: error },
-      );
+      // A subsequent read failure cannot prove an earlier write had no effect.
+      const remoteState: RemoteState = attempted
+        ? error instanceof ReleaseError && error.remoteState === "present" ? "present" : "unknown"
+        : error instanceof ReleaseError ? error.remoteState : "unchanged";
+      const failure = new PublicationFailure(request, phase, remoteState, error, summary);
+      firstFailure ??= failure;
+      stopped = true;
+      dependencies.onProgress?.({ kind: "failed", name: request.name, version: request.version, phase, code: releaseErrorCode(error), remoteState });
     }
+  };
+  const pending = new Set(prepared.publications);
+  const active = new Set<Promise<void>>();
+  const ready = (publication: PlannedPublication) => publication.requirements.every(requirement =>
+    requirement.source !== "candidate" || requirement.field === "peerDependencies" || completed.has(requirement.name));
+  // Active slots include visibility observation. A ready candidate anywhere in the frozen
+  // plan may run; a blocked early candidate must not stall independent later candidates.
+  let schedulerError: unknown;
+  try {
+    while (!stopped && (pending.size || active.size)) {
+      for (const publication of pending) {
+        if (active.size >= concurrency || stopped) break;
+        if (!ready(publication)) continue;
+        pending.delete(publication);
+        const task = execute(publication).finally(() => active.delete(task));
+        active.add(task);
+      }
+      if (!active.size) {
+        if (pending.size) throw new Error("Prepared publication graph has no runnable candidate");
+        break;
+      }
+      await Promise.race(active);
+    }
+  } catch (error) {
+    stopped = true;
+    schedulerError = error;
+  } finally {
+    // Also drain on an observer failure: cleanup must never race a child process.
+    await Promise.allSettled(active);
   }
-  return results;
+  if (firstFailure) throw firstFailure;
+  if (schedulerError) throw schedulerError;
+  if (completed.size !== prepared.publications.length) throw new Error("Prepared publication did not complete");
+  return [...results, ...prepared.publications.map(({ request }) => completed.get(request.name)!)];
 }
 
 export async function runRelease(
   context: OrchestrationContext,
   dependencies: OrchestrationDependencies = {},
 ): Promise<PackageResult[]> {
-  const prepared = await prepareRelease(context, dependencies);
+  publishConcurrency(context.env);
+  const prepared = await activity(null, "prepare", dependencies.onProgress, () => prepareRelease(context, dependencies), HEARTBEAT_MS);
   let failed = false;
   try {
     dependencies.onProgress?.({

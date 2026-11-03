@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { PackageResult } from "./orchestrate.ts";
 import type { ArtifactProgress } from "./artifacts/progress.ts";
+import type { ActivityEvent } from "./progress.ts";
+import type { ReleaseErrorCode, RemoteState } from "./release-error.ts";
 
 export interface ReleasePlanEntry {
   name: string;
@@ -12,6 +14,11 @@ export interface ReleasePlanEntry {
 }
 
 export type ReleaseProgress =
+  | ActivityEvent
+  | { kind: "selected"; packages: readonly { name: string; version: string }[] }
+  | { kind: "submission"; name: string; version: string; state: "started" | "accepted" }
+  | { kind: "deferred"; name: string; version: string }
+  | { kind: "failed"; name: string; version: string; phase: "pack" | "publish" | "verify"; code: ReleaseErrorCode; remoteState: RemoteState }
   | { kind: "artifact-verification"; event: ArtifactProgress }
   | { kind: "selection"; tag: string; version: string }
   | { kind: "phase"; phase: "resolve" | "pack" | "publish" | "verify" }
@@ -35,11 +42,19 @@ export function updateReport(report: ReleaseReport, event: ReleaseProgress): voi
     report.results = event.alreadyPublished.map(({ name, version, state }) => ({ name, version, state }));
   } else if (event.kind === "publishing") {
     report.stage = "publish";
-    report.failedPackage = { name: event.name, version: event.version };
+  } else if (event.kind === "failed") {
+    report.failedPackage ??= { name: event.name, version: event.version };
   } else if (event.kind === "completed") {
     const { name, version, state } = event.result;
     report.results.push({ name, version, state });
-    delete report.failedPackage;
+    const order = new Map(report.plan.map((entry, index) => [entry.name, index]));
+    report.results.sort((a, b) => {
+      const ai = order.get(a.name), bi = order.get(b.name);
+      if (ai === undefined && bi === undefined) return a.name.localeCompare(b.name);
+      if (ai === undefined) return -1;
+      if (bi === undefined) return 1;
+      return ai - bi;
+    });
   }
 }
 

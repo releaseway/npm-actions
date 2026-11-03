@@ -141,6 +141,184 @@ async function fixture(
   }
 }
 const mutations = (events) => events.filter((e) => e.startsWith("publish:"));
+const deferred = () => Promise.withResolvers();
+
+test("concurrency counts visibility waits and runs a later independent candidate past a blocked consumer", { timeout: 10_000 }, async () => {
+  await fixture([pkg("a"), pkg("b", { dependencies: { a: "1.0.0" } }), pkg("z")], async h => {
+    h.context.env["INPUT_PUBLISH-CONCURRENCY"] = "2";
+    const releaseA = deferred(), zDone = deferred();
+    const starts = [];
+    let active = 0, peak = 0;
+    h.deps.onProgress = event => {
+      if (event.kind === "publishing") { starts.push(event.name); peak = Math.max(peak, ++active); }
+      if (event.kind === "completed") { active--; if (event.result.name === "z") zDone.resolve(); }
+    };
+    h.deps.waitForDirectLive = async (registry, name, version, integrity) => {
+      if (name === "a") await releaseA.promise;
+      assert.equal(await registry.verifyPublishedArtifact(name, version, integrity), "matched");
+    };
+    const running = runRelease(h.context, h.deps);
+    try {
+      await zDone.promise;
+      assert.deepEqual(starts, ["a", "z"]);
+      assert.equal(peak, 2);
+    } finally { releaseA.resolve(); }
+    assert.deepEqual((await running).map(row => row.name), ["a", "b", "z"]);
+    assert.equal(peak, 2);
+    assert.equal(active, 0);
+  });
+});
+
+test("omitted concurrency keeps an entire package serial until public verification completes", { timeout: 10_000 }, async () => {
+  await fixture([pkg("a"), pkg("b")], async h => {
+    const waiting = deferred(), releaseA = deferred();
+    const starts = [];
+    h.deps.onProgress = event => { if (event.kind === "publishing") starts.push(event.name); };
+    h.deps.waitForDirectLive = async () => { if (starts.length === 1) { waiting.resolve(); await releaseA.promise; } };
+    const running = runRelease(h.context, h.deps);
+    try { await waiting.promise; assert.deepEqual(starts, ["a"]); }
+    finally { releaseA.resolve(); }
+    assert.deepEqual((await running).map(row => row.name), ["a", "b"]);
+  });
+});
+
+test("invalid concurrency fails before source checks, packaging and registry writes", async () => {
+  for (const value of ["0", "-1", "1.5", "Infinity", "2e0", "9007199254740992", "SECRET"]) {
+    await assert.rejects(runRelease({ env: { "INPUT_PUBLISH-CONCURRENCY": value } }, {
+      verifySource() { assert.fail("must validate execution input first"); },
+    }), /publish-concurrency/);
+  }
+});
+
+test("parallel failures stop new writes and drain successes or further failures before cleanup", { timeout: 15_000 }, async () => {
+  const { runAction } = await import("../src/action.ts");
+  for (const failB of [false, true]) {
+    const packages = [pkg("a"), pkg("b"), pkg("c")];
+    await fixture(packages, async h => {
+      await supplyArtifacts(h, packages);
+      h.context.env["INPUT_PUBLISH-CONCURRENCY"] = "2";
+      const bSubmitted = deferred(), releaseB = deferred(), aFailed = deferred();
+      const publish = h.deps.publish;
+      let bTarball;
+      h.deps.publish = async (toolchain, request) => {
+        if (request.name === "a") { await bSubmitted.promise; throw new Error("SECRET lost response"); }
+        assert.equal(request.name, "b", "no new write may start after failure");
+        bTarball = request.tarballPath;
+        const result = await publish(toolchain, request);
+        bSubmitted.resolve();
+        return result;
+      };
+      h.deps.waitForDirectLive = async () => { await releaseB.promise; if (failB) throw new Error("SECRET registry unavailable"); };
+      const writes = [], logs = [];
+      let settled = false;
+      const running = runAction({
+        actionPath: h.context.actionPath,
+        env: { ...h.context.env, GITHUB_OUTPUT: join(h.root, "outputs"), GITHUB_WORKSPACE: h.root, GITHUB_REPOSITORY: h.context.repository, GITHUB_SHA: h.context.sha },
+        appendOutput: (_path, data) => writes.push(data), log: line => logs.push(line),
+        dependencies: { onProgress(event) { if (event.kind === "failed" && event.name === "a") aFailed.resolve(); } },
+        release: (_context, dependencies) => runRelease(h.context, { ...h.deps, onProgress: dependencies.onProgress }),
+      });
+      const observed = running.then(() => { settled = true; }, error => { settled = true; return error; });
+      try {
+        await aFailed.promise;
+        assert.equal(settled, false);
+        assert.ok((await readFile(bTarball)).length, "owned artifact remains while another request is active");
+      } finally { releaseB.resolve(); }
+      assert.match((await observed).message, /Publication failed for a@1.0.0/);
+      const output = async name => JSON.parse(await readFile(writes.find(line => line.startsWith(name + "=")).slice(name.length + 1).trim(), "utf8"));
+      const legacy = await output("report-path"), execution = await output("execution-report-path");
+      const artifacts = await output("artifact-report-path"), diagnostics = await output("diagnostics-path");
+      assert.equal(legacy.failedPackage.name, "a");
+      assert.deepEqual(legacy.results.map(row => row.name), failB ? [] : ["b"]);
+      assert.equal(diagnostics.phase, "publish", "late verify events cannot overwrite the primary failure phase");
+      assert.deepEqual(execution.packages.map(row => [row.name, row.status, row.publication]), [
+        ["a", "failed", "unknown"], ["b", failB ? "failed" : "completed", failB ? "unknown" : "published"], ["c", "not-started", "not-attempted"],
+      ]);
+      assert.equal(artifacts.error.package.name, "a");
+      assert.equal(artifacts.packages.find(row => row.name === "b").publication, failB ? "unknown" : "published");
+      assert.equal(writes.some(line => line.startsWith("packages=")), false);
+      assert.doesNotMatch(JSON.stringify([execution, legacy, artifacts, diagnostics, logs]), /SECRET/);
+      await assert.rejects(readFile(bTarball), { code: "ENOENT" });
+    });
+  }
+});
+
+test("parallel staged candidates unlock optional and staged consumers while peers impose no ordering", { timeout: 10_000 }, async () => {
+  const packages = [pkg("lib"), pkg("optional", { optionalDependencies: { alias: "npm:lib@1.0.0" } }), pkg("peer", { peerDependencies: { lib: "1.0.0" } }), pkg("stage", { dependencies: { lib: "1.0.0" } })];
+  await fixture(packages, async h => {
+    h.context.env["INPUT_PUBLISH-CONCURRENCY"] = "2";
+    const releaseLib = deferred(), peerDone = deferred(), libStarted = deferred();
+    const publish = h.deps.publish, starts = [];
+    h.deps.publish = async (toolchain, request) => {
+      starts.push(request.name);
+      if (request.name === "lib") { libStarted.resolve(); await releaseLib.promise; }
+      return publish(toolchain, request);
+    };
+    h.deps.onProgress = event => { if (event.kind === "completed" && event.result.name === "peer") peerDone.resolve(); };
+    const running = runRelease(h.context, h.deps);
+    try { await Promise.all([peerDone.promise, libStarted.promise]); assert.deepEqual(starts.toSorted(), ["lib", "peer"]); }
+    finally { releaseLib.resolve(); }
+    assert.deepEqual((await running).map(row => [row.name, row.state]), [["lib", "staged"], ["optional", "published"], ["peer", "published"], ["stage", "staged"]]);
+  }, "schema: 1\npublish:\n  mode: direct\npackages:\n  lib:\n    publish:\n      mode: stage\n  stage:\n    publish:\n      mode: stage\n");
+});
+
+test("a candidate already doing pre-write reads cannot submit after another failure", { timeout: 10_000 }, async () => {
+  await fixture([pkg("a"), pkg("b"), pkg("c")], async h => {
+    h.context.env["INPUT_PUBLISH-CONCURRENCY"] = "3";
+    const bSubmitted = deferred(), cChecking = deferred(), releaseC = deferred(), releaseB = deferred(), aFailed = deferred();
+    const verify = h.registry.verifyPublishedArtifact;
+    h.registry.verifyPublishedArtifact = async (...args) => {
+      if (args[0] === "c") { cChecking.resolve(); await releaseC.promise; }
+      return verify(...args);
+    };
+    const writes = [], publish = h.deps.publish;
+    h.deps.publish = async (toolchain, request) => {
+      writes.push(request.name);
+      if (request.name === "a") { await Promise.all([bSubmitted.promise, cChecking.promise]); throw new Error("lost response"); }
+      const result = await publish(toolchain, request);
+      bSubmitted.resolve();
+      return result;
+    };
+    h.deps.waitForDirectLive = async () => { await releaseB.promise; };
+    h.deps.onProgress = event => { if (event.kind === "failed" && event.name === "a") aFailed.resolve(); };
+    const running = runRelease(h.context, h.deps);
+    const rejected = assert.rejects(running, /Publication failed for a@/);
+    try { await aFailed.promise; }
+    finally { releaseC.resolve(); releaseB.resolve(); }
+    await rejected;
+    assert.deepEqual(writes.toSorted(), ["a", "b"]);
+  });
+});
+
+test("admission stopped inside publisher setup leaves a skipped package, not a second failure", { timeout: 10_000 }, async () => {
+  const { ExecutionReporter } = await import("../src/execution-report.ts");
+  await fixture([pkg("a"), pkg("b")], async h => {
+    h.context.env["INPUT_PUBLISH-CONCURRENCY"] = "2";
+    const reporter = new ExecutionReporter(), settingUp = deferred(), releaseSetup = deferred(), failed = deferred();
+    const failures = [];
+    h.deps.onProgress = event => {
+      reporter.progress(event);
+      if (event.kind === "failed") { failures.push(event.name); failed.resolve(); }
+    };
+    h.deps.publish = async (_toolchain, request, options) => {
+      if (request.name === "a") { await settingUp.promise; throw new Error("lost response"); }
+      assert.equal(options.canPublish(), true);
+      settingUp.resolve();
+      await releaseSetup.promise;
+      assert.equal(options.canPublish(), false);
+      return "not-submitted";
+    };
+    const running = runRelease(h.context, h.deps);
+    const rejected = assert.rejects(running, /Publication failed for a@/);
+    try { await failed.promise; }
+    finally { releaseSetup.resolve(); }
+    await rejected;
+    reporter.finish(false);
+    assert.deepEqual(failures, ["a"]);
+    assert.equal(reporter.report.packages.find(row => row.name === "b").publication, "not-attempted");
+    assert.equal(reporter.report.packages.find(row => row.name === "b").status, "not-started");
+  });
+});
 
 test("automatic packing resolves the root manifest through a workspace directory alias", async () => {
   await fixture([pkg("a")], async h => {

@@ -85,12 +85,12 @@ test("action writes diagnostics but no packages output when orchestration fails"
       },
       writeReport: async () => "/report.json",
       appendOutput(_path, data) {
-        assert.match(data, /^(report-path=\/report\.json|diagnostics-path=\/.*)\n$/);
+        assert.match(data, /^(report-path=\/report\.json|diagnostics-path=\/.*|execution-report-path=\/.*)\n$/);
         writes += 1;
       },
     }),
     /preflight failed/,
   );
 
-  assert.equal(writes, 2);
+  assert.equal(writes, 3);
 });

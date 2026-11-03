@@ -4,12 +4,16 @@ import { dirname, resolve } from "node:path";
 
 import {
   runRelease,
+  publishConcurrency,
   type OrchestrationDependencies,
   type PackageResult,
 } from "./orchestrate.ts";
 import { githubContextFromEnv } from "./workspace/identity.ts";
 import { updateReport, writeReleaseReport, type ReleaseReport } from "./report.ts";
 import { ArtifactReporter, writeArtifactReport } from "./artifacts/report.ts";
+import { ExecutionReporter, writeExecutionReport } from "./execution-report.ts";
+import { logProgress } from "./progress.ts";
+import { PublicationFailure } from "./errors.ts";
 
 type AppendOutput = (
   path: string,
@@ -74,6 +78,8 @@ export async function runAction(
     writeReport?: typeof writeReleaseReport;
     writeDiagnostics?: typeof writeDiagnostics;
     writeArtifactReport?: typeof writeArtifactReport;
+    writeExecutionReport?: typeof writeExecutionReport;
+    log?: (line: string) => void;
   } = {},
 ): Promise<PackageResult[]> {
   const env = options.env ?? process.env;
@@ -82,8 +88,12 @@ export async function runAction(
   diagnostic.selection.source = safeSha(env.GITHUB_SHA);
   let report: ReleaseReport | undefined;
   let failed = false;
+  let failure: unknown;
+  let failedPhase: "pack" | "publish" | "verify" | undefined;
+  const execution = new ExecutionReporter();
   const artifacts = env["INPUT_ARTIFACTS-MANIFEST"]?.trim() ? new ArtifactReporter() : undefined;
   try {
+    execution.report.concurrency = publishConcurrency(env);
     const github = githubContextFromEnv(env);
     diagnostic.selection.commit = github.sha;
     if (artifacts) artifacts.report.publicationCommit = github.sha;
@@ -97,18 +107,24 @@ export async function runAction(
         onProgress(event) {
           updateReport(report!, event);
           artifacts?.progress(event);
+          execution.progress(event);
+          logProgress(event, options.log);
           if (event.kind === "selection") {
             diagnostic.selection.tag = event.tag;
             diagnostic.selection.version = event.version;
             diagnostic.verification.remoteTag = "matched";
-          } else if (event.kind === "phase") diagnostic.phase = event.phase;
-          else if (event.kind === "publishing") diagnostic.phase = "publish";
+          } else if (event.kind === "failed") {
+            failedPhase ??= event.phase;
+            diagnostic.phase = failedPhase;
+          } else if (!failedPhase && event.kind === "phase") diagnostic.phase = event.phase;
+          else if (!failedPhase && event.kind === "publishing") diagnostic.phase = "publish";
           packageDiagnostics(diagnostic, report!.results);
           options.dependencies?.onProgress?.(event);
         },
       },
     );
     artifacts?.complete();
+    packages.forEach(result => execution.progress({ kind: "completed", result }));
     writePackagesOutput(outputPath, packages, append);
     report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
     report.status = "success"; report.stage = "complete";
@@ -118,9 +134,11 @@ export async function runAction(
     return packages;
   } catch (error) {
     failed = true;
+    failure = error;
     if (report) report.status = "failed";
     artifacts?.fail(error);
     failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
+    if (error instanceof PublicationFailure && diagnostic.error) diagnostic.error.remoteState = error.remoteState;
     throw error;
   } finally {
     let outputFailure: unknown;
@@ -147,6 +165,14 @@ export async function runAction(
         outputFailure ??= error;
         if (failed) console.warn("Artifact verification report could not be saved; preserving the original failure");
       }
+    }
+    execution.finish(!failed && !outputFailure, failure ?? outputFailure);
+    try {
+      const path = await (options.writeExecutionReport ?? writeExecutionReport)(execution.report, env);
+      if (env.GITHUB_OUTPUT) append(env.GITHUB_OUTPUT, "execution-report-path=" + path + "\n", { encoding: "utf8" });
+    } catch (error) {
+      outputFailure ??= error;
+      if (failed) console.warn("Execution report could not be saved; preserving the original failure");
     }
     if (!failed && outputFailure) throw outputFailure;
   }

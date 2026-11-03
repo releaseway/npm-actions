@@ -21,7 +21,10 @@ test("reports survive cleanup and preserve partial results without secret or sub
           dependencies.onProgress({ kind: "plan", plan, alreadyPublished: [] });
           for (let index = 0; index < 2; index++) {
             dependencies.onProgress({ kind: "publishing", name: plan[index].name, version: "1.0.0" });
-            if (index === completed) throw new Error("subprocess output " + sentinel);
+            if (index === completed) {
+              dependencies.onProgress({ kind: "failed", name: plan[index].name, version: "1.0.0", phase: "publish", code: "PUBLISH_FAILED", remoteState: "unknown" });
+              throw new Error("subprocess output " + sentinel);
+            }
             dependencies.onProgress({ kind: "completed", result: { name: plan[index].name, version: "1.0.0", state: "staged", token: sentinel } });
           }
           return plan.map(({ name, version }) => ({ name, version, state: "staged" }));

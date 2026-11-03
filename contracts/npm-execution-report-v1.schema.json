@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npm-execution-report-v1.schema.json",
+  "title": "Releaseway npm execution report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "concurrency", "elapsedMs", "timings", "packages", "error"],
+  "properties": {
+    "schema": { "const": 1 },
+    "status": { "enum": ["success", "failed"] },
+    "concurrency": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "elapsedMs": { "type": "integer", "minimum": 0 },
+    "timings": { "type": "array", "items": { "$ref": "#/$defs/timing" } },
+    "error": { "$ref": "#/$defs/error" },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "version", "status", "publication", "timings", "error"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["not-started", "running", "completed", "failed"] },
+          "publication": { "enum": ["not-attempted", "already-published", "published", "staged", "unknown"] },
+          "timings": { "type": "array", "items": { "$ref": "#/$defs/timing" } },
+          "error": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["code", "phase", "remoteState"],
+                "properties": {
+                  "code": { "$ref": "#/$defs/code" },
+                  "phase": { "enum": ["prepare", "pack", "import", "publish", "verify"] },
+                  "remoteState": { "$ref": "#/$defs/remoteState" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "code": { "$ref": "diagnostics-v1.schema.json#/properties/error/oneOf/0/properties/code" },
+    "remoteState": { "enum": ["unchanged", "present", "unknown"] },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false, "required": ["code", "remoteState"],
+          "properties": { "code": { "$ref": "#/$defs/code" }, "remoteState": { "$ref": "#/$defs/remoteState" } }
+        }
+      ]
+    },
+    "timing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["phase", "startedAt", "finishedAt", "elapsedMs", "status"],
+      "properties": {
+        "phase": { "enum": ["prepare", "pack", "import", "npm-command", "public-check"] },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "finishedAt": { "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+        "elapsedMs": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["running", "completed", "failed", "skipped"] }
+      }
+    }
+  },
+  "$comment": "Elapsed times use a monotonic runner clock. UTC timestamps locate events but do not measure registry scanning. Raw output, error messages, environment and credentials are excluded."
+}

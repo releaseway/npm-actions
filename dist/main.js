@@ -10696,12 +10696,12 @@ var require_lib3 = __commonJS({
           return process.emit("input", "end", ...args);
         },
         read: function(...args) {
-          let resolve15, reject;
+          let resolve16, reject;
           const promise = new Promise((_resolve, _reject) => {
-            resolve15 = _resolve;
+            resolve16 = _resolve;
             reject = _reject;
           });
-          process.emit("input", "read", resolve15, reject, ...args);
+          process.emit("input", "read", resolve16, reject, ...args);
           return promise;
         }
       }
@@ -10761,7 +10761,7 @@ var require_npa = __commonJS({
           spec = arg;
         }
       }
-      return resolve15(name, spec, where, arg);
+      return resolve16(name, spec, where, arg);
     }
     function isFileSpec(spec) {
       if (!spec) {
@@ -10781,7 +10781,7 @@ var require_npa = __commonJS({
       }
       return spec.toLowerCase().startsWith("npm:");
     }
-    function resolve15(name, spec, where, arg) {
+    function resolve16(name, spec, where, arg) {
       const res = new Result({
         raw: arg,
         name,
@@ -11098,7 +11098,7 @@ var require_npa = __commonJS({
       return res;
     }
     module2.exports = npa2;
-    module2.exports.resolve = resolve15;
+    module2.exports.resolve = resolve16;
     module2.exports.toPurl = toPurl;
     module2.exports.Result = Result;
   }
@@ -15631,41 +15631,41 @@ var require_queue = __commonJS({
       queue.drained = drained;
       return queue;
       function push(value) {
-        var p2 = new Promise(function(resolve15, reject) {
+        var p2 = new Promise(function(resolve16, reject) {
           pushCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve15(result);
+            resolve16(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function unshift(value) {
-        var p2 = new Promise(function(resolve15, reject) {
+        var p2 = new Promise(function(resolve16, reject) {
           unshiftCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve15(result);
+            resolve16(result);
           });
         });
         p2.catch(noop);
         return p2;
       }
       function drained() {
-        var p2 = new Promise(function(resolve15) {
+        var p2 = new Promise(function(resolve16) {
           process.nextTick(function() {
             if (queue.idle()) {
-              resolve15();
+              resolve16();
             } else {
               var previousDrain = queue.drain;
               queue.drain = function() {
                 if (typeof previousDrain === "function") previousDrain();
-                resolve15();
+                resolve16();
                 queue.drain = previousDrain;
               };
             }
@@ -16151,9 +16151,9 @@ var require_stream3 = __commonJS({
         });
       }
       _getStat(filepath) {
-        return new Promise((resolve15, reject) => {
+        return new Promise((resolve16, reject) => {
           this._stat(filepath, this._fsStatSettings, (error, stats) => {
-            return error === null ? resolve15(stats) : reject(error);
+            return error === null ? resolve16(stats) : reject(error);
           });
         });
       }
@@ -16177,10 +16177,10 @@ var require_async5 = __commonJS({
         this._readerStream = new stream_1.default(this._settings);
       }
       dynamic(root, options) {
-        return new Promise((resolve15, reject) => {
+        return new Promise((resolve16, reject) => {
           this._walkAsync(root, options, (error, entries) => {
             if (error === null) {
-              resolve15(entries);
+              resolve16(entries);
             } else {
               reject(error);
             }
@@ -16190,10 +16190,10 @@ var require_async5 = __commonJS({
       async static(patterns, options) {
         const entries = [];
         const stream = this._readerStream.static(patterns, options);
-        return new Promise((resolve15, reject) => {
+        return new Promise((resolve16, reject) => {
           stream.once("error", reject);
           stream.on("data", (entry) => entries.push(entry));
-          stream.once("end", () => resolve15(entries));
+          stream.once("end", () => resolve16(entries));
         });
       }
     };
@@ -16927,7 +16927,7 @@ function writeDiagnostics(diagnostic, env, append = import_node_fs.appendFileSyn
 
 // src/action.ts
 var import_node_fs12 = require("node:fs");
-var import_node_path26 = require("node:path");
+var import_node_path27 = require("node:path");
 
 // src/artifacts/errors.ts
 var artifactErrorCodes = {
@@ -21356,6 +21356,94 @@ var import_node_os4 = require("node:os");
 var import_node_path19 = require("node:path");
 var import_node_process2 = __toESM(require("node:process"), 1);
 
+// src/errors.ts
+var InvalidPublishConcurrencyError = class extends ReleaseError {
+  constructor() {
+    super("INVALID_INPUT", "publish-concurrency must be a positive safe integer");
+  }
+};
+function releaseErrorCode(error, fallback = "PUBLISH_FAILED") {
+  if (error instanceof PublicationFailure) return error.code;
+  for (let depth = 0; depth < 8 && error instanceof Error; depth++, error = error.cause) {
+    if (error instanceof ReleaseError) return error.code;
+  }
+  return fallback;
+}
+var PublicationFailure = class extends Error {
+  identity;
+  phase;
+  code;
+  remoteState;
+  constructor(identity2, phase, remoteState, error, completed) {
+    super(`Publication failed for ${identity2.name}@${identity2.version}; completed before failure: ${completed}; cause: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    this.identity = { name: identity2.name, version: identity2.version };
+    this.phase = phase;
+    this.code = releaseErrorCode(error);
+    this.remoteState = remoteState;
+  }
+};
+function escapeWorkflowCommand(value) {
+  return value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+}
+function errorMessage(error) {
+  if (error instanceof InvalidPublishConcurrencyError) return "publish-concurrency must be a positive safe integer";
+  if (error instanceof PublicationFailure) {
+    return `Releaseway npm failed for ${JSON.stringify(error.identity.name + "@" + error.identity.version)} during ${error.phase} (${error.code}, remote: ${error.remoteState}). Inspect release reports before retrying.`;
+  }
+  const code = error instanceof ReleaseError ? error.code : "INTERNAL_ERROR";
+  return `Releaseway npm failed (${code}). Inspect release reports and configuration before retrying.`;
+}
+function githubErrorCommand(error) {
+  return "::error::" + escapeWorkflowCommand(errorMessage(error));
+}
+
+// src/progress.ts
+var HEARTBEAT_MS = 3e4;
+async function activity(pkg, phase, observe, work, heartbeatMs = 0) {
+  const started = performance.now();
+  const emit = (state, error) => observe?.({
+    kind: "activity",
+    package: pkg && { name: pkg.name, version: pkg.version },
+    phase,
+    state,
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    elapsedMs: Math.max(0, Math.round(performance.now() - started)),
+    ...state === "failed" ? { code: releaseErrorCode(error, "INTERNAL_ERROR") } : {}
+  });
+  emit("started");
+  const timer = heartbeatMs > 0 && observe ? setInterval(() => {
+    try {
+      emit("waiting");
+    } catch {
+    }
+  }, heartbeatMs) : void 0;
+  timer?.unref();
+  try {
+    const result = await work();
+    emit("completed");
+    return result;
+  } catch (error) {
+    emit("failed", error);
+    throw error;
+  } finally {
+    if (timer) clearInterval(timer);
+  }
+}
+function logProgress(event, write = console.log) {
+  if (event.kind === "plan") {
+    event.alreadyPublished.forEach((result) => logProgress({ kind: "completed", result }, write));
+    return;
+  }
+  if (event.kind !== "activity" && event.kind !== "completed" && event.kind !== "failed") return;
+  const identity2 = event.kind === "activity" ? event.package : event.kind === "completed" ? event.result : event;
+  const label = identity2 ? JSON.stringify(identity2.name + "@" + identity2.version) : "release";
+  const detail = event.kind === "activity" ? `${event.phase} ${event.state} elapsed=${(event.elapsedMs / 1e3).toFixed(1)}s` : event.kind === "completed" ? event.result.state : `failed phase=${event.phase} code=${event.code} remote=${event.remoteState}`;
+  try {
+    write(`[releaseway/npm] ${label} ${detail}`);
+  } catch {
+  }
+}
+
 // src/toolchain/bootstrap.ts
 var import_node_child_process = require("node:child_process");
 var import_node_fs10 = require("node:fs");
@@ -21570,11 +21658,11 @@ async function inspectPackedTarball(tarballPath) {
       if (entry.path === "package/package.json") {
         const chunks = [];
         pending.push(
-          new Promise((resolve15, reject) => {
+          new Promise((resolve16, reject) => {
             entry.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
             entry.on("end", () => {
               packageJson = Buffer.concat(chunks).toString("utf8");
-              resolve15();
+              resolve16();
             });
             entry.on("error", reject);
           })
@@ -21847,7 +21935,7 @@ async function materializePackageVersions(packages) {
   }
   return restore;
 }
-async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager, versionPackages = packages) {
+async function packAllPackages(workspaceRoot, packages, command, outputRoot, runManager = defaultRunManager, versionPackages = packages, onProgress) {
   const original = await snapshotSourceState(workspaceRoot);
   const restore = await materializePackageVersions(versionPackages);
   let operationError;
@@ -21856,7 +21944,7 @@ async function packAllPackages(workspaceRoot, packages, command, outputRoot, run
     const artifacts = [];
     for (const pkg of packages) {
       artifacts.push(
-        await packPackage(pkg, command, outputRoot, runManager)
+        await activity(pkg, "pack", onProgress, () => packPackage(pkg, command, outputRoot, runManager))
       );
       const afterPackage = await snapshotSourceState(workspaceRoot);
       assertSourceStateUnchanged(materialized, afterPackage);
@@ -21927,18 +22015,31 @@ var import_promises12 = require("node:fs/promises");
 var import_node_path20 = require("node:path");
 var import_node_os5 = require("node:os");
 var import_node_process3 = __toESM(require("node:process"), 1);
-var defaultRunPublisher = (executable, args, options) => {
-  const result = (0, import_node_child_process4.spawnSync)(executable, [...args], {
-    ...options,
-    encoding: "utf8"
-  });
-  if (result.error) throw result.error;
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? ""
+var defaultRunPublisher = (executable, args, options) => new Promise((done, reject) => {
+  const child = (0, import_node_child_process4.spawn)(executable, [...args], { ...options, stdio: ["ignore", "pipe", "pipe"] });
+  const stdout = [], stderr = [];
+  let stdoutBytes = 0, stderrBytes = 0;
+  let failure;
+  const capture = (chunks, stream, chunk) => {
+    if (failure) return;
+    if (stream === "stdout") stdoutBytes += chunk.length;
+    else stderrBytes += chunk.length;
+    if (Math.max(stdoutBytes, stderrBytes) > 1024 * 1024) {
+      failure = new Error("npm command output exceeded the capture limit");
+      child.kill();
+    } else chunks.push(chunk);
   };
-};
+  child.stdout.on("data", (chunk) => capture(stdout, "stdout", chunk));
+  child.stderr.on("data", (chunk) => capture(stderr, "stderr", chunk));
+  child.on("error", (error) => {
+    failure ??= error;
+  });
+  child.on("close", (status) => failure ? reject(failure) : done({
+    status,
+    stdout: Buffer.concat(stdout).toString("utf8"),
+    stderr: Buffer.concat(stderr).toString("utf8")
+  }));
+});
 var PublishCommandError = class extends Error {
   output;
   constructor(request, output) {
@@ -21990,7 +22091,8 @@ async function publishPackage(toolchain, request, options = {}) {
       (0, import_promises12.writeFile)(userConfig, config, { encoding: "utf8", mode: 384 }),
       (0, import_promises12.writeFile)(globalConfig, config, { encoding: "utf8", mode: 384 })
     ]);
-    const result = (options.runPublisher ?? defaultRunPublisher)(
+    if (options.canPublish && !options.canPublish()) return "not-submitted";
+    const result = await (options.runPublisher ?? defaultRunPublisher)(
       import_node_process3.default.execPath,
       [toolchain.npmCli, ...publicationArgs(request, userConfig, globalConfig)],
       { cwd: root, env: isolatedPublisherEnvironment(sourceEnv, home) }
@@ -22500,6 +22602,14 @@ function resolveGitTagVersion(context, policy, runGit2 = defaultRunGit3) {
 }
 
 // src/orchestrate.ts
+function publishConcurrency(env) {
+  const raw = env["INPUT_PUBLISH-CONCURRENCY"]?.trim() || "1";
+  const value = Number(raw);
+  if (!/^[1-9][0-9]*$/.test(raw) || !Number.isSafeInteger(value)) {
+    throw new InvalidPublishConcurrencyError();
+  }
+  return value;
+}
 async function waitForDirectLive(registry, name, version, expectedIntegrity, options = {}) {
   const pollMs = options.pollMs ?? 1e4;
   const timeoutMs = options.timeoutMs ?? 20 * 6e4;
@@ -22562,7 +22672,7 @@ function artifactMap(packages, artifacts) {
     })
   );
 }
-async function applyNativeAugmentation(context, packages, artifacts, runRoot, inspect, resolver) {
+async function applyNativeAugmentation(context, packages, artifacts, runRoot, inspect, resolver, onProgress) {
   const nativePackages = packages.filter((pkg) => pkg.policy?.distribution);
   if (nativePackages.length === 0) {
     return;
@@ -22571,31 +22681,33 @@ async function applyNativeAugmentation(context, packages, artifacts, runRoot, in
   const outputRoot = (0, import_node_path23.join)(runRoot, "final-native");
   await (0, import_promises14.mkdir)(outputRoot, { recursive: true });
   for (const pkg of nativePackages) {
-    const artifact = artifacts.get(pkg.name);
-    if (!artifact) {
-      throw new Error(`Missing packed artifact for native package ${pkg.name}`);
-    }
-    const distribution = validateNativeDistribution(pkg, artifact);
-    const release = await resolver.resolve(
-      context.repository,
-      pkg.version,
-      context.sha,
-      distribution
-    );
-    const outputPath = (0, import_node_path23.join)(
-      outputRoot,
-      encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz"
-    );
-    await augmentNativeArtifact(
-      pkg,
-      artifact,
-      distribution,
-      release,
-      outputPath,
-      runtimeBundle,
-      { tempRoot: runRoot }
-    );
-    artifacts.set(pkg.name, await inspect(outputPath));
+    await activity(pkg, "prepare", onProgress, async () => {
+      const artifact = artifacts.get(pkg.name);
+      if (!artifact) {
+        throw new Error(`Missing packed artifact for native package ${pkg.name}`);
+      }
+      const distribution = validateNativeDistribution(pkg, artifact);
+      const release = await resolver.resolve(
+        context.repository,
+        pkg.version,
+        context.sha,
+        distribution
+      );
+      const outputPath = (0, import_node_path23.join)(
+        outputRoot,
+        encodeURIComponent(pkg.name) + "-" + pkg.version + ".tgz"
+      );
+      await augmentNativeArtifact(
+        pkg,
+        artifact,
+        distribution,
+        release,
+        outputPath,
+        runtimeBundle,
+        { tempRoot: runRoot }
+      );
+      artifacts.set(pkg.name, await inspect(outputPath));
+    }, HEARTBEAT_MS);
   }
 }
 async function prepareRelease(context, dependencies = {}) {
@@ -22622,6 +22734,7 @@ async function prepareRelease(context, dependencies = {}) {
   );
   if (packages.length === 0)
     throw new Error("No publishable npm packages were discovered");
+  dependencies.onProgress?.({ kind: "selected", packages });
   const artifactProgress = (event) => dependencies.onProgress?.({ kind: "artifact-verification", event });
   const manifestInput = context.env["INPUT_ARTIFACTS-MANIFEST"]?.trim();
   if (manifestInput) artifactProgress({ phase: "selection", packages });
@@ -22637,7 +22750,7 @@ async function prepareRelease(context, dependencies = {}) {
   const alreadyPublished = [];
   dependencies.onProgress?.({ kind: "phase", phase: "verify" });
   for (const pkg of packages) {
-    const lookup = supplied ? await readArtifactVersion(registry, pkg) : await registry.lookupVersion(pkg.name, pkg.version);
+    const lookup = await activity(pkg, "prepare", dependencies.onProgress, () => supplied ? readArtifactVersion(registry, pkg) : registry.lookupVersion(pkg.name, pkg.version));
     snapshots.set(pkg.name, lookup.snapshot);
     if (lookup.state === "already-published") {
       alreadyPublished.push({
@@ -22680,13 +22793,14 @@ async function prepareRelease(context, dependencies = {}) {
       artifacts = /* @__PURE__ */ new Map();
       for (const [index, pkg] of candidates.entries()) {
         const entry = supplied.manifest.packages.find((item) => item.name === pkg.name);
-        const artifact = await importArtifact(
+        dependencies.onProgress?.({ kind: "activity", package: { name: pkg.name, version: pkg.version }, phase: "pack", state: "skipped", at: (/* @__PURE__ */ new Date()).toISOString(), elapsedMs: 0 });
+        const artifact = await activity(pkg, "import", dependencies.onProgress, () => importArtifact(
           supplied.directory,
           entry,
           (0, import_node_path23.join)(runRoot, "imported", index + ".tgz"),
           context.repository,
           (integrity, matched) => artifactProgress({ phase: "local", identity: entry, integrity, matched })
-        );
+        ));
         artifacts.set(pkg.name, artifact);
       }
     }
@@ -22705,7 +22819,8 @@ async function prepareRelease(context, dependencies = {}) {
         command,
         (0, import_node_path23.join)(runRoot, "packed"),
         void 0,
-        packages
+        packages,
+        dependencies.onProgress
       );
       artifacts = artifactMap(candidates, packed);
       await applyNativeAugmentation(
@@ -22714,7 +22829,8 @@ async function prepareRelease(context, dependencies = {}) {
         artifacts,
         runRoot,
         dependencies.inspect ?? inspectPackedTarball,
-        dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env)
+        dependencies.nativeResolver ?? new NativeReleaseResolver(fetch, context.env),
+        dependencies.onProgress
       );
     }
     const requests = /* @__PURE__ */ new Map();
@@ -22807,6 +22923,7 @@ async function assertDirectDependenciesLive(registry, publication) {
   }
 }
 async function executePreparedRelease(context, prepared, dependencies = {}) {
+  const concurrency = publishConcurrency(context.env);
   const results = [...prepared.alreadyPublished];
   if (prepared.kind === "noop") return results;
   if (context.repository !== prepared.source.repository || context.sha !== prepared.source.sha || (0, import_node_path23.resolve)(context.workspace) !== (0, import_node_path23.resolve)(prepared.source.workspace))
@@ -22838,57 +22955,77 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
     }
     artifactProgress({ phase: "preflight" });
   }
-  const completed = [];
-  for (const publication of prepared.publications) {
+  const completed = /* @__PURE__ */ new Map();
+  let firstFailure;
+  let stopped = false;
+  const execute = async (publication) => {
     const request = publication.request;
-    dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
+    let phase = "verify";
+    let attempted = false;
     try {
+      dependencies.onProgress?.({ kind: "publishing", name: request.name, version: request.version });
       await checkTarball(request);
       dependencies.onProgress?.({ kind: "phase", phase: "verify" });
       let state;
-      if (await registry.verifyPublishedArtifact(
+      if (await activity(request, "prepare", dependencies.onProgress, () => registry.verifyPublishedArtifact(
         request.name,
         request.version,
         request.integrity
-      ) === "matched") {
+      )) === "matched") {
         state = "published";
       } else {
         await assertDirectDependenciesLive(registry, publication);
+        if (stopped) return;
         let submitted;
         try {
+          phase = "publish";
           dependencies.onProgress?.({ kind: "phase", phase: "publish" });
           await checkTarball(request);
-          submitted = await publisher(prepared.toolchain, request, {
+          if (stopped) return;
+          attempted = true;
+          dependencies.onProgress?.({ kind: "submission", name: request.name, version: request.version, state: "started" });
+          submitted = await activity(request, "npm-command", dependencies.onProgress, () => publisher(prepared.toolchain, request, {
             env: context.env,
-            tempRoot: prepared.runRoot
-          });
+            tempRoot: prepared.runRoot,
+            canPublish: () => !stopped
+          }), HEARTBEAT_MS);
+          if (submitted === "not-submitted") {
+            if (!stopped) throw new Error("Publisher declined an active publication");
+            dependencies.onProgress?.({ kind: "deferred", name: request.name, version: request.version });
+            return;
+          }
+          dependencies.onProgress?.({ kind: "submission", name: request.name, version: request.version, state: "accepted" });
         } catch (error) {
-          if (await registry.verifyPublishedArtifact(
+          phase = "verify";
+          if (await activity(request, "public-check", dependencies.onProgress, () => registry.verifyPublishedArtifact(
             request.name,
             request.version,
             request.integrity
-          ) === "matched") {
+          ), HEARTBEAT_MS) === "matched") {
             submitted = "verified-live";
           } else if (request.mode === "direct" && error instanceof PublishCommandError && isPendingRegistryScanConflict(error.output)) {
-            await waitForLive(
+            phase = "verify";
+            await activity(request, "public-check", dependencies.onProgress, () => waitForLive(
               registry,
               request.name,
               request.version,
               request.integrity
-            );
+            ), HEARTBEAT_MS);
             submitted = "verified-live";
           } else {
+            phase = "publish";
             throw error;
           }
         }
         dependencies.onProgress?.({ kind: "phase", phase: "verify" });
+        phase = "verify";
         if (submitted === "direct-accepted") {
-          await waitForLive(
+          await activity(request, "public-check", dependencies.onProgress, () => waitForLive(
             registry,
             request.name,
             request.version,
             request.integrity
-          );
+          ), HEARTBEAT_MS);
           state = "published";
         } else if (submitted === "verified-live") state = "published";
         else if (submitted === "staged") state = "staged";
@@ -22899,23 +23036,52 @@ async function executePreparedRelease(context, prepared, dependencies = {}) {
         version: request.version,
         state
       };
-      completed.push(result);
-      results.push(result);
+      completed.set(request.name, result);
       dependencies.onProgress?.({ kind: "completed", result });
     } catch (error) {
-      const summary = completed.map(
+      const summary = [...completed.values()].map(
         (item) => item.name + "@" + item.version + "(" + item.state + ")"
       ).join(", ") || "none";
-      throw new Error(
-        "Publication failed for " + request.name + "@" + request.version + "; completed before failure: " + summary + "; cause: " + (error instanceof Error ? error.message : String(error)),
-        { cause: error }
-      );
+      const remoteState = attempted ? error instanceof ReleaseError && error.remoteState === "present" ? "present" : "unknown" : error instanceof ReleaseError ? error.remoteState : "unchanged";
+      const failure = new PublicationFailure(request, phase, remoteState, error, summary);
+      firstFailure ??= failure;
+      stopped = true;
+      dependencies.onProgress?.({ kind: "failed", name: request.name, version: request.version, phase, code: releaseErrorCode(error), remoteState });
     }
+  };
+  const pending = new Set(prepared.publications);
+  const active = /* @__PURE__ */ new Set();
+  const ready = (publication) => publication.requirements.every((requirement) => requirement.source !== "candidate" || requirement.field === "peerDependencies" || completed.has(requirement.name));
+  let schedulerError;
+  try {
+    while (!stopped && (pending.size || active.size)) {
+      for (const publication of pending) {
+        if (active.size >= concurrency || stopped) break;
+        if (!ready(publication)) continue;
+        pending.delete(publication);
+        const task = execute(publication).finally(() => active.delete(task));
+        active.add(task);
+      }
+      if (!active.size) {
+        if (pending.size) throw new Error("Prepared publication graph has no runnable candidate");
+        break;
+      }
+      await Promise.race(active);
+    }
+  } catch (error) {
+    stopped = true;
+    schedulerError = error;
+  } finally {
+    await Promise.allSettled(active);
   }
-  return results;
+  if (firstFailure) throw firstFailure;
+  if (schedulerError) throw schedulerError;
+  if (completed.size !== prepared.publications.length) throw new Error("Prepared publication did not complete");
+  return [...results, ...prepared.publications.map(({ request }) => completed.get(request.name))];
 }
 async function runRelease(context, dependencies = {}) {
-  const prepared = await prepareRelease(context, dependencies);
+  publishConcurrency(context.env);
+  const prepared = await activity(null, "prepare", dependencies.onProgress, () => prepareRelease(context, dependencies), HEARTBEAT_MS);
   let failed = false;
   try {
     dependencies.onProgress?.({
@@ -22945,11 +23111,19 @@ function updateReport(report, event) {
     report.results = event.alreadyPublished.map(({ name, version, state }) => ({ name, version, state }));
   } else if (event.kind === "publishing") {
     report.stage = "publish";
-    report.failedPackage = { name: event.name, version: event.version };
+  } else if (event.kind === "failed") {
+    report.failedPackage ??= { name: event.name, version: event.version };
   } else if (event.kind === "completed") {
     const { name, version, state } = event.result;
     report.results.push({ name, version, state });
-    delete report.failedPackage;
+    const order = new Map(report.plan.map((entry, index) => [entry.name, index]));
+    report.results.sort((a, b2) => {
+      const ai2 = order.get(a.name), bi2 = order.get(b2.name);
+      if (ai2 === void 0 && bi2 === void 0) return a.name.localeCompare(b2.name);
+      if (ai2 === void 0) return -1;
+      if (bi2 === void 0) return 1;
+      return ai2 - bi2;
+    });
   }
 }
 async function writeReleaseReport(report, env) {
@@ -22987,8 +23161,11 @@ var ArtifactReporter = class {
     packages: [],
     error: null
   };
-  current = null;
-  submitting = false;
+  failedIdentity = null;
+  submitting = /* @__PURE__ */ new Set();
+  key(value) {
+    return JSON.stringify([value.name, value.version]);
+  }
   row(value) {
     let row = this.report.packages.find((pkg) => pkg.name === value.name && pkg.version === value.version);
     if (!row) {
@@ -23019,10 +23196,19 @@ var ArtifactReporter = class {
       else if (data.phase === "local") Object.assign(this.row(data.identity), { localIntegrity: data.integrity, localVerification: data.matched ? "matched" : "mismatched" });
       else if (data.phase === "public") Object.assign(this.row(data.identity), { publicIntegrity: data.integrity, publicVerification: data.matched ? "matched" : "mismatched" });
     } else if (event.kind === "publishing") {
-      this.current = this.row(event);
-      this.submitting = false;
-    } else if (event.kind === "phase" && event.phase === "publish") {
-      this.submitting = true;
+      this.row(event);
+    } else if (event.kind === "submission" && event.state === "started") {
+      this.submitting.add(this.key(event));
+    } else if (event.kind === "deferred") {
+      this.submitting.delete(this.key(event));
+    } else if (event.kind === "failed") {
+      this.failedIdentity ??= identity(event);
+      const row = this.row(event);
+      if (event.remoteState === "unknown" || this.submitting.has(this.key(event))) row.publication = "unknown";
+      if (event.code === "ARTIFACT_MISMATCH") {
+        row.publicVerification = "mismatched";
+        row.publicIntegrity = null;
+      }
     } else if (event.kind === "completed") {
       const row = this.row(event.result);
       row.publication = event.result.state;
@@ -23030,7 +23216,7 @@ var ArtifactReporter = class {
         row.publicVerification = "matched";
         row.publicIntegrity = row.expectedIntegrity;
       }
-      this.submitting = false;
+      this.submitting.delete(this.key(event.result));
     }
   }
   complete() {
@@ -23041,14 +23227,15 @@ var ArtifactReporter = class {
   fail(error) {
     for (let depth = 0; depth < 8 && error instanceof Error && !(error instanceof ReleaseError) && error.cause; depth++) error = error.cause;
     const artifact = error instanceof ArtifactError ? error : void 0;
+    const failedRow = artifact?.identity ? this.row(artifact.identity) : this.failedIdentity ? this.row(this.failedIdentity) : null;
     let code = artifact?.artifactCode ?? (this.report.preflight === "passed" ? "PUBLISH_FAILED" : "PLAN_INVALID");
     if (!artifact && error instanceof ReleaseError && error.code === "ARTIFACT_MISMATCH") code = "PUBLIC_INTEGRITY_MISMATCH";
     if (code === "PUBLIC_INTEGRITY_MISMATCH") {
-      const row = artifact?.identity ? this.row(artifact.identity) : this.current;
+      const row = failedRow;
       if (row && row.publicVerification !== "mismatched") Object.assign(row, { publicVerification: "mismatched", publicIntegrity: null });
     }
     const localFailure = !!artifact && !["PUBLIC_INTEGRITY_MISMATCH", "REGISTRY_STATE_CHANGED", "REGISTRY_UNAVAILABLE", "PUBLISH_FAILED"].includes(code);
-    if (this.current && this.submitting && !localFailure) this.current.publication = "unknown";
+    if (failedRow && this.submitting.has(this.key(failedRow)) && !localFailure) failedRow.publication = "unknown";
     const completed = this.report.packages.some((pkg) => pkg.publication === "published" || pkg.publication === "staged");
     const uncertain = this.report.packages.some((pkg) => pkg.publication === "unknown");
     const remoteState = uncertain ? "unknown" : completed ? "present" : artifact?.remoteState ?? "unchanged";
@@ -23057,7 +23244,7 @@ var ArtifactReporter = class {
     this.report.error = {
       code,
       entryIndex: artifact?.entryIndex ?? null,
-      package: artifact?.identity ? identity(artifact.identity) : this.current ? identity(this.current) : null,
+      package: failedRow ? identity(failedRow) : null,
       remoteState,
       recovery
     };
@@ -23080,6 +23267,88 @@ Status: ${report.status}; public SHA-512 matches: ${matched}; report: ${path}
   return path;
 }
 
+// src/execution-report.ts
+var import_promises17 = require("node:fs/promises");
+var import_node_os9 = require("node:os");
+var import_node_path26 = require("node:path");
+var ExecutionReporter = class {
+  report = { schema: 1, status: "failed", concurrency: 1, elapsedMs: 0, timings: [], packages: [], error: null };
+  started = performance.now();
+  order = [];
+  row(identity2) {
+    let row = this.report.packages.find((row2) => row2.name === identity2.name && row2.version === identity2.version);
+    if (!row) {
+      row = { name: identity2.name, version: identity2.version, status: "not-started", publication: "not-attempted", timings: [], error: null };
+      this.report.packages.push(row);
+    }
+    return row;
+  }
+  progress(event) {
+    if (event.kind === "selected") event.packages.forEach((pkg) => this.row(pkg));
+    else if (event.kind === "plan") {
+      this.order = [...event.alreadyPublished, ...event.plan].map((pkg) => pkg.name);
+      event.alreadyPublished.forEach((pkg) => Object.assign(this.row(pkg), { status: "completed", publication: pkg.state }));
+      event.plan.forEach((pkg) => this.row(pkg));
+    } else if (event.kind === "publishing") this.row(event).status = "running";
+    else if (event.kind === "deferred") {
+      const row = this.row(event);
+      row.status = "not-started";
+      row.publication = "not-attempted";
+      const timing = row.timings.findLast((item) => item.phase === "npm-command");
+      if (timing) timing.status = "skipped";
+    } else if (event.kind === "submission") this.row(event).publication = "unknown";
+    else if (event.kind === "completed") Object.assign(this.row(event.result), { status: "completed", publication: event.result.state, error: null });
+    else if (event.kind === "failed") {
+      const row = this.row(event);
+      row.status = "failed";
+      if (event.remoteState === "unknown") row.publication = "unknown";
+      row.error = { code: event.code, phase: event.phase, remoteState: event.remoteState };
+    } else if (event.kind === "activity") {
+      const timings = event.package ? this.row(event.package).timings : this.report.timings;
+      if (event.package && event.state === "failed" && (event.phase === "pack" || event.phase === "import" || event.phase === "prepare")) {
+        const row = this.row(event.package);
+        row.status = "failed";
+        row.error = { code: event.code ?? "INTERNAL_ERROR", phase: event.phase, remoteState: "unchanged" };
+      }
+      if (event.state === "skipped") timings.push({ phase: event.phase, startedAt: event.at, finishedAt: event.at, elapsedMs: 0, status: "skipped" });
+      else if (event.state === "started") timings.push({ phase: event.phase, startedAt: event.at, finishedAt: null, elapsedMs: 0, status: "running" });
+      else {
+        const timing = timings.findLast((item) => item.phase === event.phase && item.status === "running");
+        if (timing) {
+          timing.elapsedMs = event.elapsedMs;
+          if (event.state === "completed" || event.state === "failed") {
+            timing.status = event.state;
+            timing.finishedAt = event.at;
+          }
+        }
+      }
+    }
+  }
+  finish(success, error) {
+    this.report.status = success ? "success" : "failed";
+    this.report.error = success ? null : {
+      code: error === void 0 ? "INTERNAL_ERROR" : releaseErrorCode(error, "INTERNAL_ERROR"),
+      remoteState: this.report.packages.some((row) => row.publication === "unknown") ? "unknown" : this.report.packages.some((row) => row.publication === "published" || row.publication === "staged") ? "present" : error instanceof PublicationFailure || error instanceof ReleaseError ? error.remoteState : "unchanged"
+    };
+    this.report.elapsedMs = Math.max(0, Math.round(performance.now() - this.started));
+    for (const row of this.report.packages) {
+      if (row.status === "running" && row.publication === "not-attempted") row.status = "not-started";
+    }
+    this.report.packages.sort((a, b2) => {
+      const ai2 = this.order.indexOf(a.name), bi2 = this.order.indexOf(b2.name);
+      return ai2 < 0 || bi2 < 0 ? a.name.localeCompare(b2.name) : ai2 - bi2;
+    });
+  }
+};
+async function writeExecutionReport(report, env) {
+  const base = (0, import_node_path26.resolve)(env.RUNNER_TEMP ?? (0, import_node_os9.tmpdir)());
+  await (0, import_promises17.mkdir)(base, { recursive: true });
+  const root = await (0, import_promises17.mkdtemp)((0, import_node_path26.join)(base, "releaseway-npm-execution-"));
+  const path = (0, import_node_path26.join)(root, "execution.json");
+  await (0, import_promises17.writeFile)(path, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+  return path;
+}
+
 // src/action.ts
 function requiredEnvironment(env, name) {
   const value = env[name];
@@ -23099,16 +23368,16 @@ function writePackagesOutput(outputPath, packages, appendOutput = import_node_fs
 }
 function resolveActionPath(explicit, env, argv = process.argv) {
   if (explicit) {
-    return (0, import_node_path26.resolve)(explicit);
+    return (0, import_node_path27.resolve)(explicit);
   }
   if (env.GITHUB_ACTION_PATH) {
-    return (0, import_node_path26.resolve)(env.GITHUB_ACTION_PATH);
+    return (0, import_node_path27.resolve)(env.GITHUB_ACTION_PATH);
   }
   const entrypoint = argv[1];
   if (!entrypoint) {
     throw new Error("Unable to determine JavaScript action entrypoint path");
   }
-  return (0, import_node_path26.resolve)((0, import_node_path26.dirname)(entrypoint), "..");
+  return (0, import_node_path27.resolve)((0, import_node_path27.dirname)(entrypoint), "..");
 }
 async function runAction(options = {}) {
   const env = options.env ?? process.env;
@@ -23117,8 +23386,12 @@ async function runAction(options = {}) {
   diagnostic.selection.source = safeSha(env.GITHUB_SHA);
   let report;
   let failed = false;
+  let failure;
+  let failedPhase;
+  const execution = new ExecutionReporter();
   const artifacts = env["INPUT_ARTIFACTS-MANIFEST"]?.trim() ? new ArtifactReporter() : void 0;
   try {
+    execution.report.concurrency = publishConcurrency(env);
     const github = githubContextFromEnv(env);
     diagnostic.selection.commit = github.sha;
     if (artifacts) artifacts.report.publicationCommit = github.sha;
@@ -23132,18 +23405,24 @@ async function runAction(options = {}) {
         onProgress(event) {
           updateReport(report, event);
           artifacts?.progress(event);
+          execution.progress(event);
+          logProgress(event, options.log);
           if (event.kind === "selection") {
             diagnostic.selection.tag = event.tag;
             diagnostic.selection.version = event.version;
             diagnostic.verification.remoteTag = "matched";
-          } else if (event.kind === "phase") diagnostic.phase = event.phase;
-          else if (event.kind === "publishing") diagnostic.phase = "publish";
+          } else if (event.kind === "failed") {
+            failedPhase ??= event.phase;
+            diagnostic.phase = failedPhase;
+          } else if (!failedPhase && event.kind === "phase") diagnostic.phase = event.phase;
+          else if (!failedPhase && event.kind === "publishing") diagnostic.phase = "publish";
           packageDiagnostics(diagnostic, report.results);
           options.dependencies?.onProgress?.(event);
         }
       }
     );
     artifacts?.complete();
+    packages.forEach((result) => execution.progress({ kind: "completed", result }));
     writePackagesOutput(outputPath, packages, append);
     report.results = packages.map(({ name, version, state }) => ({ name, version, state }));
     report.status = "success";
@@ -23154,9 +23433,11 @@ async function runAction(options = {}) {
     return packages;
   } catch (error) {
     failed = true;
+    failure = error;
     if (report) report.status = "failed";
     artifacts?.fail(error);
     failDiagnostics(diagnostic, error, diagnostic.phase === "input" ? "INVALID_INPUT" : "PUBLISH_FAILED");
+    if (error instanceof PublicationFailure && diagnostic.error) diagnostic.error.remoteState = error.remoteState;
     throw error;
   } finally {
     let outputFailure;
@@ -23185,19 +23466,16 @@ async function runAction(options = {}) {
         if (failed) console.warn("Artifact verification report could not be saved; preserving the original failure");
       }
     }
+    execution.finish(!failed && !outputFailure, failure ?? outputFailure);
+    try {
+      const path = await (options.writeExecutionReport ?? writeExecutionReport)(execution.report, env);
+      if (env.GITHUB_OUTPUT) append(env.GITHUB_OUTPUT, "execution-report-path=" + path + "\n", { encoding: "utf8" });
+    } catch (error) {
+      outputFailure ??= error;
+      if (failed) console.warn("Execution report could not be saved; preserving the original failure");
+    }
     if (!failed && outputFailure) throw outputFailure;
   }
-}
-
-// src/errors.ts
-function escapeWorkflowCommand(value) {
-  return value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
-}
-function errorMessage(error) {
-  return error instanceof Error ? error.stack ?? error.message : String(error);
-}
-function githubErrorCommand(error) {
-  return "::error::" + escapeWorkflowCommand(errorMessage(error));
 }
 
 // src/main.ts

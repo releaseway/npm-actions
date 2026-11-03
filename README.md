@@ -329,6 +329,66 @@ and rejection of a pending staged version remain maintainer operations in npm's
 staged-publishing flow and require the applicable npm 2FA approval. npm-actions does not
 inspect, approve, reject, replace, or silently convert a conflicting pending stage.
 
+## Progress and optional parallel publication
+
+The action logs each package's preparation, packing or prepacked import, npm
+command, and public verification with start/end states and elapsed seconds. npm
+commands and public verification emit a waiting heartbeat every 30 seconds. The
+message identifies the observed operation; it does not identify a malware-scan
+cause. Packing remains synchronous and logs its start and end. Elapsed times use
+the runner's monotonic clock. Default logs and workflow error annotations omit
+raw subprocess output, arbitrary error stacks, environment values and credentials.
+
+Publication is serial by default. To overlap independent package publications:
+
+```yaml
+- id: npm
+  uses: releaseway/npm-actions@<npm-actions-sha>
+  with:
+    publish-concurrency: "2"
+```
+
+`publish-concurrency` is a positive safe integer, default `1`. It limits active
+package workflows, including the npm command and the subsequent public wait.
+Preparation and packing of the complete candidate set finish before any publish.
+The frozen dependency selections, modes, channels and expected digests do not
+change while scheduling. Ready candidates use publication-plan order; a waiting
+dependency does not prevent a later independent candidate from running.
+
+A direct candidate completes only after its frozen SHA-512 is verified public.
+Staged candidates complete at stage acceptance. Required direct dependencies
+still cannot rely on staged-only candidates; optional ordering and range-only
+peer checks retain their existing meanings. Before each direct mutation the
+selected required versions are rechecked. Parallelism does not make a workspace
+release atomic or guarantee a particular speedup.
+
+After the first unresolved package failure, no new publication starts. In-flight
+requests are allowed to finish and are verified within their existing budgets
+before owned files are removed. A local error or termination is not remote
+cancellation. Uncertain writes are not automatically repeated. Other in-flight
+packages can complete after the primary failure; their confirmed results remain
+in the reports. Results retain initially-public name order followed by candidate
+plan order, independently of completion order.
+
+The 20-minute budget applies separately to each public verification, after the
+npm command completes (or after a recognized pending conflict). It is not a
+subprocess timeout. A hung npm command can still hold a slot and delay draining;
+forced runner termination may prevent final reports from being saved.
+
+`execution-report-path` points to a separate
+[execution report v1](contracts/npm-execution-report-v1.schema.json). It records
+overall and per-package timings, local completion/failure, unstarted packages,
+and publication observations. `unknown` does not mean a write was rejected.
+Summed package durations overlap during parallel runs and are not wall time or
+measurements of npm's internal scanning. Existing `packages`, `report-path`,
+`diagnostics-path` and prepacked-only `artifact-report-path` keep their schemas.
+Preserve this file with an `if: always()` artifact-upload step when needed beyond
+the runner job. Read-only initial `already-published` classification retains its
+existence-only meaning; supplied prepacked digests retain their stricter checks.
+
+`npm-command` measures the publisher request wrapper, including private-context
+setup and cleanup. It does not isolate subprocess CPU time or service-side time.
+
 ## Package bootstrap
 
 Brand-new npm packages are outside npm-actions.

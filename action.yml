@@ -17,6 +17,11 @@ inputs:
     required: false
     default: ""
 
+  publish-concurrency:
+    description: Maximum number of active package publications, including public visibility waits. Positive integer; 1 preserves serial execution.
+    required: false
+    default: "1"
+
 outputs:
   packages:
     description: JSON array of package publication results.
@@ -28,6 +33,9 @@ outputs:
 
   artifact-report-path:
     description: Runner-local schema 1 artifact verification report for artifacts-manifest mode, including controlled failures and partial results. Legacy outputs keep their existing meanings.
+
+  execution-report-path:
+    description: Runner-local schema 1 execution report with package timings, completed results, local failures and uncertain remote outcomes, including controlled failures when writable.
 
 runs:
   using: node24
